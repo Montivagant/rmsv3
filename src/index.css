@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .sidebar-nav {
+    @apply flex flex-col space-y-1;
+  }
+  
+  .nav-link {
+    @apply flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors;
+    @apply text-gray-700 hover:text-gray-900 hover:bg-gray-100;
+    @apply dark:text-gray-300 dark:hover:text-gray-100 dark:hover:bg-gray-800;
+  }
+  
+  .nav-link.active {
+    @apply bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200;
+  }
+  
+  /* Density classes for layout control */
+  .rms-comfortable {
+    /* Default comfortable spacing */
+  }
+  
+  .rms-compact {
+    /* Compact spacing - reduce paddings and margins */
+  }
+  
+  .rms-compact .nav-link {
+    @apply px-2 py-1;
+  }
+  
+  .rms-compact .card {
+    @apply p-3;
+  }
+  
+  .rms-compact .btn {
+    @apply px-2 py-1 text-sm;
+  }
+  
+  .rms-compact table {
+    @apply text-sm;
+  }
+  
+  .rms-compact table th,
+  .rms-compact table td {
+    @apply px-2 py-1;
+  }
+  
+  .rms-compact .metric-card {
+    @apply p-3;
+  }
+  
+  .rms-compact .sidebar {
+    @apply py-2;
+  }
+  
+  .rms-compact .main-content {
+    @apply p-3;
+  }
+}
