@@ -1,10 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import { Layout } from './components';
 import { getCurrentUser, Role } from './rbac/roles';
 import { RoleGuard } from './rbac/guard';
 import { useUI, getDensityClasses } from './store/ui';
 import { useFeature } from './store/flags';
+import { persistentEventStore } from './events/store';
 
 // Lazy load all pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -18,15 +19,47 @@ const Login = lazy(() => import('./pages/Login'));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 
 // Loading component
-function Loading() {
+function Loading({ message = 'Loading…' }: { message?: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="text-center" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="text-gray-600 dark:text-gray-400 mt-4">Loading…</p>
+        <p className="text-gray-600 dark:text-gray-400 mt-4">{message}</p>
       </div>
     </div>
   );
+}
+
+// Hydration wrapper component
+function HydrationWrapper({ children }: { children: React.ReactNode }) {
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function hydrate() {
+      try {
+        await persistentEventStore.hydrate();
+        setIsHydrated(true);
+      } catch (error) {
+        console.error('Failed to hydrate from PouchDB:', error);
+        setHydrationError(error instanceof Error ? error.message : 'Unknown error');
+        // Continue anyway - app can work without hydration
+        setIsHydrated(true);
+      }
+    }
+
+    hydrate();
+  }, []);
+
+  if (!isHydrated) {
+    return <Loading message="Hydrating events from local database…" />;
+  }
+
+  if (hydrationError) {
+    console.warn('App started with hydration error:', hydrationError);
+  }
+
+  return <>{children}</>;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -56,7 +89,7 @@ function FeatureDisabledBanner({ feature }: { feature: string }) {
   );
 }
 
-function App() {
+function AppContent() {
   const density = useUI((state) => state.density);
   const kdsEnabled = useFeature('kds');
   
@@ -93,6 +126,14 @@ function App() {
         </Suspense>
       </Router>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <HydrationWrapper>
+      <AppContent />
+    </HydrationWrapper>
   );
 }
 

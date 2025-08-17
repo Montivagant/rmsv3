@@ -113,6 +113,12 @@ export interface PaymentFailedEvent extends BaseEvent {
 // Union type for all events
 export type Event = SaleRecordedEvent | InventoryAdjustedEvent | LoyaltyAccruedEvent | LoyaltyRedeemedEvent | PaymentInitiatedEvent | PaymentSucceededEvent | PaymentFailedEvent;
 
+// Alias for compatibility with PouchDB adapter
+export type KnownEvent = Event & {
+  timestamp: number; // Maps to 'at' field
+  aggregateId?: string; // Maps to 'aggregate.id'
+};
+
 // Error types
 export class IdempotencyConflictError extends Error {
   public readonly code = 'IDEMPOTENCY_MISMATCH';
