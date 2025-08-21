@@ -1,4 +1,4 @@
-import type { Event, SaleRecordedEvent, InventoryAdjustedEvent, LoyaltyAccruedEvent, LoyaltyRedeemedEvent, PaymentInitiatedEvent, PaymentSucceededEvent, PaymentFailedEvent } from './types';
+import type { Event, SaleRecordedEvent, InventoryAdjustedEvent, LoyaltyAccruedEvent, LoyaltyRedeemedEvent, PaymentInitiatedEvent, PaymentSucceededEvent, PaymentFailedEvent, AuditLoggedEvent } from './types';
 
 /**
  * Type guard functions for discriminated union narrowing of events
@@ -36,3 +36,7 @@ export const isPaymentTerminalEvent = (e: Event): e is PaymentSucceededEvent | P
 // Utility type guards for loyalty events
 export const isLoyaltyEvent = (e: Event): e is LoyaltyAccruedEvent | LoyaltyRedeemedEvent =>
   e.type.startsWith('loyalty.');
+
+// Utility type guard for audit events
+export const isAuditLogged = (e: Event): e is AuditLoggedEvent =>
+  e.type === 'audit.logged';

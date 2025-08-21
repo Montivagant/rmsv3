@@ -74,6 +74,20 @@ export interface PaymentFailedPayload {
   reason?: string;
 }
 
+export interface AuditLoggedPayload {
+  action: string;
+  resource: string;
+  details?: Record<string, any>;
+  previousValue?: any;
+  newValue?: any;
+  userId: string;
+  userRole: string;
+  userName: string;
+  timestamp: number;
+  userAgent?: string;
+  ipAddress?: string;
+}
+
 // Typed events
 export interface SaleRecordedEvent extends BaseEvent {
   type: 'sale.recorded';
@@ -110,8 +124,13 @@ export interface PaymentFailedEvent extends BaseEvent {
   payload: PaymentFailedPayload;
 }
 
+export interface AuditLoggedEvent extends BaseEvent {
+  type: 'audit.logged';
+  payload: AuditLoggedPayload;
+}
+
 // Union type for all events
-export type Event = SaleRecordedEvent | InventoryAdjustedEvent | LoyaltyAccruedEvent | LoyaltyRedeemedEvent | PaymentInitiatedEvent | PaymentSucceededEvent | PaymentFailedEvent;
+export type Event = SaleRecordedEvent | InventoryAdjustedEvent | LoyaltyAccruedEvent | LoyaltyRedeemedEvent | PaymentInitiatedEvent | PaymentSucceededEvent | PaymentFailedEvent | AuditLoggedEvent;
 
 // Alias for compatibility with PouchDB adapter
 export type KnownEvent = Event & {

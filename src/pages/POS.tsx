@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from '../components';
 import { useApi, apiPost } from '../hooks/useApi';
 import { computeTotals, type Line } from '../money/totals';
-// import { useEventStore } from '../events/context';
-import { eventStore } from '../events/store';
+import { useEventStore } from '../events/context';
 import { getRole, RANK, Role } from '../rbac/roles';
 import { IdempotencyConflictError } from '../events/types';
 import { inventoryEngine } from '../inventory/engine';
@@ -51,8 +50,7 @@ interface Customer {
 }
 
 function POS() {
-  // const store = useEventStore();
-  const store = eventStore;
+  const store = useEventStore();
   const { data: menuItems, loading, error } = useApi<MenuItem[]>('/api/menu');
   const { data: customers } = useApi<Customer[]>('/api/customers');
   const [cart, setCart] = useState<CartItem[]>([]);

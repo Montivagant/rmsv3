@@ -3,6 +3,7 @@
  * Provides read models derived from events
  */
 
+// Note: This file needs to be refactored to use hooks instead of direct store access
 import { eventStore } from '../events/store'
 import type { LoyaltyAccruedEvent, LoyaltyRedeemedEvent } from '../events/types'
 

@@ -1,21 +1,15 @@
-// Lightweight PouchDB adapter for events
-// deps: pnpm add pouchdb
-import PouchDB from 'pouchdb';
+// Lightweight PouchDB adapter for events (TEMPORARILY DISABLED)
+// PouchDB imports disabled due to CommonJS/ESM module conflicts (spark-md5, vuvuzela, etc.)
+// Using localStorage persistence instead
+// import PouchDB from 'pouchdb';
+const PouchDB = null as any;
 
 // Configure PouchDB for browser environment
 let adapterConfigured = false;
 
 async function configurePouchDB() {
-  if (typeof window !== 'undefined' && !adapterConfigured) {
-    // In browser, use IDB adapter
-    try {
-      const { default: PouchDBAdapterIdb } = await import('pouchdb-adapter-idb');
-      PouchDB.plugin(PouchDBAdapterIdb);
-      adapterConfigured = true;
-    } catch (error) {
-      console.warn('Failed to load IDB adapter:', error);
-    }
-  }
+  // Disabled: PouchDB temporarily unavailable due to module conflicts
+  console.warn('PouchDB configuration disabled - using localStorage persistence instead');
 }
 import type { Event as AppEvent, KnownEvent } from '../events/types';
 

@@ -7,12 +7,23 @@ import { isPaymentInitiated, isPaymentFailed, isPaymentSucceeded } from '../../e
 import * as flagsModule from '../../lib/flags';
 import * as apiModule from '../../hooks/useApi';
 
-// Mock the flags module
+// Mock the flags module  
 vi.mock('../../lib/flags', () => ({
   loadFlags: vi.fn(),
   loadDefaults: vi.fn(),
   saveFlags: vi.fn(),
   resetFlags: vi.fn()
+}));
+
+// Mock the store flags module
+vi.mock('../../store/flags', () => ({
+  useFlags: vi.fn(() => ({
+    flags: {
+      payments: true,
+      loyalty: true,
+      kds: true
+    }
+  }))
 }));
 
 // Mock the API module

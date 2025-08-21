@@ -3,9 +3,9 @@ import { Suspense, lazy, useState, useEffect } from 'react';
 import { Layout } from './components';
 import { getCurrentUser, Role } from './rbac/roles';
 import { RoleGuard } from './rbac/guard';
+import { PersistenceDebugger } from './components/PersistenceDebugger';
 import { useUI, getDensityClasses } from './store/ui';
 import { useFeature } from './store/flags';
-import { persistentEventStore } from './events/store';
 
 // Lazy load all pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -30,35 +30,8 @@ function Loading({ message = 'Loading…' }: { message?: string }) {
   );
 }
 
-// Hydration wrapper component
+// Simple wrapper component - hydration now handled by EventStoreProvider
 function HydrationWrapper({ children }: { children: React.ReactNode }) {
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [hydrationError, setHydrationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function hydrate() {
-      try {
-        await persistentEventStore.hydrate();
-        setIsHydrated(true);
-      } catch (error) {
-        console.error('Failed to hydrate from PouchDB:', error);
-        setHydrationError(error instanceof Error ? error.message : 'Unknown error');
-        // Continue anyway - app can work without hydration
-        setIsHydrated(true);
-      }
-    }
-
-    hydrate();
-  }, []);
-
-  if (!isHydrated) {
-    return <Loading message="Hydrating events from local database…" />;
-  }
-
-  if (hydrationError) {
-    console.warn('App started with hydration error:', hydrationError);
-  }
-
   return <>{children}</>;
 }
 
@@ -125,6 +98,7 @@ function AppContent() {
           </Routes>
         </Suspense>
       </Router>
+      <PersistenceDebugger />
     </div>
   );
 }

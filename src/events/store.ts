@@ -8,7 +8,8 @@ import type {
 import { IdempotencyConflictError } from './types';
 import { stableHash } from './hash';
 import { logEvent } from './log';
-import { openLocalDBLegacy, type PouchDBAdapter } from '../db/pouch';
+// import { openLocalDBLegacy, type PouchDBAdapter } from '../db/pouch';
+type PouchDBAdapter = any; // Temporary to avoid spark-md5 issues
 
 /**
  * In-memory event store with strict idempotency
@@ -23,9 +24,8 @@ export class InMemoryEventStore implements IEventStore {
   private pouchAdapter?: PouchDBAdapter;
 
   constructor(options: { persistToPouch?: boolean; dbName?: string } = {}) {
-    if (options.persistToPouch && options.dbName) {
-      this.pouchAdapter = openLocalDBLegacy(options.dbName);
-    }
+    // PouchDB integration temporarily disabled
+    // LocalStorage persistence is now handled by bootstrap/persist.ts
   }
 
   append(type: string, payload: any, opts: AppendOptions): AppendResult {
@@ -182,6 +182,16 @@ export class InMemoryEventStore implements IEventStore {
         console.error('Failed to reset PouchDB:', error);
       }
     }
+  }
+
+  /**
+   * Add event directly to store without validation (for hydration)
+   * Used when loading events from persistence layer
+   */
+  addEventDirectly(event: Event): void {
+    this.events.push(event);
+    this.eventIndex.set(event.id, event);
+    this.sequenceCounter = Math.max(this.sequenceCounter, event.seq);
   }
 }
 

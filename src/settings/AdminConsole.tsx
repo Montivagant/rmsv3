@@ -3,6 +3,7 @@ import { useUI, type Density } from '../store/ui'
 import { getOversellPolicy, setOversellPolicy } from '../inventory/policy'
 import { useState, useEffect } from 'react'
 import type { OversellPolicy } from '../inventory/types'
+import { auditLogger } from '../rbac/audit'
 
 export default function AdminConsole() {
   const { flags, setFlag, resetToDefaults } = useFlags()
@@ -15,16 +16,34 @@ export default function AdminConsole() {
   }, [])
 
   function handleOversellPolicyChange(newPolicy: OversellPolicy) {
+    const previousPolicy = getOversellPolicy()
     setOversellPolicy(newPolicy)
     setOversellPolicyState(newPolicy)
+    
+    // Log the audit event
+    auditLogger.logOversellPolicyChange(previousPolicy, newPolicy, 'user')
   }
 
   function toggle<K extends keyof typeof flags>(key: K) {
-    setFlag(key, !flags[key])
+    const previousValue = flags[key]
+    const newValue = !flags[key]
+    setFlag(key, newValue)
+    
+    // Log the audit event
+    auditLogger.logFeatureFlagChange(key, previousValue, newValue, 'user')
   }
 
   function onReset() {
+    const previousFlags = { ...flags }
     resetToDefaults()
+    
+    // Log the audit event for flags reset
+    auditLogger.log({
+      action: 'feature_flags_reset',
+      resource: 'feature_flags',
+      details: { scope: 'user', resetToDefaults: true },
+      previousValue: previousFlags
+    })
   }
 
   return (

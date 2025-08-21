@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { type Flags, loadDefaults, saveDefaults } from '../lib/flags'
 import { getRole, RANK } from '../rbac/roles'
-import { configureRemote, startReplication, stopReplication, subscribe } from '../db/sync'
-import { openLocalDB } from '../db/pouch'
+// PouchDB sync disabled due to module conflicts - using localStorage persistence
+const subscribe = (fn: any) => () => {};
+const configureRemote = () => {};
+const startReplication = () => {};  
+const stopReplication = () => {};
+import { auditLogger } from '../rbac/audit'
 
 function ReplicationPanel() {
   const [baseUrl, setBaseUrl] = useState(localStorage.getItem('rms.sync.url') || 'http://localhost:5984')
@@ -18,8 +22,16 @@ function ReplicationPanel() {
     configureRemote({ baseUrl, dbPrefix: prefix }, branchId)
     const db = await openLocalDB({ name: 'rmsv3_events' })
     startReplication(db, branchId)
+    
+    // Log the audit event
+    auditLogger.logReplicationAction('start', { baseUrl, prefix, branchId })
   }
-  function onStop() { stopReplication() }
+  function onStop() { 
+    stopReplication()
+    
+    // Log the audit event
+    auditLogger.logReplicationAction('stop')
+  }
 
   return (
     <section className="mt-6">
@@ -49,12 +61,27 @@ export default function TechnicalConsole() {
   }
 
   function toggle<K extends keyof Flags>(key: K) {
-    const next = { ...defaults, [key]: !defaults[key] }
+    const previousValue = defaults[key]
+    const newValue = !defaults[key]
+    const next = { ...defaults, [key]: newValue }
     setDefaults(next)
+    
+    // Log the audit event
+    auditLogger.logFeatureFlagChange(key, previousValue, newValue, 'global')
   }
 
   function onSave() {
+    const previousDefaults = loadDefaults()
     saveDefaults(defaults)
+    
+    // Log the audit event
+    auditLogger.log({
+      action: 'feature_flag_defaults_save',
+      resource: 'feature_flags.defaults',
+      details: { scope: 'global' },
+      previousValue: previousDefaults,
+      newValue: defaults
+    })
   }
 
   return (

@@ -2,7 +2,9 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type PouchDB from 'pouchdb-browser'
 import { type EventStore } from './store'
 import { bootstrapEventStore } from '../bootstrap/persist'
-import { subscribe as subscribeSync } from '../db/sync'
+// import { subscribe as subscribeSync } from '../db/sync'
+// Sync temporarily disabled due to PouchDB module conflicts
+const subscribeSync = (fn: any) => () => {};
 
 type Ctx = {
   store: EventStore | null
