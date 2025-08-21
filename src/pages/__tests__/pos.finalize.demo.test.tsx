@@ -127,7 +127,7 @@ describe('POS Finalize Demo', () => {
       const events = eventStore.getAll();
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe('sale.recorded');
-      expect((events[0].payload as any).lines).toHaveLength(2);
+      expect((events[0].payload as { lines: unknown[] }).lines).toHaveLength(2);
       
       // Verify cart was cleared
       expect(screen.getByText('No items in cart')).toBeInTheDocument();
@@ -216,7 +216,7 @@ describe('POS Finalize Demo', () => {
       
       // Verify event includes discount
       const events = eventStore.getAll();
-      expect((events[0].payload as any).totals.discount).toBe(1.00);
+      expect((events[0].payload as { totals: { discount: number } }).totals.discount).toBe(1.00);
     });
 
     it('should generate unique ticket IDs for different sales', async () => {
@@ -242,7 +242,7 @@ describe('POS Finalize Demo', () => {
       // Should have two different events
       const events = eventStore.getAll();
       expect(events).toHaveLength(2);
-      expect((events[0].payload as any).ticketId).not.toBe((events[1].payload as any).ticketId);
+      expect((events[0].payload as { ticketId: string }).ticketId).not.toBe((events[1].payload as { ticketId: string }).ticketId);
     });
 
     it('should log events to console', async () => {

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createEventStore, InMemoryEventStore } from '../store';
-import { Event } from '../types';
+import type { Event } from '../types';
 import { openLocalDB } from '../../db/pouch';
+import { createSaleRecordedEvent, createPaymentInitiatedEvent } from '../../test/factories';
 
 // Mock the PouchDB adapter
 vi.mock('../../db/pouch', () => ({
@@ -17,7 +18,7 @@ describe('EventStore with PouchDB Integration', () => {
     mockAdapter = {
       putEvent: vi.fn().mockResolvedValue({ ok: true, id: 'test-id', rev: 'test-rev' }),
       allEvents: vi.fn().mockResolvedValue([]),
-      eventsByAggregate: vi.fn().mockResolvedValue([]),
+      getByAggregate: vi.fn().mockResolvedValue([]),
       eventsByType: vi.fn().mockResolvedValue([]),
       reset: vi.fn().mockResolvedValue(undefined)
     };
@@ -50,42 +51,33 @@ describe('EventStore with PouchDB Integration', () => {
 
   describe('append with PouchDB persistence', () => {
     it('should persist events to PouchDB when appending', async () => {
-      const event: Event = {
-        id: 'test-event-1',
-        type: 'SaleRecorded',
-        payload: {
-          items: [{ name: 'Coffee', price: 350, quantity: 1 }],
-          total: 350,
-          timestamp: Date.now()
-        }
-      };
+      const result = eventStore.append('sale.recorded', {
+        ticketId: 'test-event-1',
+        lines: [{ name: 'Coffee', price: 350, qty: 1, taxRate: 0 }],
+        totals: { subtotal: 350, tax: 0, total: 350, discount: 0 }
+      }, { key: 'test-key', params: {} });
 
-      const result = await eventStore.append(event);
-
-      expect(result.success).toBe(true);
-      expect(mockAdapter.putEvent).toHaveBeenCalledWith({
-        ...event,
+      expect(result.deduped).toBe(false);
+      expect(mockAdapter.putEvent).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'sale.recorded',
+        payload: expect.objectContaining({
+          ticketId: 'test-event-1'
+        }),
         timestamp: expect.any(Number)
-      });
+      }));
     });
 
     it('should still work if PouchDB persistence fails', async () => {
       mockAdapter.putEvent.mockRejectedValue(new Error('PouchDB error'));
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const event: Event = {
-        id: 'test-event-1',
-        type: 'SaleRecorded',
-        payload: {
-          items: [{ name: 'Coffee', price: 350, quantity: 1 }],
-          total: 350,
-          timestamp: Date.now()
-        }
-      };
+      const result = eventStore.append('sale.recorded', {
+        ticketId: 'test-event-1',
+        lines: [{ name: 'Coffee', price: 350, qty: 1, taxRate: 0 }],
+        totals: { subtotal: 350, tax: 0, total: 350, discount: 0 }
+      }, { key: 'test-key', params: {} });
 
-      const result = await eventStore.append(event);
-
-      expect(result.success).toBe(true); // Memory store still works
+      expect(result.deduped).toBe(false); // Memory store still works
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to persist event to PouchDB:',
         expect.any(Error)
@@ -95,23 +87,18 @@ describe('EventStore with PouchDB Integration', () => {
     });
 
     it('should maintain idempotency across memory and PouchDB', async () => {
-      const event: Event = {
-        id: 'idempotent-test',
-        type: 'SaleRecorded',
-        payload: {
-          items: [{ name: 'Coffee', price: 350, quantity: 1 }],
-          total: 350,
-          timestamp: Date.now()
-        }
+      const payload = {
+        ticketId: 'idempotent-test',
+        lines: [{ name: 'Coffee', price: 350, qty: 1, taxRate: 0 }],
+        totals: { subtotal: 350, tax: 0, total: 350, discount: 0 }
       };
 
       // Append the same event twice
-      const result1 = await eventStore.append(event);
-      const result2 = await eventStore.append(event);
+      const result1 = eventStore.append('sale.recorded', payload, { key: 'test-key', params: {} });
+      const result2 = eventStore.append('sale.recorded', payload, { key: 'test-key', params: {} });
 
-      expect(result1.success).toBe(true);
-      expect(result2.success).toBe(false);
-      expect(result2.reason).toBe('duplicate');
+      expect(result1.deduped).toBe(false);
+      expect(result2.deduped).toBe(true);
       
       // PouchDB should only be called once
       expect(mockAdapter.putEvent).toHaveBeenCalledTimes(1);
@@ -123,17 +110,31 @@ describe('EventStore with PouchDB Integration', () => {
       const mockEvents = [
         {
           id: 'event-1',
-          type: 'SaleRecorded',
-          timestamp: Date.now(),
-          payload: { items: [], total: 100, timestamp: Date.now() }
-        },
+          type: 'sale.recorded' as const,
+          aggregate: { id: 'order-123', type: 'order' },
+          payload: {
+            ticketId: 'sale-1',
+            lines: [],
+            totals: { subtotal: 100, tax: 0, total: 100, discount: 0 }
+          },
+          seq: 1,
+          at: Date.now()
+        } satisfies Event,
         {
           id: 'event-2',
-          type: 'PaymentInitiated',
-          timestamp: Date.now(),
-          aggregateId: 'order-123',
-          payload: { amount: 100, method: 'card', timestamp: Date.now() }
-        }
+          type: 'payment.initiated' as const,
+          aggregate: { id: 'payment-123', type: 'payment' },
+          payload: {
+            ticketId: 'ticket-2',
+            provider: 'stripe',
+            sessionId: 'session-2',
+            amount: 100,
+            currency: 'USD',
+            redirectUrl: 'https://example.com'
+          },
+          seq: 2,
+          at: Date.now()
+        } satisfies Event
       ];
 
       mockAdapter.allEvents.mockResolvedValue(mockEvents);
@@ -143,7 +144,7 @@ describe('EventStore with PouchDB Integration', () => {
       expect(mockAdapter.allEvents).toHaveBeenCalled();
       
       // Verify events are now in memory
-      const allEvents = eventStore.allEvents();
+      const allEvents = eventStore.getAll();
       expect(allEvents).toHaveLength(2);
       expect(allEvents[0].id).toBe('event-1');
       expect(allEvents[1].id).toBe('event-2');
@@ -153,16 +154,31 @@ describe('EventStore with PouchDB Integration', () => {
       const mockEvents = [
         {
           id: 'event-1',
-          type: 'SaleRecorded',
-          timestamp: Date.now() - 1000,
-          payload: { items: [], total: 100, timestamp: Date.now() }
-        },
+          type: 'sale.recorded' as const,
+          aggregate: { id: 'order-123', type: 'order' },
+          payload: {
+            ticketId: 'sale-1',
+            lines: [],
+            totals: { subtotal: 100, tax: 0, total: 100, discount: 0 }
+          },
+          seq: 1,
+          at: Date.now()
+        } satisfies Event,
         {
           id: 'event-2',
-          type: 'PaymentInitiated',
-          timestamp: Date.now(),
-          payload: { amount: 100, method: 'card', timestamp: Date.now() }
-        }
+          type: 'payment.initiated' as const,
+          aggregate: { id: 'payment-123', type: 'payment' },
+          payload: {
+            ticketId: 'ticket-2',
+            provider: 'stripe',
+            sessionId: 'session-2',
+            amount: 100,
+            currency: 'USD',
+            redirectUrl: 'https://example.com'
+          },
+          seq: 2,
+          at: Date.now()
+        } satisfies Event
       ];
 
       mockAdapter.allEvents.mockResolvedValue(mockEvents);
@@ -170,20 +186,18 @@ describe('EventStore with PouchDB Integration', () => {
       await eventStore.hydrate();
 
       // Add a new event after hydration
-      const newEvent: Event = {
-        id: 'event-3',
-        type: 'SaleRecorded',
-        payload: { items: [], total: 200, timestamp: Date.now() }
-      };
+      eventStore.append('sale.recorded', {
+        ticketId: 'sale-3',
+        lines: [],
+        totals: { subtotal: 200, tax: 0, total: 200, discount: 0 }
+      }, { key: 'event-3', params: {} });
 
-      await eventStore.append(newEvent);
-
-      const allEvents = eventStore.allEvents();
+      const allEvents = eventStore.getAll();
       expect(allEvents).toHaveLength(3);
       
       // New event should have a sequence number higher than hydrated events
-      const newEventInStore = allEvents.find(e => e.id === 'event-3');
-      expect(newEventInStore?.sequence).toBeGreaterThan(2);
+      const newEventInStore = allEvents.find(e => e.type === 'sale.recorded' && e.payload.ticketId === 'sale-3');
+      expect(newEventInStore?.seq).toBeGreaterThan(2);
     });
 
     it('should handle hydration errors gracefully', async () => {
@@ -204,25 +218,30 @@ describe('EventStore with PouchDB Integration', () => {
       const mockKnownEvents = [
         {
           id: 'event-1',
-          type: 'SaleRecorded',
-          timestamp: Date.now(),
-          aggregateId: 'order-123',
-          payload: { items: [], total: 100, timestamp: Date.now() }
-        }
+          type: 'sale.recorded' as const,
+          aggregate: { id: 'order-123', type: 'order' },
+          payload: {
+            ticketId: 'sale-1',
+            lines: [],
+            totals: { subtotal: 100, tax: 0, total: 100, discount: 0 }
+          },
+          seq: 1,
+          at: Date.now()
+        } satisfies Event
       ];
 
       mockAdapter.allEvents.mockResolvedValue(mockKnownEvents);
 
       await eventStore.hydrate();
 
-      const events = eventStore.allEvents();
+      const events = eventStore.getAll();
       expect(events[0]).toEqual({
         id: 'event-1',
-        type: 'SaleRecorded',
-        aggregateId: 'order-123',
-        payload: { items: [], total: 100, timestamp: expect.any(Number) },
-        sequence: expect.any(Number),
-        timestamp: expect.any(Number)
+        type: 'sale.recorded',
+        aggregate: { id: 'order-123', type: 'order' },
+        payload: { ticketId: 'sale-1', lines: [], totals: { subtotal: 100, tax: 0, total: 100, discount: 0 } },
+        seq: expect.any(Number),
+        at: expect.any(Number)
       });
     });
   });
@@ -230,19 +249,17 @@ describe('EventStore with PouchDB Integration', () => {
   describe('reset with PouchDB', () => {
     it('should clear both memory and PouchDB', async () => {
       // Add some events first
-      const event: Event = {
-        id: 'test-event',
-        type: 'SaleRecorded',
-        payload: { items: [], total: 100, timestamp: Date.now() }
-      };
-
-      await eventStore.append(event);
-      expect(eventStore.allEvents()).toHaveLength(1);
+      eventStore.append('sale.recorded', {
+        ticketId: 'test-event',
+        lines: [],
+        totals: { subtotal: 100, tax: 0, total: 100, discount: 0 }
+      }, { key: 'test-key', params: {} });
+      expect(eventStore.getAll()).toHaveLength(1);
 
       // Reset should clear both
       await eventStore.reset();
 
-      expect(eventStore.allEvents()).toHaveLength(0);
+      expect(eventStore.getAll()).toHaveLength(0);
       expect(mockAdapter.reset).toHaveBeenCalled();
     });
 
@@ -253,7 +270,7 @@ describe('EventStore with PouchDB Integration', () => {
       await eventStore.reset();
 
       // Memory should still be cleared
-      expect(eventStore.allEvents()).toHaveLength(0);
+      expect(eventStore.getAll()).toHaveLength(0);
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to reset PouchDB:',
         expect.any(Error)
@@ -265,18 +282,15 @@ describe('EventStore with PouchDB Integration', () => {
 
   describe('memory-only operations', () => {
     it('should work normally for read operations', async () => {
-      const event: Event = {
-        id: 'test-event',
-        type: 'SaleRecorded',
-        aggregateId: 'order-123',
-        payload: { items: [], total: 100, timestamp: Date.now() }
-      };
+      eventStore.append('sale.recorded', {
+         ticketId: 'test-event',
+         lines: [],
+         totals: { subtotal: 100, tax: 0, total: 100, discount: 0 }
+       }, { key: 'test-key', params: {}, aggregate: { id: 'order-123', type: 'order' } });
 
-      await eventStore.append(event);
-
-      expect(eventStore.allEvents()).toHaveLength(1);
-      expect(eventStore.eventsByAggregate('order-123')).toHaveLength(1);
-      expect(eventStore.eventsByType('SaleRecorded')).toHaveLength(1);
+      expect(eventStore.getAll()).toHaveLength(1);
+      expect(eventStore.getByAggregate('order-123')).toHaveLength(1);
+      expect(eventStore.getByType('sale.recorded')).toHaveLength(1);
     });
   });
 });

@@ -3,6 +3,7 @@
  * Provides read models derived from events
  */
 
+// Note: This file needs to be refactored to use hooks instead of direct store access
 import { eventStore } from '../events/store'
 import type { LoyaltyAccruedEvent, LoyaltyRedeemedEvent } from '../events/types'
 
@@ -52,40 +53,4 @@ export function getTransactions(customerId: string): (LoyaltyAccruedEvent | Loya
     }
     return false
   }) as (LoyaltyAccruedEvent | LoyaltyRedeemedEvent)[]
-}
-
-/**
- * Simple event listener for loyalty balance changes
- * This is a basic implementation - in a real app you might use a more sophisticated pub/sub system
- */
-type BalanceChangeListener = (customerId: string, newBalance: number) => void
-
-const balanceListeners: BalanceChangeListener[] = []
-
-/**
- * Subscribe to balance changes
- * 
- * @param listener - Function to call when balance changes
- * @returns Unsubscribe function
- */
-export function subscribeToBalanceChanges(listener: BalanceChangeListener): () => void {
-  balanceListeners.push(listener)
-  
-  return () => {
-    const index = balanceListeners.indexOf(listener)
-    if (index > -1) {
-      balanceListeners.splice(index, 1)
-    }
-  }
-}
-
-/**
- * Notify listeners of balance changes
- * Call this after loyalty events are appended
- * 
- * @param customerId - Customer whose balance changed
- */
-export function notifyBalanceChange(customerId: string): void {
-  const newBalance = getBalance(customerId)
-  balanceListeners.forEach(listener => listener(customerId, newBalance))
 }

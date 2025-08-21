@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Select } from '../components';
 import { useApi } from '../hooks/useApi';
+import { ZReport } from '../reports/ZReport';
 
 interface ReportData {
   todayRevenue: number;
@@ -15,6 +16,7 @@ const reportOptions = [
   { value: 'weekly', label: 'Weekly Summary' },
   { value: 'monthly', label: 'Monthly Report' },
   { value: 'inventory', label: 'Inventory Report' },
+  { value: 'z-report', label: 'End of Day (Z-Report)' },
 ];
 
 function Reports() {
@@ -77,7 +79,11 @@ function Reports() {
         <Button variant="outline" onClick={refetch}>Refresh</Button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {selectedReport === 'z-report' ? (
+        <ZReport />
+      ) : (
+        <>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader>
             <CardTitle>Today's Revenue</CardTitle>
@@ -193,7 +199,9 @@ function Reports() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </div>
+        </>
+      )}
     </div>
   );
 }

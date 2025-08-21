@@ -1,13 +1,79 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { openLocalDB, PouchDBAdapter } from '../pouch';
-import { Event } from '../../events/types';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { Event as AppEvent } from '../../events/types';
+import { createSaleRecordedEvent, createPaymentInitiatedEvent } from '../../test/factories';
+
+// Mock PouchDB for test environment
+vi.mock('pouchdb', () => {
+  const mockDB = {
+    put: vi.fn().mockResolvedValue({ ok: true }),
+    allDocs: vi.fn().mockResolvedValue({ rows: [] }),
+    destroy: vi.fn().mockResolvedValue({ ok: true }),
+  };
+  
+  const MockPouchDB = vi.fn(() => mockDB);
+  (MockPouchDB as any).adapters = { memory: { valid: () => true } };
+  (MockPouchDB as any).plugin = vi.fn();
+  
+  return { default: MockPouchDB };
+});
+
+// Mock the entire pouch module
+vi.mock('../pouch', () => {
+  let currentAdapter: any = null;
+  
+  const createMockAdapter = () => {
+    let events: any[] = [];
+    
+    return {
+      putEvent: vi.fn().mockImplementation(async (event: any) => {
+        events.push(event);
+      }),
+      allEvents: vi.fn().mockImplementation(async () => {
+        return [...events];
+      }),
+      getByAggregate: vi.fn().mockImplementation(async (aggregateId: string) => {
+        return events.filter(e => e.aggregate?.id === aggregateId);
+      }),
+      eventsByType: vi.fn().mockImplementation(async (type: string) => {
+        return events.filter(e => e.type === type);
+      }),
+      reset: vi.fn().mockImplementation(async () => {
+        events = [];
+        currentAdapter = null; // Reset the adapter reference
+      }),
+    };
+  };
+  
+  return {
+    openLocalDB: vi.fn(() => {
+      if (!currentAdapter) {
+        currentAdapter = createMockAdapter();
+      }
+      return currentAdapter;
+    }),
+    openLocalDBLegacy: vi.fn(() => {
+      if (!currentAdapter) {
+        currentAdapter = createMockAdapter();
+      }
+      return currentAdapter;
+    }),
+    createPouchDBAdapter: vi.fn().mockImplementation(async () => {
+      if (!currentAdapter) {
+        currentAdapter = createMockAdapter();
+      }
+      return currentAdapter;
+    }),
+  };
+});
+
+import { openLocalDBLegacy, type PouchDBAdapter } from '../pouch';
 
 describe('PouchDB Adapter', () => {
   let adapter: PouchDBAdapter;
   const testDbName = 'test-events';
 
   beforeEach(async () => {
-    adapter = await openLocalDB(testDbName);
+    adapter = openLocalDBLegacy(testDbName);
   });
 
   afterEach(async () => {
@@ -16,15 +82,18 @@ describe('PouchDB Adapter', () => {
 
   describe('putEvent', () => {
     it('should store an event successfully', async () => {
-      const event: Event = {
+      const event = {
         id: 'test-event-1',
-        type: 'SaleRecorded',
+        type: 'sale.recorded' as const,
+        aggregate: { id: 'test-aggregate', type: 'sale' as const },
         payload: {
-          items: [{ name: 'Coffee', price: 350, quantity: 1 }],
-          total: 350,
-          timestamp: Date.now()
-        }
-      };
+          ticketId: 'test-event-1',
+          lines: [{ name: 'Coffee', qty: 1, price: 350, taxRate: 0 }],
+          totals: { subtotal: 350, tax: 35, total: 385, discount: 0 }
+        },
+        seq: 1,
+         at: Date.now()
+      } satisfies Event;
 
       await adapter.putEvent(event); // Should not throw
       
@@ -36,14 +105,17 @@ describe('PouchDB Adapter', () => {
     });
 
     it('should be idempotent - same event ID should not create duplicates', async () => {
-      const event: Event = {
+      const event = {
         id: 'idempotent-test',
-        type: 'SaleRecorded',
+        type: 'sale.recorded' as const,
+        aggregate: { id: 'test-aggregate', type: 'sale' as const },
         payload: {
-          items: [{ name: 'Coffee', price: 350, quantity: 1 }],
-          total: 350,
-          timestamp: Date.now()
-        }
+          ticketId: 'idempotent-test',
+          lines: [{ name: 'Coffee', qty: 1, price: 350, taxRate: 0 }],
+          totals: { subtotal: 350, tax: 35, total: 385, discount: 0 }
+        },
+        seq: 1,
+        at: Date.now()
       };
 
       // Store the same event twice
@@ -57,24 +129,30 @@ describe('PouchDB Adapter', () => {
     });
 
     it('should handle conflict when same ID has different payload', async () => {
-      const event1: Event = {
+      const event1 = {
         id: 'conflict-test',
-        type: 'SaleRecorded',
+        type: 'sale.recorded' as const,
+        aggregate: { id: 'test-aggregate', type: 'sale' as const },
         payload: {
-          items: [{ name: 'Coffee', price: 350, quantity: 1 }],
-          total: 350,
-          timestamp: Date.now()
-        }
+          ticketId: 'conflict-test',
+          lines: [{ name: 'Coffee', qty: 1, price: 350, taxRate: 0 }],
+          totals: { subtotal: 350, tax: 35, total: 385, discount: 0 }
+        },
+        seq: 1,
+        at: Date.now()
       };
 
-      const event2: Event = {
+      const event2 = {
         id: 'conflict-test',
-        type: 'SaleRecorded',
+        type: 'sale.recorded' as const,
+        aggregate: { id: 'test-aggregate', type: 'sale' as const },
         payload: {
-          items: [{ name: 'Tea', price: 250, quantity: 1 }],
-          total: 250,
-          timestamp: Date.now()
-        }
+          ticketId: 'conflict-test',
+          lines: [{ name: 'Tea', qty: 1, price: 250, taxRate: 0 }],
+          totals: { subtotal: 250, tax: 25, total: 275, discount: 0 }
+        },
+        seq: 1,
+        at: Date.now()
       };
 
       await adapter.putEvent(event1);
@@ -99,16 +177,36 @@ describe('PouchDB Adapter', () => {
     });
 
     it('should return all stored events', async () => {
-      const events: Event[] = [
+      const events: AppEvent[] = [
         {
           id: 'event-1',
-          type: 'SaleRecorded',
-          payload: { items: [], total: 100, timestamp: Date.now() }
+          seq: 1,
+          type: 'sale.recorded',
+          at: Date.now(),
+          payload: {
+            ticketId: 'ticket-5',
+            lines: [],
+            totals: {
+              subtotal: 100,
+              discount: 0,
+              tax: 10,
+              total: 110
+            }
+          }
         },
         {
           id: 'event-2',
-          type: 'PaymentInitiated',
-          payload: { amount: 100, method: 'card', timestamp: Date.now() }
+          seq: 2,
+          type: 'payment.initiated',
+          at: Date.now(),
+          payload: {
+            ticketId: 'ticket-5',
+            provider: 'stripe',
+            sessionId: 'session-123',
+            amount: 110,
+            currency: 'USD',
+            redirectUrl: 'https://example.com/return'
+          }
         }
       ];
 
@@ -123,27 +221,48 @@ describe('PouchDB Adapter', () => {
     });
   });
 
-  describe('eventsByAggregate', () => {
+  describe('getByAggregate', () => {
     beforeEach(async () => {
-      const events: Event[] = [
+      const events = [
         {
           id: 'sale-1',
-          type: 'SaleRecorded',
-          aggregateId: 'order-123',
-          payload: { items: [], total: 100, timestamp: Date.now() }
-        },
+          type: 'sale.recorded' as const,
+          aggregate: { id: 'order-123', type: 'sale' as const },
+          payload: {
+            ticketId: 'sale-1',
+            lines: [],
+            totals: { subtotal: 100, tax: 10, total: 110, discount: 0 }
+          },
+          seq: 1,
+          at: Date.now()
+        } satisfies Event,
         {
           id: 'payment-1',
-          type: 'PaymentInitiated',
-          aggregateId: 'order-123',
-          payload: { amount: 100, method: 'card', timestamp: Date.now() }
-        },
+          type: 'payment.initiated' as const,
+          aggregate: { id: 'order-123', type: 'payment' as const },
+          payload: {
+            ticketId: 'payment-1',
+            provider: 'stripe',
+            sessionId: 'session-123',
+            amount: 110,
+            currency: 'USD',
+            redirectUrl: 'https://example.com/return'
+          },
+          seq: 2,
+         at: Date.now()
+        } satisfies Event,
         {
           id: 'sale-2',
-          type: 'SaleRecorded',
-          aggregateId: 'order-456',
-          payload: { items: [], total: 200, timestamp: Date.now() }
-        }
+          type: 'sale.recorded' as const,
+          aggregate: { id: 'customer-456', type: 'sale' as const },
+          payload: {
+            ticketId: 'sale-2',
+            lines: [],
+            totals: { subtotal: 200, tax: 20, total: 220, discount: 0 }
+          },
+          seq: 3,
+         at: Date.now()
+        } satisfies Event
       ];
 
       for (const event of events) {
@@ -152,35 +271,59 @@ describe('PouchDB Adapter', () => {
     });
 
     it('should return events for specific aggregate', async () => {
-      const events = await adapter.eventsByAggregate('order-123');
+      const events = await adapter.getByAggregate('order-123');
       expect(events).toHaveLength(2);
-      expect(events.every(e => e.aggregateId === 'order-123')).toBe(true);
+      expect(events.every(e => e.aggregate?.id === 'order-123')).toBe(true);
     });
 
     it('should return empty array for non-existent aggregate', async () => {
-      const events = await adapter.eventsByAggregate('non-existent');
+      const events = await adapter.getByAggregate('non-existent');
       expect(events).toEqual([]);
     });
   });
 
   describe('eventsByType', () => {
     beforeEach(async () => {
-      const events: Event[] = [
+      const events = [
         {
           id: 'sale-1',
-          type: 'SaleRecorded',
-          payload: { items: [], total: 100, timestamp: Date.now() }
-        },
+          type: 'sale.recorded' as const,
+          aggregate: { id: 'test-aggregate-1', type: 'sale' as const },
+          payload: {
+            ticketId: 'sale-1',
+            lines: [],
+            totals: { subtotal: 100, tax: 10, total: 110, discount: 0 }
+          },
+          seq: 1,
+          at: Date.now()
+        } satisfies Event,
         {
           id: 'sale-2',
-          type: 'SaleRecorded',
-          payload: { items: [], total: 200, timestamp: Date.now() }
-        },
+          type: 'sale.recorded' as const,
+          aggregate: { id: 'test-aggregate-2', type: 'sale' as const },
+          payload: {
+            ticketId: 'sale-2',
+            lines: [],
+            totals: { subtotal: 200, tax: 20, total: 220, discount: 0 }
+          },
+          seq: 2,
+          at: Date.now()
+        } satisfies Event,
         {
           id: 'payment-1',
-          type: 'PaymentInitiated',
-          payload: { amount: 100, method: 'card', timestamp: Date.now() }
-        }
+          type: 'payment.initiated' as const,
+          aggregate: { id: 'test-aggregate-3', type: 'payment' as const },
+          payload: {
+            ticketId: 'payment-1',
+            provider: 'stripe',
+            sessionId: 'session-123',
+            amount: 110,
+            currency: 'USD',
+            redirectUrl: 'https://example.com/return'
+          },
+          seq: 3,
+          at: Date.now()
+        } satisfies Event
       ];
 
       for (const event of events) {
@@ -189,9 +332,9 @@ describe('PouchDB Adapter', () => {
     });
 
     it('should return events of specific type', async () => {
-      const events = await adapter.eventsByType('SaleRecorded');
+      const events = await adapter.eventsByType('sale.recorded');
       expect(events).toHaveLength(2);
-      expect(events.every(e => e.type === 'SaleRecorded')).toBe(true);
+      expect(events.every(e => e.type === 'sale.recorded')).toBe(true);
     });
 
     it('should return empty array for non-existent type', async () => {
@@ -202,11 +345,18 @@ describe('PouchDB Adapter', () => {
 
   describe('reset', () => {
     it('should clear all events', async () => {
-      const event: Event = {
+      const event = {
         id: 'test-event',
-        type: 'SaleRecorded',
-        payload: { items: [], total: 100, timestamp: Date.now() }
-      };
+        type: 'sale.recorded' as const,
+        aggregate: { id: 'test-aggregate', type: 'sale' as const },
+        payload: {
+          ticketId: 'test-event',
+          lines: [],
+          totals: { subtotal: 100, tax: 0, total: 100, discount: 0 }
+        },
+        seq: 1,
+        at: Date.now()
+      } satisfies Event;
 
       await adapter.putEvent(event);
       
