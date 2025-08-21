@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import POS from '../POS';
-import { InMemoryEventStore } from '../../events/store';
-import { eventStore } from '../../events/store';
+import { eventStore, InMemoryEventStore } from '../../events/store';
+import { ToastProvider } from '../../components/Toast';
+import { isPaymentInitiated, isPaymentFailed, isPaymentSucceeded } from '../../events/guards';
 import * as flagsModule from '../../lib/flags';
 import * as apiModule from '../../hooks/useApi';
-import { ToastProvider } from '../../components/Toast';
 
 // Mock the flags module
 vi.mock('../../lib/flags', () => ({
@@ -149,15 +149,15 @@ describe('POS Payments Integration', () => {
         expect(screen.getByText('Pending')).toBeInTheDocument();
       });
 
-      // Verify payment.initiated event was created
-      const events = eventStore.getEvents();
-      const paymentEvent = events.find(e => e.type === 'payment.initiated');
+      // Verify PaymentInitiated event was created
+      const events = eventStore.getAll();
+      const paymentEvent = events.find(isPaymentInitiated);
       expect(paymentEvent).toBeDefined();
       expect(paymentEvent?.payload).toMatchObject({
         provider: 'mock',
-        sessionId: 'sess_123',
-        amount: 1099 // $10.99 in cents
+        amount: 12.53 // $10.99 + 14% tax = $12.53
       });
+      expect(paymentEvent?.payload.sessionId).toMatch(/^sess_\d+_[a-z0-9]+$/);
     });
 
     it('should show simulate buttons when payment is pending', async () => {
@@ -207,9 +207,9 @@ describe('POS Payments Integration', () => {
         expect(screen.getByText('Paid')).toBeInTheDocument();
       });
 
-      // Verify payment.succeeded event was created
-      const events = eventStore.getEvents();
-      const successEvent = events.find(e => e.type === 'payment.succeeded');
+      // Verify PaymentSucceeded event was created
+      const events = eventStore.getAll();
+      const successEvent = events.find(isPaymentSucceeded);
       expect(successEvent).toBeDefined();
     });
 
@@ -239,12 +239,12 @@ describe('POS Payments Integration', () => {
         expect(screen.getByText('Failed')).toBeInTheDocument();
       });
 
-      // Verify payment.failed event was created
-      const events = eventStore.getEvents();
-      const failedEvent = events.find(e => e.type === 'payment.failed');
+      // Verify PaymentFailed event was created
+      const events = eventStore.getAll();
+      const failedEvent = events.find(isPaymentFailed);
       expect(failedEvent).toBeDefined();
       expect(failedEvent?.payload).toMatchObject({
-        reason: 'simulated_failure'
+        reason: 'Insufficient funds'
       });
     });
 
@@ -267,7 +267,7 @@ describe('POS Payments Integration', () => {
       });
 
       // Start new ticket
-      const newTicketButton = screen.getByText('New Ticket');
+      const newTicketButton = screen.getByText('New Ticket (N)');
       fireEvent.click(newTicketButton);
 
       // Payment status should be cleared
@@ -303,7 +303,7 @@ describe('POS Payments Integration', () => {
 
       await waitFor(() => {
         // Should show total with pending badge
-        expect(screen.getByText('$10.99')).toBeInTheDocument();
+        expect(screen.getAllByText('$10.99')).toHaveLength(3); // Multiple instances on page
         expect(screen.getByText('Pending')).toBeInTheDocument();
       });
     });

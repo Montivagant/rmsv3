@@ -1,100 +1,214 @@
+// Lightweight PouchDB adapter for events
+// deps: pnpm add pouchdb
 import PouchDB from 'pouchdb';
-import { KnownEvent } from '../events/types';
 
+// Configure PouchDB for browser environment
+let adapterConfigured = false;
+
+async function configurePouchDB() {
+  if (typeof window !== 'undefined' && !adapterConfigured) {
+    // In browser, use IDB adapter
+    try {
+      const { default: PouchDBAdapterIdb } = await import('pouchdb-adapter-idb');
+      PouchDB.plugin(PouchDBAdapterIdb);
+      adapterConfigured = true;
+    } catch (error) {
+      console.warn('Failed to load IDB adapter:', error);
+    }
+  }
+}
+import type { Event as AppEvent, KnownEvent } from '../events/types';
+
+// DB-shaped events with PouchDB metadata
+export type DBEvent = KnownEvent & { _id: string; _rev?: string };
+export type PouchCfg = { name: string };
+
+export async function openLocalDB(cfg: PouchCfg) {
+  await configurePouchDB();
+  const db = new PouchDB<DBEvent>(cfg.name); // IndexedDB in browser
+  
+  // Create Mango indexes for better query performance
+  await createIndexes(db);
+  
+  return db;
+}
+
+// Create Mango indexes for efficient queries
+export async function createIndexes(db: PouchDB.Database<DBEvent>) {
+  try {
+    // Index for aggregateId queries
+    await db.createIndex({
+      index: {
+        fields: ['aggregateId']
+      }
+    });
+    
+    // Index for type queries
+    await db.createIndex({
+      index: {
+        fields: ['type']
+      }
+    });
+    
+    // Composite index for aggregateId + type queries
+    await db.createIndex({
+      index: {
+        fields: ['aggregateId', 'type']
+      }
+    });
+    
+    // Index for timestamp-based queries
+    await db.createIndex({
+      index: {
+        fields: ['timestamp']
+      }
+    });
+  } catch (error) {
+    console.warn('Failed to create some indexes:', error);
+  }
+}
+
+export async function putEvent(db: PouchDB.Database<DBEvent>, event: AppEvent) {
+  // Map domain event to DB event
+  const dbEvent: DBEvent = {
+    ...event,
+    timestamp: event.at,
+    aggregateId: event.aggregate?.id,
+    _id: event.id
+  };
+  
+  try {
+    const existing = await db.get(dbEvent._id);
+    // Idempotent: same id → keep first (append-only model)
+    return await db.put({ ...existing, ...dbEvent, _rev: existing._rev });
+  } catch (err: any) {
+    if (err?.status === 404) return db.put(dbEvent);
+    throw err;
+  }
+}
+
+export async function bulkPutEvents(db: PouchDB.Database<DBEvent>, events: AppEvent[]) {
+  const docs = events.map(event => ({
+    ...event,
+    timestamp: event.at,
+    aggregateId: event.aggregate?.id,
+    _id: event.id
+  }));
+  return db.bulkDocs(docs, { new_edits: false }); // keep provided _id/_rev or insert
+}
+
+export async function allEvents(db: PouchDB.Database<DBEvent>): Promise<AppEvent[]> {
+  const res = await db.allDocs({ include_docs: true });
+  return res.rows.flatMap(r => (r.doc ? [stripMeta(r.doc)] : []));
+}
+
+export async function getByAggregate(db: PouchDB.Database<DBEvent>, aggregateId: string): Promise<AppEvent[]> {
+  try {
+    const result = await db.find({
+      selector: { aggregateId },
+      sort: ['timestamp']
+    });
+    return result.docs.map(doc => stripMeta(doc));
+  } catch (error) {
+    console.warn('Mango query failed, falling back to allEvents filter:', error);
+    const events = await allEvents(db);
+    return events.filter(e => e.aggregate?.id === aggregateId);
+  }
+}
+
+export async function eventsByType<T extends AppEvent['type']>(db: PouchDB.Database<DBEvent>, type: T): Promise<Extract<AppEvent, { type: T }>[]> {
+  try {
+    const result = await db.find({
+      selector: { type },
+      sort: ['timestamp']
+    });
+    return result.docs.map(doc => stripMeta(doc)).filter((event): event is Extract<AppEvent, { type: T }> => event.type === type);
+  } catch (error) {
+    console.warn('Mango query failed, falling back to allEvents filter:', error);
+    const events = await allEvents(db);
+    return events.filter((e): e is Extract<AppEvent, { type: T }> => e.type === type);
+  }
+}
+
+export async function resetDB(db: PouchDB.Database<any>) {
+  await db.destroy();
+}
+
+function stripMeta(doc: DBEvent): AppEvent {
+  // remove Pouch meta fields and map back to domain event
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { _id, _rev, timestamp, aggregateId, ...rest } = doc;
+  return {
+    ...rest,
+    at: timestamp,
+    aggregate: aggregateId ? { id: aggregateId, type: rest.aggregate?.type || 'unknown' } : rest.aggregate
+  };
+}
+
+// Legacy adapter interface for backward compatibility
 export interface PouchDBAdapter {
-  putEvent(event: KnownEvent): Promise<void>;
-  allEvents(): Promise<KnownEvent[]>;
-  eventsByAggregate(aggregateId: string): Promise<KnownEvent[]>;
-  eventsByType(eventType: string): Promise<KnownEvent[]>;
+  putEvent(event: AppEvent): Promise<void>;
+  allEvents(): Promise<AppEvent[]>;
+  getByAggregate(aggregateId: string): Promise<AppEvent[]>;
+  eventsByType(eventType: string): Promise<AppEvent[]>;
   reset(): Promise<void>;
 }
 
-export function openLocalDB(name: string): PouchDBAdapter {
-  const db = new PouchDB(name);
-
+// Modern composition-based adapter (recommended)
+export async function createPouchDBAdapter(cfg: PouchCfg): Promise<PouchDBAdapter> {
+  const db = await openLocalDB(cfg);
+  
   return {
-    async putEvent(event: KnownEvent): Promise<void> {
-      try {
-        // Use event.id as document _id for idempotency
-        const doc = {
-          _id: event.id,
-          ...event
-        };
-        
-        await db.put(doc);
-      } catch (error: any) {
-        // If document already exists with same ID, check if content matches
-        if (error.status === 409) {
-          try {
-            const existing = await db.get(event.id);
-            // Remove PouchDB metadata for comparison
-            const { _id, _rev, ...existingEvent } = existing as any;
-            const eventWithoutId = { ...event };
-            
-            // If content differs, log structured error (TODO: moderation UI)
-            if (JSON.stringify(existingEvent) !== JSON.stringify(eventWithoutId)) {
-              console.error('Idempotency conflict detected:', {
-                eventId: event.id,
-                existing: existingEvent,
-                attempted: eventWithoutId
-              });
-            }
-            // Idempotent - same event ID, operation succeeds
-            return;
-          } catch (getError) {
-            throw error; // Re-throw original error if we can't get existing doc
-          }
-        }
-        throw error;
-      }
+    async putEvent(event: AppEvent): Promise<void> {
+      await putEvent(db, event);
     },
-
-    async allEvents(): Promise<KnownEvent[]> {
-      try {
-        const result = await db.allDocs({ include_docs: true });
-        return result.rows
-          .map(row => {
-            if (!row.doc) return null;
-            const { _id, _rev, ...event } = row.doc as any;
-            return event as KnownEvent;
-          })
-          .filter((event): event is KnownEvent => event !== null)
-          .sort((a, b) => a.timestamp - b.timestamp);
-      } catch (error) {
-        console.error('Failed to fetch all events:', error);
-        return [];
-      }
+    
+    async allEvents(): Promise<AppEvent[]> {
+      return allEvents(db);
     },
-
-    async eventsByAggregate(aggregateId: string): Promise<KnownEvent[]> {
-      try {
-        const allEvents = await this.allEvents();
-        return allEvents.filter(event => event.aggregateId === aggregateId);
-      } catch (error) {
-        console.error('Failed to fetch events by aggregate:', error);
-        return [];
-      }
+    
+    async getByAggregate(aggregateId: string): Promise<AppEvent[]> {
+      return getByAggregate(db, aggregateId);
     },
-
-    async eventsByType(eventType: string): Promise<KnownEvent[]> {
-      try {
-        const allEvents = await this.allEvents();
-        return allEvents.filter(event => event.type === eventType);
-      } catch (error) {
-        console.error('Failed to fetch events by type:', error);
-        return [];
-      }
+    
+    async eventsByType(eventType: string): Promise<AppEvent[]> {
+      return eventsByType(db, eventType as AppEvent['type']);
     },
-
+    
     async reset(): Promise<void> {
-      try {
-        await db.destroy();
-        // Recreate the database
-        Object.assign(db, new PouchDB(name));
-      } catch (error) {
-        console.error('Failed to reset database:', error);
-        throw error;
-      }
+      await resetDB(db);
+    }
+  };
+}
+
+// Legacy function for backward compatibility
+export function openLocalDBLegacy(name: string): PouchDBAdapter {
+  const dbPromise = openLocalDB({ name });
+  
+  return {
+    async putEvent(event: AppEvent): Promise<void> {
+      const db = await dbPromise;
+      await putEvent(db, event);
+    },
+    
+    async allEvents(): Promise<AppEvent[]> {
+      const db = await dbPromise;
+      return allEvents(db);
+    },
+    
+    async getByAggregate(aggregateId: string): Promise<AppEvent[]> {
+      const db = await dbPromise;
+      return getByAggregate(db, aggregateId);
+    },
+    
+    async eventsByType(eventType: string): Promise<AppEvent[]> {
+      const db = await dbPromise;
+      return eventsByType(db, eventType as AppEvent['type']);
+    },
+    
+    async reset(): Promise<void> {
+      const db = await dbPromise;
+      await resetDB(db);
     }
   };
 }

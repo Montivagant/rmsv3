@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { eventStore } from '../../events/store';
+import { InMemoryEventStore } from '../../events/store';
 import { IdempotencyConflictError } from '../../events/types';
+import { isLoyaltyAccrued, isLoyaltyRedeemed } from '../../events/guards';
 
 describe('Loyalty Events - Idempotency Tests', () => {
+  let eventStore: InMemoryEventStore;
+  
   beforeEach(() => {
-    eventStore.reset();
+    eventStore = new InMemoryEventStore();
   });
 
   describe('loyalty.accrued events', () => {
@@ -163,8 +166,8 @@ describe('Loyalty Events - Idempotency Tests', () => {
       const events = eventStore.getAll();
       expect(events).toHaveLength(2);
       
-      const accrualEvent = events.find(e => e.type === 'loyalty.accrued');
-      const redemptionEvent = events.find(e => e.type === 'loyalty.redeemed');
+      const accrualEvent = events.find(isLoyaltyAccrued);
+      const redemptionEvent = events.find(isLoyaltyRedeemed);
       
       expect(accrualEvent).toBeDefined();
       expect(redemptionEvent).toBeDefined();

@@ -1,5 +1,6 @@
-import { EventStore, IdempotencyConflictError } from '../events/types';
-import { hashParams } from '../events/hash';
+import type { EventStore, Event as AppEvent } from '../events/types';
+import { IdempotencyConflictError } from '../events/types';
+import { isPaymentInitiated, isPaymentTerminalEvent, isPaymentSucceeded } from '../events/guards';
 
 export interface WebhookParams {
   provider: string;
@@ -88,36 +89,35 @@ export function handleWebhook(store: EventStore, params: WebhookParams): Webhook
 }
 
 // Derive payment status from events
-export function derivePaymentStatus(events: any[], ticketId: string): 'pending' | 'paid' | 'failed' | 'none' {
-  const paymentEvents = events.filter(e => 
-    e.type.startsWith('payment.') && 
-    e.payload.ticketId === ticketId
-  ).sort((a, b) => a.seq - b.seq);
+export function derivePaymentStatus(events: AppEvent[], ticketId: string): 'pending' | 'paid' | 'failed' | 'none' {
+  const paymentEvents = events.filter(e => {
+    if (!e.type.startsWith('payment.')) return false;
+    const paymentEvent = e as any; // Type assertion for payload access
+    return paymentEvent.payload?.ticketId === ticketId;
+  }).sort((a, b) => (a as any).seq - (b as any).seq);
 
   if (paymentEvents.length === 0) {
     return 'none';
   }
 
   // Check if there's an initiated event
-  const hasInitiated = paymentEvents.some(e => e.type === 'payment.initiated');
+  const hasInitiated = paymentEvents.some(isPaymentInitiated);
   if (!hasInitiated) {
     return 'none';
   }
 
   // Find the latest terminal event (succeeded or failed)
-  const terminalEvents = paymentEvents.filter(e => 
-    e.type === 'payment.succeeded' || e.type === 'payment.failed'
-  );
+  const terminalEvents = paymentEvents.filter(isPaymentTerminalEvent);
 
   if (terminalEvents.length === 0) {
     return 'pending';
   }
 
   // Get the latest terminal event
-  const latestTerminal = terminalEvents[terminalEvents.length - 1];
+  // const _latestTerminal = terminalEvents[terminalEvents.length - 1];
   
   // If there's a succeeded event, the payment is paid (even if there were failures before)
-  const hasSucceeded = terminalEvents.some(e => e.type === 'payment.succeeded');
+  const hasSucceeded = terminalEvents.some(isPaymentSucceeded);
   if (hasSucceeded) {
     return 'paid';
   }

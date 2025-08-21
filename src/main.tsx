@@ -1,9 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
+import App from './App'
 import { UpdateManager } from './components'
 import { ToastProvider } from './components/Toast'
+// import { EventStoreProvider } from './events/context'
 
 // Mutually exclusive MSW/SW initialization
 const useSW = import.meta.env.PROD && !import.meta.env.VITE_DISABLE_SW
@@ -16,12 +17,16 @@ if (useSW) {
   )
 }
 
-createRoot(document.getElementById('root')!).render(
+const root = createRoot(document.getElementById('root')!)
+
+root.render(
   <StrictMode>
-    <ToastProvider>
-      <UpdateManager>
-        <App />
-      </UpdateManager>
-    </ToastProvider>
+    {/* <EventStoreProvider> */}
+      <ToastProvider>
+        <UpdateManager>
+          <App />
+        </UpdateManager>
+      </ToastProvider>
+    {/* </EventStoreProvider> */}
   </StrictMode>,
 )

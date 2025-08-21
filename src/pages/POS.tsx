@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from '../components';
 import { useApi, apiPost } from '../hooks/useApi';
 import { computeTotals, type Line } from '../money/totals';
+// import { useEventStore } from '../events/context';
 import { eventStore } from '../events/store';
 import { getRole, RANK, Role } from '../rbac/roles';
 import { IdempotencyConflictError } from '../events/types';
@@ -11,10 +12,11 @@ import { OversellError } from '../inventory/types';
 import { useToast } from '../components/Toast';
 import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
-import { loadFlags } from '../lib/flags';
+import { useFlags } from '../store/flags';
 import { defaultProvider } from '../payments/provider';
 import { generatePaymentKeys, handleWebhook } from '../payments/webhook';
 import { derivePaymentStatus } from '../payments/status';
+import { isPaymentInitiated } from '../events/guards';
 
 interface MenuItem {
   id: string;
@@ -49,6 +51,8 @@ interface Customer {
 }
 
 function POS() {
+  // const store = useEventStore();
+  const store = eventStore;
   const { data: menuItems, loading, error } = useApi<MenuItem[]>('/api/menu');
   const { data: customers } = useApi<Customer[]>('/api/customers');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -66,8 +70,9 @@ function POS() {
   const currentTicketIdRef = useRef<string | null>(null);
   const toast = useToast();
   
-  const flags = loadFlags();
+  const { flags } = useFlags();
   const paymentsEnabled = flags.payments;
+  const loyaltyEnabled = flags.loyalty;
   
   const currentRole = getRole();
   const canFinalize = RANK[currentRole] >= RANK[Role.ADMIN];
@@ -76,13 +81,13 @@ function POS() {
   useEffect(() => {
     const ticketId = currentTicketIdRef.current;
     if (ticketId && paymentsEnabled) {
-      const events = eventStore.getAll();
+      const events = store.getAll();
       const status = derivePaymentStatus(events, ticketId);
       setPaymentStatus(status);
     } else {
       setPaymentStatus('none');
     }
-  }, [eventStore.getAll().length, paymentsEnabled]);
+  }, [store.getAll().length, paymentsEnabled]);
   
   // Keyboard shortcuts
   useEffect(() => {
@@ -173,7 +178,7 @@ function POS() {
     taxRate: 0.14 // Default 14% tax rate - could be item-specific in future
   }));
   
-  // Calculate loyalty discount value
+  // Calculate loyalty discount
   const loyaltyDiscount = pointsToValue(loyaltyPoints, DEFAULT_LOYALTY_CONFIG);
   const totalDiscount = discount + loyaltyDiscount;
   const totals = computeTotals(cartLines, totalDiscount);
@@ -249,7 +254,7 @@ function POS() {
       };
       
       // Append to event store
-      const result = eventStore.append('sale.recorded', payload, {
+      const result = store.append('sale.recorded', payload, {
         key: idempotencyKey,
         params,
         aggregate: {
@@ -257,6 +262,39 @@ function POS() {
           type: 'ticket'
         }
       });
+      
+      // Create loyalty events if customer is selected and loyalty is enabled
+      if (loyaltyEnabled && selectedCustomer) {
+        // Create loyalty.redeemed event if points were used
+        if (loyaltyPoints > 0) {
+          const redemptionPayload = {
+            customerId: selectedCustomer.id,
+            ticketId,
+            points: loyaltyPoints,
+            value: pointsToValue(loyaltyPoints, DEFAULT_LOYALTY_CONFIG)
+          };
+          
+          store.append('loyalty.redeemed', redemptionPayload, {
+            key: `loyalty:redeem:${ticketId}:${selectedCustomer.id}`,
+            params: redemptionPayload
+          });
+        }
+        
+        // Create loyalty.accrued event for points earned from purchase
+        const earnedPoints = Math.floor(totals.total / DEFAULT_LOYALTY_CONFIG.ACCRUAL_UNIT) * DEFAULT_LOYALTY_CONFIG.POINTS_PER_UNIT;
+        if (earnedPoints > 0) {
+          const accrualPayload = {
+            customerId: selectedCustomer.id,
+            ticketId,
+            points: earnedPoints
+          };
+          
+          store.append('loyalty.accrued', accrualPayload, {
+            key: `loyalty:accrue:${ticketId}:${selectedCustomer.id}`,
+            params: accrualPayload
+          });
+        }
+      }
       
       if (result.deduped) {
         const msg = 'Sale finalized successfully (deduped).';
@@ -315,8 +353,8 @@ function POS() {
       // Generate idempotency key for payment initiation
       const keys = generatePaymentKeys(provider, checkoutResult.sessionId);
       
-      // Append payment.initiated event
-      const result = eventStore.append('payment.initiated', {
+      // Append PaymentInitiated event
+      const result = store.append('payment.initiated', {
         ticketId,
         provider,
         sessionId: checkoutResult.sessionId,
@@ -347,8 +385,8 @@ function POS() {
   
   const simulatePaymentSuccess = async () => {
     const ticketId = getTicketId();
-    const events = eventStore.getByAggregate(ticketId);
-    const initiatedEvent = events.find(e => e.type === 'payment.initiated');
+    const events = store.getByAggregate(ticketId);
+    const initiatedEvent = events.find(isPaymentInitiated);
     
     if (!initiatedEvent) {
       toast.show('No payment initiated for this ticket');
@@ -356,7 +394,7 @@ function POS() {
     }
     
     try {
-      const result = handleWebhook(eventStore, {
+      const result = handleWebhook(store, {
         provider: initiatedEvent.payload.provider,
         sessionId: initiatedEvent.payload.sessionId,
         eventType: 'succeeded',
@@ -378,8 +416,8 @@ function POS() {
   
   const simulatePaymentFailure = async () => {
     const ticketId = getTicketId();
-    const events = eventStore.getByAggregate(ticketId);
-    const initiatedEvent = events.find(e => e.type === 'payment.initiated');
+    const events = store.getByAggregate(ticketId);
+    const initiatedEvent = events.find(isPaymentInitiated);
     
     if (!initiatedEvent) {
       toast.show('No payment initiated for this ticket');
@@ -387,7 +425,7 @@ function POS() {
     }
     
     try {
-      const result = handleWebhook(eventStore, {
+      const result = handleWebhook(store, {
         provider: initiatedEvent.payload.provider,
         sessionId: initiatedEvent.payload.sessionId,
         eventType: 'failed',
@@ -567,7 +605,7 @@ function POS() {
                   </div>
                   
                   {/* Loyalty Points */}
-                  {selectedCustomer && (
+                  {loyaltyEnabled && selectedCustomer && (
                     <div className="space-y-2">
                       <label className="text-sm font-medium">
                         Redeem Points (Available: {getBalance(selectedCustomer.id) || selectedCustomer.points})
@@ -579,7 +617,8 @@ function POS() {
                           onChange={(e) => {
                             const points = Math.max(0, parseInt(e.target.value) || 0);
                             const maxPoints = getBalance(selectedCustomer.id) || selectedCustomer.points;
-                            setLoyaltyPoints(Math.min(points, maxPoints));
+                            const finalPoints = Math.min(points, maxPoints);
+                            setLoyaltyPoints(finalPoints);
                           }}
                           placeholder="0"
                           className="flex-1 h-8 text-sm"
@@ -618,7 +657,7 @@ function POS() {
                     </div>
                   </div>
                   
-                  {loyaltyDiscount > 0 && (
+                  {loyaltyEnabled && selectedCustomer && loyaltyPoints > 0 && (
                     <div className="flex justify-between items-center">
                       <span>Loyalty Discount:</span>
                       <span className="text-red-600 dark:text-red-400">

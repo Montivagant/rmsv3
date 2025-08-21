@@ -1,0 +1,59 @@
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'eslint.config.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'rmsv3_events/CURRENT', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/db/__tests__/pouch.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/db/__tests__/sync.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/db/sync.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/events/__tests__/store.pouch.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/events/hash.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/events/store.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/loyalty/__tests__/events.idempotency.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/loyalty/__tests__/rules.golden.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/loyalty/state.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/main.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/POS.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/__tests__/POS.payments.test.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/__tests__/pos.finalize.demo.test.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/pages/__tests__/pos.loyalty.apply.test.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/payments/__tests__/payments.test.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/payments/status.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/payments/webhook.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/rbac/guard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/settings/AdminConsole.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tsconfig.app.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'vite.config.ts', LF will be replaced by CRLF the next time Git touches it
+README.md
+"RMS v3 \342\200\224 UI-First Product & Build Plan (Timeless, Agent-Ready).md"
+eslint.config.js
+package-lock.json
+package.json
+rmsv3_events/000018.ldb
+rmsv3_events/CURRENT
+rmsv3_events/LOG
+rmsv3_events/LOG.old
+rmsv3_events/MANIFEST-000015
+src/db/__tests__/pouch.test.ts
+src/db/__tests__/sync.test.ts
+src/db/pouch.ts
+src/db/sync.ts
+src/events/__tests__/store.pouch.test.ts
+src/events/hash.ts
+src/events/store.ts
+src/loyalty/__tests__/events.idempotency.test.ts
+src/loyalty/__tests__/rules.golden.test.ts
+src/loyalty/state.ts
+src/main.tsx
+src/pages/POS.tsx
+src/pages/__tests__/POS.payments.test.tsx
+src/pages/__tests__/pos.finalize.demo.test.tsx
+src/pages/__tests__/pos.loyalty.apply.test.tsx
+src/payments/__tests__/payments.test.ts
+src/payments/status.ts
+src/payments/webhook.ts
+src/rbac/guard.tsx
+src/settings/AdminConsole.tsx
+src/settings/TechnicalConsole.tsx
+test-events/LOG
+tsconfig.app.json
+vite.config.ts

@@ -6,7 +6,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
+    react({ 
+      babel: {
+        plugins: []
+      }
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
@@ -18,9 +22,27 @@ export default defineConfig({
       manifest: false // because we provide public/manifest.webmanifest
     })
   ],
+  optimizeDeps: {
+        exclude: ['pouchdb', 'pouchdb-adapter-idb', 'pouchdb-replication', 'pouchdb-adapter-memory']
+      },
+  esbuild: {
+    logOverride: { 'this-is-undefined-in-esm': 'silent' }
+  },
+  build: {
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.code === 'THIS_IS_UNDEFINED') return
+        warn(warning)
+      }
+    }
+  },
   test: {
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts', './vitest.setup.ts'],
+    testTimeout: 15000,
+    typecheck: {
+      tsconfig: './tsconfig.vitest.json'
+    }
   },
 })

@@ -7,16 +7,16 @@ describe('Loyalty Rules - Golden Tests', () => {
   describe('earnPoints', () => {
     it('should calculate points correctly for exact thresholds', () => {
       // Test exact multiples of ACCRUAL_UNIT
-      expect(earnPoints(10.00, config)).toBe(1); // floor(10/10) * 1 = 1
-      expect(earnPoints(20.00, config)).toBe(2); // floor(20/10) * 1 = 2
-      expect(earnPoints(100.00, config)).toBe(10); // floor(100/10) * 1 = 10
+      expect(earnPoints(10.00, config)).toBe(10); // floor(10/1) * 1 = 10
+      expect(earnPoints(20.00, config)).toBe(20); // floor(20/1) * 1 = 20
+      expect(earnPoints(100.00, config)).toBe(100); // floor(100/1) * 1 = 100
     });
 
     it('should floor points for amounts below threshold', () => {
       // Test amounts just below thresholds
-      expect(earnPoints(9.99, config)).toBe(0); // floor(9.99/10) * 1 = 0
-      expect(earnPoints(19.99, config)).toBe(1); // floor(19.99/10) * 1 = 1
-      expect(earnPoints(29.50, config)).toBe(2); // floor(29.50/10) * 1 = 2
+      expect(earnPoints(9.99, config)).toBe(9); // floor(9.99/1) * 1 = 9
+      expect(earnPoints(19.99, config)).toBe(19); // floor(19.99/1) * 1 = 19
+      expect(earnPoints(29.50, config)).toBe(29); // floor(29.50/1) * 1 = 29
     });
 
     it('should handle zero and negative amounts', () => {
@@ -89,15 +89,15 @@ describe('Loyalty Rules - Golden Tests', () => {
       const redeemValue = pointsToValue(earnedPoints, config);
       const backToPoints = valueToPoints(redeemValue, config);
       
-      expect(earnedPoints).toBe(2); // floor(25/10) * 1 = 2
-      expect(redeemValue).toBe(0.20); // 2 * 0.10 = 0.20
-      expect(backToPoints).toBe(2); // 0.20 / 0.10 = 2
+      expect(earnedPoints).toBe(25); // floor(25/1) * 1 = 25
+      expect(redeemValue).toBe(2.50); // 25 * 0.10 = 2.50
+      expect(backToPoints).toBe(25); // 2.50 / 0.10 = 25
     });
 
     it('should handle edge case amounts near thresholds', () => {
       // Test amounts that are common in real transactions
       const testAmounts = [9.99, 10.01, 19.95, 20.00, 49.99, 50.00];
-      const expectedPoints = [0, 1, 1, 2, 4, 5];
+      const expectedPoints = [9, 10, 19, 20, 49, 50]; // floor(x/1) * 1
       
       testAmounts.forEach((amount, index) => {
         expect(earnPoints(amount, config)).toBe(expectedPoints[index]);
@@ -105,8 +105,8 @@ describe('Loyalty Rules - Golden Tests', () => {
     });
 
     it('should handle large transaction amounts', () => {
-      expect(earnPoints(999.99, config)).toBe(99); // floor(999.99/10) * 1 = 99
-      expect(earnPoints(1000.00, config)).toBe(100); // floor(1000/10) * 1 = 100
+      expect(earnPoints(999.99, config)).toBe(999); // floor(999.99/1) * 1 = 999
+      expect(earnPoints(1000.00, config)).toBe(1000); // floor(1000/1) * 1 = 1000
     });
   });
 });

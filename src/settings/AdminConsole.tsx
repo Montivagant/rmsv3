@@ -1,5 +1,5 @@
 import { useFlags } from '../store/flags'
-import { useUI } from '../store/ui'
+import { useUI, type Density } from '../store/ui'
 import { getOversellPolicy, setOversellPolicy } from '../inventory/policy'
 import { useState, useEffect } from 'react'
 import type { OversellPolicy } from '../inventory/types'
@@ -60,7 +60,7 @@ export default function AdminConsole() {
               aria-label="Density"
               className="border rounded px-2 py-1"
               value={density}
-              onChange={(e) => setDensity(e.target.value as any)}
+              onChange={(e) => setDensity(e.target.value as Density)}
             >
               <option value="comfortable">Comfortable</option>
               <option value="compact">Compact</option>

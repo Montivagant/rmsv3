@@ -6,7 +6,7 @@
  */
 export function stableHash(value: any): string {
   const normalized = normalizeValue(value);
-  const jsonString = JSON.stringify(normalized);
+  const jsonString = JSON.stringify(normalized) || 'null';
   return djb2Hash(jsonString);
 }
 

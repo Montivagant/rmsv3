@@ -1,152 +1,56 @@
-import PouchDB from 'pouchdb';
-import { EventEmitter } from 'events';
+import PouchDB from 'pouchdb'
+import type { DBEvent } from './pouch'
 
-export type SyncStatus = 'sync.connected' | 'sync.error' | 'sync.paused' | 'sync.active';
+type SyncState = 'idle' | 'active' | 'paused' | 'error'
+type SyncCfg = { baseUrl: string; dbPrefix: string; username?: string; password?: string }
+type Sub = (s: SyncState, info?: any) => void
 
-export interface SyncConfig {
-  url: string;
-  dbPrefix: string;
-  auth?: {
-    username: string;
-    password: string;
-  };
-}
+let subs: Sub[] = []
+let cancel: (() => void) | null = null
+let remote: PouchDB.Database<DBEvent> | null = null
 
-export interface SyncStatusEvent {
-  status: SyncStatus;
-  message?: string;
-  error?: Error;
-}
-
-export class SyncManager extends EventEmitter {
-  private config?: SyncConfig;
-  private localDB?: PouchDB.Database;
-  private remoteDB?: PouchDB.Database;
-  private replication?: PouchDB.Replication.Sync<{}>;
-  private branchId?: string;
-  private isReplicating = false;
-
-  configure(config: SyncConfig): void {
-    this.config = config;
-    this.emit('configured', config);
-  }
-
-  async startReplication(branchId: string): Promise<void> {
-    if (!this.config) {
-      throw new Error('Sync manager not configured');
-    }
-
-    if (this.isReplicating) {
-      await this.stopReplication();
-    }
-
-    this.branchId = branchId;
-    const dbName = `${this.config.dbPrefix}events_${branchId}`;
-    
-    try {
-      // Initialize local database
-      this.localDB = new PouchDB(dbName);
-      
-      // Initialize remote database
-      const remoteUrl = `${this.config.url}/${dbName}`;
-      this.remoteDB = new PouchDB(remoteUrl, {
-        auth: this.config.auth
-      });
-
-      // Start bidirectional replication
-      this.replication = this.localDB.sync(this.remoteDB, {
-        live: true,
-        retry: true,
-        back_off_function: (delay) => {
-          // Exponential backoff with max 30 seconds
-          return Math.min(delay * 2, 30000);
-        }
-      });
-
-      // Handle replication events
-      this.replication
-        .on('change', (info) => {
-          console.log('Sync change:', info);
-          this.emitStatus('sync.active', `Synced ${info.change.docs?.length || 0} documents`);
-        })
-        .on('paused', (err) => {
-          if (err) {
-            console.error('Sync paused with error:', err);
-            this.emitStatus('sync.error', 'Sync paused due to error', err);
-          } else {
-            console.log('Sync paused (up to date)');
-            this.emitStatus('sync.paused', 'Sync up to date');
-          }
-        })
-        .on('active', () => {
-          console.log('Sync resumed');
-          this.emitStatus('sync.active', 'Sync active');
-        })
-        .on('denied', (err) => {
-          console.error('Sync denied:', err);
-          this.emitStatus('sync.error', 'Sync denied', err);
-        })
-        .on('complete', (info) => {
-          console.log('Sync complete:', info);
-          this.emitStatus('sync.connected', 'Sync completed');
-        })
-        .on('error', (err) => {
-          console.error('Sync error:', err);
-          this.emitStatus('sync.error', 'Sync error occurred', err);
-        });
-
-      this.isReplicating = true;
-      this.emitStatus('sync.connected', `Started replication for branch ${branchId}`);
-      
-    } catch (error) {
-      console.error('Failed to start replication:', error);
-      this.emitStatus('sync.error', 'Failed to start replication', error as Error);
-      throw error;
-    }
-  }
-
-  async stopReplication(): Promise<void> {
-    if (this.replication) {
-      try {
-        await this.replication.cancel();
-        console.log('Replication stopped');
-      } catch (error) {
-        console.error('Error stopping replication:', error);
+export function configureRemote({ baseUrl, dbPrefix, username, password }: SyncCfg, branchId: string) {
+  const dbName = `${dbPrefix}events_${branchId}`
+  const url = `${baseUrl.replace(/\/+$/, '')}/${encodeURIComponent(dbName)}`
+  // Optional Basic auth
+  const ajax = username && password
+    ? {
+        fetch: (u: RequestInfo, opts: RequestInit = {}) => {
+          const hdrs = new Headers(opts.headers || {})
+          hdrs.set('Authorization', 'Basic ' + btoa(`${username}:${password}`))
+          return fetch(u, { ...opts, headers: hdrs })
+        },
       }
-      this.replication = undefined;
-    }
-
-    this.isReplicating = false;
-    this.branchId = undefined;
-    this.localDB = undefined;
-    this.remoteDB = undefined;
-    
-    this.emitStatus('sync.paused', 'Replication stopped');
-  }
-
-  getStatus(): {
-    isReplicating: boolean;
-    branchId?: string;
-    config?: SyncConfig;
-  } {
-    return {
-      isReplicating: this.isReplicating,
-      branchId: this.branchId,
-      config: this.config
-    };
-  }
-
-  private emitStatus(status: SyncStatus, message?: string, error?: Error): void {
-    const event: SyncStatusEvent = {
-      status,
-      message,
-      error
-    };
-    
-    this.emit('status', event);
-    this.emit(status, event);
-  }
+    : undefined
+  remote = new PouchDB<DBEvent>(url, ajax ? { fetch: ajax.fetch as any } : undefined)
+  return remote
 }
 
-// Global sync manager instance
-export const syncManager = new SyncManager();
+export function subscribe(fn: Sub) {
+  subs.push(fn)
+  return () => { subs = subs.filter(s => s !== fn) }
+}
+
+function emit(s: SyncState, info?: any) { subs.forEach(fn => fn(s, info)) }
+
+export function startReplication(local: PouchDB.Database<DBEvent>, branchId: string) {
+  if (!remote) throw new Error('Remote not configured. Call configureRemote() first.')
+  // live, retry both directions
+  const push = local.replicate.to(remote, { live: true, retry: true })
+  const pull = local.replicate.from(remote, { live: true, retry: true })
+
+  const onChange = () => emit('active')
+  const onPaused = (info: any) => emit('paused', info)
+  const onError = (err: any) => emit('error', err)
+
+  push.on('change', onChange).on('paused', onPaused).on('error', onError)
+  pull.on('change', onChange).on('paused', onPaused).on('error', onError)
+
+  cancel = () => { push.cancel(); pull.cancel(); emit('idle') }
+  emit('active')
+}
+
+export function stopReplication() {
+  if (cancel) cancel()
+  cancel = null
+}

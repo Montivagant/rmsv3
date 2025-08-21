@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryEventStore } from '../../events/store';
 import { IdempotencyConflictError } from '../../events/types';
+import type { Event } from '../../events/types';
 import { handleWebhook, generatePaymentKeys } from '../webhook';
 import { derivePaymentStatus } from '../status';
 import { defaultProvider } from '../provider';
+import { createSaleRecordedEvent, createPaymentInitiatedEvent, createPaymentSucceededEvent, createPaymentFailedEvent } from '../../test/factories';
 
 describe('Payments', () => {
   let store: InMemoryEventStore;
@@ -40,109 +42,81 @@ describe('Payments', () => {
   describe('Payment Status Derivation', () => {
     it('should return null for no payment events', () => {
       const events = [
-        {
-          id: '1',
-          seq: 1,
-          type: 'sale.recorded' as const,
-          payload: { ticketId: 'test' },
-          timestamp: new Date().toISOString(),
-          at: Date.now()
-        }
+        createSaleRecordedEvent({
+          type: 'sale.recorded',
+          payload: { ticketId: 'test', customerId: 'customer-1', lines: [], totals: { subtotal: 0, discount: 0, tax: 0, total: 0 } }
+        })
       ];
       
       expect(derivePaymentStatus(events)).toBe(null);
     });
 
-    it('should return pending for payment.initiated', () => {
+    it('should return pending for PaymentInitiated', () => {
       const events = [
-        {
-          id: '1',
-          seq: 1,
-          type: 'payment.initiated' as const,
-          payload: { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000 },
-          timestamp: new Date().toISOString(),
-          at: Date.now()
-        }
+        createPaymentInitiatedEvent({
+          type: 'payment.initiated',
+          payload: { ticketId: 'test', provider: 'stripe', sessionId: 'session-123', amount: 10.00, currency: 'USD', redirectUrl: 'https://example.com/redirect' }
+        })
       ];
       
       expect(derivePaymentStatus(events)).toBe('pending');
     });
 
-    it('should return paid for payment.succeeded', () => {
+    it('should return paid for PaymentSucceeded', () => {
+      const baseTime = Date.now();
       const events = [
-        {
-          id: '1',
-          seq: 1,
-          type: 'payment.initiated' as const,
-          payload: { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000 },
-          timestamp: new Date(Date.now() - 1000).toISOString(),
-          at: Date.now() - 1000
-        },
-        {
-          id: '2',
-          seq: 2,
-          type: 'payment.succeeded' as const,
-          payload: { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000 },
-          timestamp: new Date().toISOString(),
-          at: Date.now()
-        }
+        createPaymentInitiatedEvent({
+          type: 'payment.initiated',
+          payload: { ticketId: 'test', provider: 'stripe', sessionId: 'session-123', amount: 10.00, currency: 'USD', redirectUrl: 'https://example.com/redirect' },
+          at: baseTime - 1000
+        }),
+        createPaymentSucceededEvent({
+          type: 'payment.succeeded',
+          payload: { provider: 'stripe', sessionId: 'session-123', ticketId: 'test', amount: 10.00 },
+          at: baseTime
+        })
       ];
       
       expect(derivePaymentStatus(events)).toBe('paid');
     });
 
-    it('should return failed for payment.failed', () => {
+    it('should return failed for PaymentFailed', () => {
+      const baseTime = Date.now();
       const events = [
-        {
-          id: '1',
-          seq: 1,
-          type: 'payment.initiated' as const,
-          payload: { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000 },
-          timestamp: new Date(Date.now() - 1000).toISOString(),
-          at: Date.now() - 1000
-        },
-        {
-          id: '2',
-          seq: 2,
-          type: 'payment.failed' as const,
-          payload: { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000, reason: 'insufficient_funds' },
-          timestamp: new Date().toISOString(),
-          at: Date.now()
-        }
+        createPaymentInitiatedEvent({
+          type: 'payment.initiated',
+          payload: { ticketId: 'test', provider: 'stripe', sessionId: 'session-123', amount: 10.00, currency: 'USD', redirectUrl: 'https://example.com/redirect' },
+          at: baseTime - 1000
+        }),
+        createPaymentFailedEvent({
+          type: 'payment.failed',
+          payload: { provider: 'stripe', sessionId: 'session-123', ticketId: 'test', amount: 10.00, reason: 'insufficient_funds' },
+          at: baseTime
+        })
       ];
       
       expect(derivePaymentStatus(events)).toBe('failed');
     });
 
     it('should handle out-of-order events (failed then succeeded -> paid)', () => {
+      const testStore = new InMemoryEventStore();
       const baseTime = Date.now();
-      const events = [
-        {
-          id: '1',
-          seq: 1,
-          type: 'payment.initiated' as const,
-          payload: { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000 },
-          timestamp: new Date(baseTime - 2000).toISOString(),
-          at: baseTime - 2000
-        },
-        {
-          id: '2',
-          seq: 2,
-          type: 'payment.failed' as const,
-          payload: { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000, reason: 'network_error' },
-          timestamp: new Date(baseTime - 1000).toISOString(),
-          at: baseTime - 1000
-        },
-        {
-          id: '3',
-          seq: 3,
-          type: 'payment.succeeded' as const,
-          payload: { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000 },
-          timestamp: new Date(baseTime).toISOString(),
-          at: baseTime
-        }
-      ];
       
+      // Add events using store.append()
+      testStore.append('payment.initiated', 
+        { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000, currency: 'USD', redirectUrl: 'https://example.com/redirect' },
+        { key: 'payment-initiated-1', params: {}, aggregate: { id: 'payment-123', type: 'payment' } }
+      );
+      testStore.append('payment.failed',
+        { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000, reason: 'network_error' },
+        { key: 'payment-failed-1', params: {}, aggregate: { id: 'payment-123', type: 'payment' } }
+      );
+      testStore.append('payment.succeeded',
+        { provider: 'stripe', sessionId: 'sess_123', ticketId: 'test', amount: 1000 },
+        { key: 'payment-succeeded-1', params: {}, aggregate: { id: 'payment-123', type: 'payment' } }
+      );
+      
+      const events = testStore.getAll();
       expect(derivePaymentStatus(events)).toBe('paid');
     });
   });
@@ -250,7 +224,7 @@ describe('Payments', () => {
       const result = handleWebhook(store, {
         provider: 'stripe',
         sessionId: 'sess_123',
-        eventType: 'unknown' as any,
+        eventType: 'unknown' as 'succeeded' | 'failed',
         ticketId: 'ticket-123',
         amount: 2599,
         currency: 'USD'
