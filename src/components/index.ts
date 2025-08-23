@@ -1,6 +1,6 @@
 export { Button } from './Button';
 export { Input } from './Input';
-export { Select } from './Select';
+export { Select, type SelectOption } from './Select';
 export { Card, CardHeader, CardTitle, CardContent } from './Card';
 export { Layout } from './Layout';
 export { Breadcrumb } from './Breadcrumb';

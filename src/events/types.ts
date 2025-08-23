@@ -20,6 +20,23 @@ export type KnownEvent =
   | PaymentFailedEvent
   | AuditLoggedEvent
   | ZReportFinalizedEvent
+  | TaxRateCreatedEvent
+  | TaxRateUpdatedEvent
+  | TaxCalculationPerformedEvent
+  | TaxExemptionAppliedEvent
+  | TaxReportGeneratedEvent
+  | ReorderAlertCreatedEvent
+  | PurchaseOrderCreatedEvent
+  | InventoryReceivedEvent
+  | StockTransferInitiatedEvent
+  | ExpirationAlertCreatedEvent
+  | BatchCreatedEvent
+  | BatchConsumedEvent
+  | BatchExpiredEvent
+  | BatchWastedEvent
+  | SupplierCreatedEvent
+  | SupplierUpdatedEvent
+  | DeliveryReceivedEvent
 
 export interface SaleRecordedEvent extends Event {
   type: 'sale.recorded'
@@ -226,5 +243,176 @@ export class IdempotencyConflictError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'IdempotencyConflictError'
+  }
+}
+
+// Tax Management Events
+export interface TaxRateCreatedEvent extends Event {
+  type: 'tax.rate.created'
+  payload: {
+    taxRate: any; // Will be fully typed when tax types are imported
+    createdBy: string;
+  }
+}
+
+export interface TaxRateUpdatedEvent extends Event {
+  type: 'tax.rate.updated'
+  payload: {
+    taxRateId: string;
+    changes: any;
+    previousValues: any;
+    updatedBy: string;
+  }
+}
+
+export interface TaxCalculationPerformedEvent extends Event {
+  type: 'tax.calculation.performed'
+  payload: {
+    input: any;
+    result: any;
+    saleId?: string;
+  }
+}
+
+export interface TaxExemptionAppliedEvent extends Event {
+  type: 'tax.exemption.applied'
+  payload: {
+    exemptionId: string;
+    customerId: string;
+    certificateId?: string;
+    appliedToSale: string;
+    savedAmount: number;
+  }
+}
+
+export interface TaxReportGeneratedEvent extends Event {
+  type: 'tax.report.generated'
+  payload: {
+    reportId: string;
+    reportType: string;
+    periodStart: string;
+    periodEnd: string;
+    jurisdiction: any;
+    generatedBy: string;
+    totalTaxCollected: number;
+    totalExemptions: number;
+  }
+}
+
+// Advanced Inventory Management Events
+export interface ReorderAlertCreatedEvent extends Event {
+  type: 'inventory.reorder_alert.created'
+  payload: {
+    alert: any; // ReorderAlert type
+    automaticallyGenerated: boolean;
+  }
+}
+
+export interface PurchaseOrderCreatedEvent extends Event {
+  type: 'inventory.purchase_order.created'
+  payload: {
+    purchaseOrder: any; // PurchaseOrder type
+    triggeredByReorderAlert?: string;
+  }
+}
+
+export interface InventoryReceivedEvent extends Event {
+  type: 'inventory.received'
+  payload: {
+    purchaseOrderId: string;
+    items: Array<{
+      sku: string;
+      quantityReceived: number;
+      batchInfo?: any; // BatchInfo type
+      costPerUnit: number;
+    }>;
+    receivedBy: string;
+    locationId: string;
+  }
+}
+
+export interface StockTransferInitiatedEvent extends Event {
+  type: 'inventory.transfer.initiated'
+  payload: {
+    transfer: any; // StockTransfer type
+  }
+}
+
+export interface ExpirationAlertCreatedEvent extends Event {
+  type: 'inventory.expiration_alert.created'
+  payload: {
+    alert: any; // ExpirationAlert type
+    daysUntilExpiration: number;
+  }
+}
+
+export interface BatchCreatedEvent extends Event {
+  type: 'inventory.batch.created'
+  payload: {
+    batchId: string;
+    sku: string;
+    batchInfo: any; // BatchInfo type
+    locationId: string;
+  }
+}
+
+export interface BatchConsumedEvent extends Event {
+  type: 'inventory.batch.consumed'
+  payload: {
+    consumption: any; // BatchConsumption type
+    sku: string;
+    remainingBatchQuantity: number;
+  }
+}
+
+export interface BatchExpiredEvent extends Event {
+  type: 'inventory.batch.expired'
+  payload: {
+    batchId: string;
+    expiredDate: string;
+    quantity: number;
+  }
+}
+
+export interface BatchWastedEvent extends Event {
+  type: 'inventory.batch.wasted'
+  payload: {
+    batchId: string;
+    wasteQuantity: number;
+    reason: string;
+    markedBy: string;
+    wasteDate: string;
+    wasteValue: number;
+  }
+}
+
+export interface SupplierCreatedEvent extends Event {
+  type: 'inventory.supplier.created'
+  payload: {
+    supplier: any; // Supplier type
+  }
+}
+
+export interface SupplierUpdatedEvent extends Event {
+  type: 'inventory.supplier.updated'
+  payload: {
+    supplierId: string;
+    updates: any;
+    previousData: any;
+  }
+}
+
+export interface DeliveryReceivedEvent extends Event {
+  type: 'inventory.delivery.received'
+  payload: {
+    purchaseOrderId: string;
+    receivedItems: Array<{
+      sku: string;
+      quantityReceived: number;
+      condition: 'good' | 'damaged' | 'expired';
+      notes?: string;
+    }>;
+    receivedBy: string;
+    actualDeliveryDate: string;
   }
 }

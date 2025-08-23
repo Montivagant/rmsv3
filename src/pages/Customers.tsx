@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '../components';
-import { useApi, apiPatch } from '../hooks/useApi';
+import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
 
@@ -18,7 +18,23 @@ interface Customer {
 function Customers() {
   const { data: customers, loading, error, refetch } = useApi<Customer[]>('/api/customers');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
   const [updatingCustomer, setUpdatingCustomer] = useState<string | null>(null);
+  const [showFilterForm, setShowFilterForm] = useState(false);
+  const [filters, setFilters] = useState({
+    minPoints: '',
+    maxPoints: '',
+    minVisits: '',
+    maxVisits: '',
+    minSpent: '',
+    maxSpent: ''
+  });
   
   const updatePoints = async (customerId: string, pointsToAdd: number) => {
     try {
@@ -36,12 +52,54 @@ function Customers() {
       setUpdatingCustomer(null);
     }
   };
+
+  const addCustomer = async () => {
+    try {
+      setIsAddingCustomer(true);
+      await apiPost('/api/customers', newCustomer);
+      setNewCustomer({
+        name: '',
+        email: '',
+        phone: ''
+      });
+      setShowAddForm(false);
+      refetch();
+    } catch (error) {
+      console.error('Error adding customer:', error);
+    } finally {
+      setIsAddingCustomer(false);
+    }
+  };
   
-  const filteredCustomers = customers?.filter(customer => 
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const clearFilters = () => {
+    setFilters({
+      minPoints: '',
+      maxPoints: '',
+      minVisits: '',
+      maxVisits: '',
+      minSpent: '',
+      maxSpent: ''
+    });
+  };
+
+  const filteredCustomers = customers?.filter(customer => {
+    // Text search filter
+    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone.includes(searchTerm) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    // Advanced filters
+    if (filters.minPoints && customer.points < parseInt(filters.minPoints)) return false;
+    if (filters.maxPoints && customer.points > parseInt(filters.maxPoints)) return false;
+    if (filters.minVisits && customer.visits < parseInt(filters.minVisits)) return false;
+    if (filters.maxVisits && customer.visits > parseInt(filters.maxVisits)) return false;
+    if (filters.minSpent && customer.totalSpent < parseFloat(filters.minSpent)) return false;
+    if (filters.maxSpent && customer.totalSpent > parseFloat(filters.maxSpent)) return false;
+
+    return true;
+  }) || [];
   
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -78,8 +136,62 @@ function Customers() {
             Manage customer profiles and loyalty points
           </p>
         </div>
-        <Button>Add Customer</Button>
+        <Button onClick={() => setShowAddForm(true)}>Add Customer</Button>
       </div>
+
+      {/* Add Customer Form */}
+      {showAddForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Add New Customer</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Full Name</label>
+                <Input
+                  value={newCustomer.name}
+                  onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                  placeholder="Enter customer name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Email</label>
+                <Input
+                  type="email"
+                  value={newCustomer.email}
+                  onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                  placeholder="customer@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Phone Number</label>
+                <Input
+                  type="tel"
+                  value={newCustomer.phone}
+                  onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                  placeholder="555-0123"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-6">
+              <Button 
+                onClick={addCustomer} 
+                disabled={isAddingCustomer || !newCustomer.name || !newCustomer.email}
+              >
+                {isAddingCustomer ? 'Adding...' : 'Add Customer'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowAddForm(false)}
+                disabled={isAddingCustomer}
+              >
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <div className="flex gap-4">
         <Input 
@@ -88,8 +200,84 @@ function Customers() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <Button variant="outline">Filter</Button>
+        <Button variant="outline" onClick={() => setShowFilterForm(!showFilterForm)}>
+          {showFilterForm ? 'Hide Filters' : 'Filter'}
+        </Button>
+        {(filters.minPoints || filters.maxPoints || filters.minVisits || filters.maxVisits || filters.minSpent || filters.maxSpent) && (
+          <Button variant="outline" onClick={clearFilters}>
+            Clear Filters
+          </Button>
+        )}
       </div>
+
+      {/* Advanced Filter Form */}
+      {showFilterForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Advanced Filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Loyalty Points</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minPoints}
+                    onChange={(e) => setFilters({...filters, minPoints: e.target.value})}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxPoints}
+                    onChange={(e) => setFilters({...filters, maxPoints: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Number of Visits</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minVisits}
+                    onChange={(e) => setFilters({...filters, minVisits: e.target.value})}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxVisits}
+                    onChange={(e) => setFilters({...filters, maxVisits: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Total Spent ($)</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Min"
+                    value={filters.minSpent}
+                    onChange={(e) => setFilters({...filters, minSpent: e.target.value})}
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Max"
+                    value={filters.maxSpent}
+                    onChange={(e) => setFilters({...filters, maxSpent: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+              Showing {filteredCustomers.length} of {customers?.length || 0} customers
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCustomers.map(customer => (

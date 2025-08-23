@@ -36,27 +36,34 @@ if (typeof window !== 'undefined' && window.navigator.userAgent.includes('Electr
 // Mutually exclusive MSW/SW initialization
 const useSW = import.meta.env.PROD && !import.meta.env.VITE_DISABLE_SW
 
-if (useSW) {
-  import('./sw/register').then(m => m.maybeRegisterServiceWorker())
-} else if (import.meta.env.DEV || import.meta.env.VITE_USE_MSW === '1') {
-  // Gracefully handle MSW loading in case of dependency issues
-  import('./mocks/browser')
-    .then(({ worker }) => worker.start({ onUnhandledRequest: 'bypass' }))
-    .catch((error) => {
+async function initializeApp() {
+  if (useSW) {
+    await import('./sw/register').then(m => m.maybeRegisterServiceWorker())
+  } else if (import.meta.env.DEV || import.meta.env.VITE_USE_MSW === '1') {
+    // Gracefully handle MSW loading in case of dependency issues
+    try {
+      const { worker } = await import('./mocks/browser');
+      await worker.start({ onUnhandledRequest: 'bypass' });
+      console.log('✅ MSW worker ready');
+    } catch (error) {
       console.log('ℹ️ MSW not available (dependency issues) - API calls will go to real endpoints');
-    })
+    }
+  }
+
+  const root = createRoot(document.getElementById('root')!)
+
+  root.render(
+    <StrictMode>
+      <EventStoreProvider>
+        <ToastProvider>
+          <UpdateManager>
+            <App />
+          </UpdateManager>
+        </ToastProvider>
+      </EventStoreProvider>
+    </StrictMode>,
+  )
 }
 
-const root = createRoot(document.getElementById('root')!)
-
-root.render(
-  <StrictMode>
-    <EventStoreProvider>
-      <ToastProvider>
-        <UpdateManager>
-          <App />
-        </UpdateManager>
-      </ToastProvider>
-    </EventStoreProvider>
-  </StrictMode>,
-)
+// Initialize the app
+initializeApp().catch(console.error);

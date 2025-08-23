@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from '../components';
 import { useApi, apiPost } from '../hooks/useApi';
 import { computeTotals, type Line } from '../money/totals';
@@ -17,6 +17,7 @@ import { generatePaymentKeys, handleWebhook } from '../payments/webhook';
 import { derivePaymentStatus } from '../payments/status';
 import { isPaymentInitiated } from '../events/guards';
 import { PaymentModal } from '../components/PaymentModal';
+import { createTaxService, type TaxCalculationResult, type TaxableItem } from '../tax';
 
 interface MenuItem {
   id: string;
@@ -69,13 +70,30 @@ function POS() {
   const [paymentProvider, setPaymentProvider] = useState<PlaceholderPaymentProvider>(
     createPaymentProvider({ mode: 'placeholder' }) as PlaceholderPaymentProvider
   );
+  const [taxCalculation, setTaxCalculation] = useState<TaxCalculationResult | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const currentTicketIdRef = useRef<string | null>(null);
   const toast = useToast();
   
+  // Tax service instance - memoized to prevent recreation
+  const taxService = useMemo(() => createTaxService(store), [store]);
+  
   const { flags } = useFlags();
   const paymentsEnabled = flags.payments;
   const loyaltyEnabled = flags.loyalty;
+
+  // Use a ref to track events length and prevent infinite re-renders
+  const eventsLengthRef = useRef(0);
+  const [eventsVersion, setEventsVersion] = useState(0);
+  
+  // Update events version when length changes
+  useMemo(() => {
+    const currentLength = store.getAll().length;
+    if (currentLength !== eventsLengthRef.current) {
+      eventsLengthRef.current = currentLength;
+      setEventsVersion(prev => prev + 1);
+    }
+  }, [store]);
   
   const currentRole = getRole();
   const canFinalize = RANK[currentRole] >= RANK[Role.ADMIN];
@@ -90,7 +108,45 @@ function POS() {
     } else {
       setPaymentStatus('none');
     }
-  }, [store.getAll().length, paymentsEnabled]);
+  }, [eventsVersion, paymentsEnabled, store]);
+
+  // Calculate taxes when cart or customer changes
+  useEffect(() => {
+    if (cart.length === 0) {
+      setTaxCalculation(null);
+      return;
+    }
+
+    const calculateTaxes = async () => {
+      try {
+        const taxableItems: TaxableItem[] = cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          category: item.category,
+          isTaxIncluded: false
+        }));
+
+        const taxInput = {
+          items: taxableItems,
+          customer: selectedCustomer ? {
+            id: selectedCustomer.id,
+            type: 'individual' as const,
+            isBusinessCustomer: false
+          } : undefined
+        };
+
+        const result = await taxService.calculateTaxes(taxInput);
+        setTaxCalculation(result);
+      } catch (error) {
+        console.error('Tax calculation failed:', error);
+        setTaxCalculation(null);
+      }
+    };
+
+    calculateTaxes();
+  }, [cart, selectedCustomer, taxService]);
   
   // Keyboard shortcuts
   useEffect(() => {
@@ -185,7 +241,23 @@ function POS() {
   // Calculate loyalty discount
   const loyaltyDiscount = pointsToValue(loyaltyPoints, DEFAULT_LOYALTY_CONFIG);
   const totalDiscount = discount + loyaltyDiscount;
-  const totals = computeTotals(cartLines, totalDiscount);
+  const baseTotals = computeTotals(cartLines, totalDiscount);
+  
+  // Calculate taxes
+  const taxableItems: TaxableItem[] = cart.map(item => ({
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    quantity: item.quantity,
+    category: item.category,
+    isTaxIncluded: false // Assume tax is additional
+  }));
+  
+  const totals = {
+    ...baseTotals,
+    tax: taxCalculation?.totalTax || 0,
+    total: baseTotals.total + (taxCalculation?.totalTax || 0)
+  };
   
   const placeOrder = async () => {
     if (cart.length === 0) return;
@@ -689,10 +761,28 @@ function POS() {
                     </div>
                   )}
                   
-                  <div className="flex justify-between items-center">
-                    <span>Tax (14%):</span>
-                    <span>${totals.tax.toFixed(2)}</span>
-                  </div>
+                  {/* Tax breakdown */}
+                  {taxCalculation && taxCalculation.totalTax > 0 ? (
+                    <div className="space-y-1">
+                      {taxCalculation.taxBreakdown.map((tax, index) => (
+                        <div key={index} className="flex justify-between items-center text-sm">
+                          <span>{tax.taxRate.displayName} ({(tax.taxRate.rate * 100).toFixed(2)}%):</span>
+                          <span>${tax.taxAmount.toFixed(2)}</span>
+                        </div>
+                      ))}
+                      {taxCalculation.taxBreakdown.length > 1 && (
+                        <div className="flex justify-between items-center font-medium border-t pt-1">
+                          <span>Total Tax:</span>
+                          <span>${taxCalculation.totalTax.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center">
+                      <span>Tax:</span>
+                      <span>$0.00</span>
+                    </div>
+                  )}
                   
                   <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
                     <span>Total:</span>

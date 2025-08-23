@@ -18,11 +18,16 @@ const mockOrders = [
 ];
 
 const mockInventory = [
-  { id: '1', name: 'Beef Patties', sku: 'BEEF-001', quantity: 50, unit: 'pieces', lowStock: 10, category: 'Meat', cost: 3.50 },
-  { id: '2', name: 'Chicken Breast', sku: 'CHKN-001', quantity: 25, unit: 'pieces', lowStock: 5, category: 'Meat', cost: 4.25 },
-  { id: '3', name: 'Potatoes', sku: 'VEG-001', quantity: 100, unit: 'lbs', lowStock: 20, category: 'Vegetables', cost: 0.75 },
-  { id: '4', name: 'Onions', sku: 'VEG-002', quantity: 30, unit: 'lbs', lowStock: 10, category: 'Vegetables', cost: 0.85 },
-  { id: '5', name: 'Coca Cola Syrup', sku: 'BEV-001', quantity: 5, unit: 'boxes', lowStock: 2, category: 'Beverages', cost: 12.99 },
+  { id: '1', name: 'Beef Patty (1/4 lb)', sku: 'BEEF_PATTY', quantity: 15, unit: 'pieces', lowStock: 20, category: 'Food - Perishable', cost: 2.45 },
+  { id: '2', name: 'Hamburger Buns', sku: 'BURGER_BUNS', quantity: 8, unit: 'pieces', lowStock: 25, category: 'Food - Perishable', cost: 0.33 },
+  { id: '3', name: 'Frozen French Fries', sku: 'FRIES_FROZEN', quantity: 45, unit: 'lbs', lowStock: 30, category: 'Food - Non-Perishable', cost: 1.25 },
+  { id: '4', name: 'Fresh Lettuce', sku: 'LETTUCE', quantity: 12, unit: 'heads', lowStock: 15, category: 'Food - Perishable', cost: 0.75 },
+  { id: '5', name: 'Tomatoes', sku: 'TOMATOES', quantity: 25, unit: 'lbs', lowStock: 20, category: 'Food - Perishable', cost: 1.85 },
+  { id: '6', name: 'Cheese Slices', sku: 'CHEESE_SLICES', quantity: 40, unit: 'pieces', lowStock: 30, category: 'Food - Perishable', cost: 0.45 },
+  { id: '7', name: 'Onions', sku: 'ONIONS', quantity: 18, unit: 'lbs', lowStock: 15, category: 'Food - Perishable', cost: 0.65 },
+  { id: '8', name: 'Ketchup', sku: 'KETCHUP', quantity: 6, unit: 'bottles', lowStock: 8, category: 'Condiments', cost: 3.25 },
+  { id: '9', name: 'Mustard', sku: 'MUSTARD', quantity: 4, unit: 'bottles', lowStock: 6, category: 'Condiments', cost: 2.85 },
+  { id: '10', name: 'Cooking Oil', sku: 'COOKING_OIL', quantity: 3, unit: 'gallons', lowStock: 5, category: 'Cooking Supplies', cost: 8.50 }
 ];
 
 const mockCustomers = [
@@ -110,7 +115,19 @@ export const handlers = [
 
   // Inventory
   http.get('/api/inventory', () => {
+    console.log('📦 MSW: Inventory API called, returning', mockInventory.length, 'items');
     return HttpResponse.json(mockInventory);
+  }),
+
+  http.post('/api/inventory', async ({ request }) => {
+    const newItem = await request.json() as any;
+    const item = { 
+      ...newItem, 
+      id: String(mockInventory.length + 1) 
+    };
+    mockInventory.push(item);
+    console.log('📦 MSW: Added new inventory item:', item.name);
+    return HttpResponse.json(item, { status: 201 });
   }),
 
   http.patch('/api/inventory/:id', async ({ params, request }) => {
