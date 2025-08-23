@@ -1,25 +1,41 @@
-// Lightweight PouchDB adapter for events (TEMPORARILY DISABLED)
-// PouchDB imports disabled due to CommonJS/ESM module conflicts (spark-md5, vuvuzela, etc.)
-// Using localStorage persistence instead
+// Lightweight PouchDB adapter for events
+// PouchDB import disabled in development due to CommonJS/ESM conflicts
 // import PouchDB from 'pouchdb';
-const PouchDB = null as any;
+const PouchDB: any = null;
 
 // Configure PouchDB for browser environment
 let adapterConfigured = false;
 
 async function configurePouchDB() {
-  // Disabled: PouchDB temporarily unavailable due to module conflicts
-  console.warn('PouchDB configuration disabled - using localStorage persistence instead');
+  if (adapterConfigured) return;
+  
+  // PouchDB is configured for browser environment by default with IndexedDB
+  adapterConfigured = true;
 }
 import type { Event as AppEvent, KnownEvent } from '../events/types';
 
+// Base document structure for PouchDB
+export interface DBDocument {
+  _id: string;
+  _rev?: string;
+  timestamp: number;
+  aggregateId?: string;
+  type: string;
+  [key: string]: any;
+}
+
 // DB-shaped events with PouchDB metadata
-export type DBEvent = KnownEvent & { _id: string; _rev?: string };
+export type DBEvent = KnownEvent & DBDocument;
 export type PouchCfg = { name: string };
 
 export async function openLocalDB(cfg: PouchCfg) {
+  if (PouchDB === null) {
+    throw new Error('PouchDB is disabled in development mode due to module conflicts');
+  }
+  
   await configurePouchDB();
-  const db = new PouchDB<DBEvent>(cfg.name); // IndexedDB in browser
+  // TypeScript workaround for development mode when PouchDB is null
+  const db = new (PouchDB as any)(cfg.name) as PouchDB.Database<DBDocument>; // IndexedDB in browser
   
   // Create Mango indexes for better query performance
   await createIndexes(db);
@@ -28,7 +44,7 @@ export async function openLocalDB(cfg: PouchCfg) {
 }
 
 // Create Mango indexes for efficient queries
-export async function createIndexes(db: PouchDB.Database<DBEvent>) {
+export async function createIndexes(db: PouchDB.Database<DBDocument>) {
   try {
     // Index for aggregateId queries
     await db.createIndex({
@@ -62,9 +78,9 @@ export async function createIndexes(db: PouchDB.Database<DBEvent>) {
   }
 }
 
-export async function putEvent(db: PouchDB.Database<DBEvent>, event: AppEvent) {
+export async function putEvent(db: PouchDB.Database<DBDocument>, event: AppEvent) {
   // Map domain event to DB event
-  const dbEvent: DBEvent = {
+  const dbEvent: DBDocument = {
     ...event,
     timestamp: event.at,
     aggregateId: event.aggregate?.id,
@@ -75,14 +91,14 @@ export async function putEvent(db: PouchDB.Database<DBEvent>, event: AppEvent) {
     const existing = await db.get(dbEvent._id);
     // Idempotent: same id → keep first (append-only model)
     return await db.put({ ...existing, ...dbEvent, _rev: existing._rev });
-  } catch (err: any) {
-    if (err?.status === 404) return db.put(dbEvent);
+  } catch (err: unknown) {
+    if ((err as any)?.status === 404) return db.put(dbEvent);
     throw err;
   }
 }
 
-export async function bulkPutEvents(db: PouchDB.Database<DBEvent>, events: AppEvent[]) {
-  const docs = events.map(event => ({
+export async function bulkPutEvents(db: PouchDB.Database<DBDocument>, events: AppEvent[]) {
+  const docs: DBDocument[] = events.map(event => ({
     ...event,
     timestamp: event.at,
     aggregateId: event.aggregate?.id,
@@ -91,12 +107,12 @@ export async function bulkPutEvents(db: PouchDB.Database<DBEvent>, events: AppEv
   return db.bulkDocs(docs, { new_edits: false }); // keep provided _id/_rev or insert
 }
 
-export async function allEvents(db: PouchDB.Database<DBEvent>): Promise<AppEvent[]> {
+export async function allEvents(db: PouchDB.Database<DBDocument>): Promise<AppEvent[]> {
   const res = await db.allDocs({ include_docs: true });
   return res.rows.flatMap(r => (r.doc ? [stripMeta(r.doc)] : []));
 }
 
-export async function getByAggregate(db: PouchDB.Database<DBEvent>, aggregateId: string): Promise<AppEvent[]> {
+export async function getByAggregate(db: PouchDB.Database<DBDocument>, aggregateId: string): Promise<AppEvent[]> {
   try {
     const result = await db.find({
       selector: { aggregateId },
@@ -110,13 +126,18 @@ export async function getByAggregate(db: PouchDB.Database<DBEvent>, aggregateId:
   }
 }
 
-export async function eventsByType<T extends AppEvent['type']>(db: PouchDB.Database<DBEvent>, type: T): Promise<Extract<AppEvent, { type: T }>[]> {
+export async function eventsByType<T extends AppEvent['type']>(
+  db: PouchDB.Database<DBDocument>, 
+  type: T
+): Promise<Extract<AppEvent, { type: T }>[]> {
   try {
     const result = await db.find({
       selector: { type },
       sort: ['timestamp']
     });
-    return result.docs.map(doc => stripMeta(doc)).filter((event): event is Extract<AppEvent, { type: T }> => event.type === type);
+    return result.docs
+      .map(doc => stripMeta(doc))
+      .filter((event): event is Extract<AppEvent, { type: T }> => event.type === type);
   } catch (error) {
     console.warn('Mango query failed, falling back to allEvents filter:', error);
     const events = await allEvents(db);
@@ -124,11 +145,11 @@ export async function eventsByType<T extends AppEvent['type']>(db: PouchDB.Datab
   }
 }
 
-export async function resetDB(db: PouchDB.Database<any>) {
+export async function resetDB(db: PouchDB.Database<DBDocument>) {
   await db.destroy();
 }
 
-function stripMeta(doc: DBEvent): AppEvent {
+function stripMeta(doc: DBDocument): AppEvent {
   // remove Pouch meta fields and map back to domain event
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _id, _rev, timestamp, aggregateId, ...rest } = doc;
@@ -136,7 +157,7 @@ function stripMeta(doc: DBEvent): AppEvent {
     ...rest,
     at: timestamp,
     aggregate: aggregateId ? { id: aggregateId, type: rest.aggregate?.type || 'unknown' } : rest.aggregate
-  };
+  } as AppEvent;
 }
 
 // Legacy adapter interface for backward compatibility
@@ -144,12 +165,16 @@ export interface PouchDBAdapter {
   putEvent(event: AppEvent): Promise<void>;
   allEvents(): Promise<AppEvent[]>;
   getByAggregate(aggregateId: string): Promise<AppEvent[]>;
-  eventsByType(eventType: string): Promise<AppEvent[]>;
+  eventsByType<T extends AppEvent['type']>(eventType: T): Promise<Extract<AppEvent, { type: T }>[]>;
   reset(): Promise<void>;
 }
 
 // Modern composition-based adapter (recommended)
 export async function createPouchDBAdapter(cfg: PouchCfg): Promise<PouchDBAdapter> {
+  if (PouchDB === null) {
+    throw new Error('PouchDB is disabled in development mode due to module conflicts');
+  }
+  
   const db = await openLocalDB(cfg);
   
   return {
@@ -165,8 +190,8 @@ export async function createPouchDBAdapter(cfg: PouchCfg): Promise<PouchDBAdapte
       return getByAggregate(db, aggregateId);
     },
     
-    async eventsByType(eventType: string): Promise<AppEvent[]> {
-      return eventsByType(db, eventType as AppEvent['type']);
+    async eventsByType<T extends AppEvent['type']>(eventType: T): Promise<Extract<AppEvent, { type: T }>[]> {
+      return eventsByType(db, eventType);
     },
     
     async reset(): Promise<void> {
@@ -177,6 +202,10 @@ export async function createPouchDBAdapter(cfg: PouchCfg): Promise<PouchDBAdapte
 
 // Legacy function for backward compatibility
 export function openLocalDBLegacy(name: string): PouchDBAdapter {
+  if (PouchDB === null) {
+    throw new Error('PouchDB is disabled in development mode due to module conflicts');
+  }
+  
   const dbPromise = openLocalDB({ name });
   
   return {
@@ -195,9 +224,9 @@ export function openLocalDBLegacy(name: string): PouchDBAdapter {
       return getByAggregate(db, aggregateId);
     },
     
-    async eventsByType(eventType: string): Promise<AppEvent[]> {
+    async eventsByType<T extends AppEvent['type']>(eventType: T): Promise<Extract<AppEvent, { type: T }>[]> {
       const db = await dbPromise;
-      return eventsByType(db, eventType as AppEvent['type']);
+      return eventsByType(db, eventType);
     },
     
     async reset(): Promise<void> {

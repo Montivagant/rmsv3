@@ -68,7 +68,7 @@ function AppContent() {
   
   return (
     <div className={getDensityClasses(density)}>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Suspense fallback={<Loading />}>
           <Routes>
           <Route path="/login" element={<Login />} />

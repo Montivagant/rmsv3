@@ -1,178 +1,230 @@
-// Base event structure
-export interface BaseEvent {
-  id: string;
-  seq: number;
-  type: string;
-  at: number;
-  aggregate?: {
-    id: string;
-    type: string;
-  };
+export interface Event {
+  id: string
+  seq: number
+  type: string
+  at: number
+  aggregate: {
+    id: string
+    type: string
+  }
+  payload?: any
 }
 
-// Event payloads
+export type KnownEvent = 
+  | SaleRecordedEvent
+  | InventoryAdjustedEvent
+  | LoyaltyAccruedEvent
+  | LoyaltyRedeemedEvent
+  | PaymentInitiatedEvent
+  | PaymentSucceededEvent
+  | PaymentFailedEvent
+  | AuditLoggedEvent
+  | ZReportFinalizedEvent
+
+export interface SaleRecordedEvent extends Event {
+  type: 'sale.recorded'
+  payload: SaleRecordedPayload
+}
+
 export interface SaleRecordedPayload {
-  ticketId: string;
-  customerId?: string;
-  lines: {
-    sku?: string;
-    name: string;
-    qty: number;
-    price: number;
-    taxRate: number;
-  }[];
+  ticketId: string
+  lines: Array<{
+    sku?: string
+    name: string
+    qty: number
+    price: number
+    taxRate: number
+  }>
   totals: {
-    subtotal: number;
-    discount: number;
-    tax: number;
-    total: number;
-  };
+    subtotal: number
+    discount: number
+    tax: number
+    total: number
+  }
+  customerId?: string
+}
+
+export interface InventoryAdjustedEvent extends Event {
+  type: 'inventory.adjusted'
+  payload: InventoryAdjustedPayload
 }
 
 export interface InventoryAdjustedPayload {
-  sku: string;
-  delta: number;
-  reason?: string;
+  sku: string
+  oldQty: number
+  newQty: number
+  reason: string
+}
+
+export interface LoyaltyAccruedEvent extends Event {
+  type: 'loyalty.accrued'
+  payload: LoyaltyAccruedPayload
 }
 
 export interface LoyaltyAccruedPayload {
-  customerId: string;
-  ticketId: string;
-  points: number;
+  customerId: string
+  points: number
+  ticketId: string
+  amount: number
+}
+
+export interface LoyaltyRedeemedEvent extends Event {
+  type: 'loyalty.redeemed'
+  payload: LoyaltyRedeemedPayload
 }
 
 export interface LoyaltyRedeemedPayload {
-  customerId: string;
-  ticketId: string;
-  points: number;
-  value: number;
+  customerId: string
+  points: number
+  value: number
+  ticketId: string
+}
+
+export interface PaymentInitiatedEvent extends Event {
+  type: 'payment.initiated'
+  payload: PaymentInitiatedPayload
 }
 
 export interface PaymentInitiatedPayload {
-  ticketId: string;
-  provider: string;
-  sessionId: string;
-  amount: number;
-  currency?: string;
-  redirectUrl: string;
+  ticketId: string
+  amount: number
+  provider: string
+  sessionId: string
+  currency?: string
+}
+
+export interface PaymentSucceededEvent extends Event {
+  type: 'payment.succeeded'
+  payload: PaymentSucceededPayload
 }
 
 export interface PaymentSucceededPayload {
-  ticketId: string;
-  provider: string;
-  sessionId: string;
-  amount: number;
-  currency?: string;
+  ticketId: string
+  amount: number
+  provider: string
+  sessionId: string
+  currency?: string
+}
+
+export interface PaymentFailedEvent extends Event {
+  type: 'payment.failed'
+  payload: PaymentFailedPayload
 }
 
 export interface PaymentFailedPayload {
-  ticketId: string;
-  provider: string;
-  sessionId: string;
-  amount: number;
-  currency?: string;
-  reason?: string;
+  ticketId: string
+  amount: number
+  provider: string
+  sessionId: string
+  currency?: string
+  reason?: string
 }
 
 export interface AuditLoggedPayload {
-  action: string;
-  resource: string;
-  details?: Record<string, any>;
-  previousValue?: any;
-  newValue?: any;
-  userId: string;
-  userRole: string;
-  userName: string;
-  timestamp: number;
-  userAgent?: string;
-  ipAddress?: string;
+  userId: string
+  userRole: string
+  userName: string
+  action: string
+  resource: string
+  details?: Record<string, any>
+  previousValue?: any
+  newValue?: any
+  timestamp: number
+  userAgent?: string
+  ipAddress?: string
 }
 
-// Typed events
-export interface SaleRecordedEvent extends BaseEvent {
-  type: 'sale.recorded';
-  payload: SaleRecordedPayload;
+export interface AuditLoggedEvent extends Event {
+  type: 'audit.logged'
+  payload: AuditLoggedPayload
 }
 
-export interface InventoryAdjustedEvent extends BaseEvent {
-  type: 'inventory.adjusted';
-  payload: InventoryAdjustedPayload;
+export interface ZReportFinalizedEvent extends Event {
+  type: 'z-report.finalized'
+  payload: ZReportFinalizedPayload
 }
 
-export interface LoyaltyAccruedEvent extends BaseEvent {
-  type: 'loyalty.accrued';
-  payload: LoyaltyAccruedPayload;
-}
-
-export interface LoyaltyRedeemedEvent extends BaseEvent {
-  type: 'loyalty.redeemed';
-  payload: LoyaltyRedeemedPayload;
-}
-
-export interface PaymentInitiatedEvent extends BaseEvent {
-  type: 'payment.initiated';
-  payload: PaymentInitiatedPayload;
-}
-
-export interface PaymentSucceededEvent extends BaseEvent {
-  type: 'payment.succeeded';
-  payload: PaymentSucceededPayload;
-}
-
-export interface PaymentFailedEvent extends BaseEvent {
-  type: 'payment.failed';
-  payload: PaymentFailedPayload;
-}
-
-export interface AuditLoggedEvent extends BaseEvent {
-  type: 'audit.logged';
-  payload: AuditLoggedPayload;
-}
-
-// Union type for all events
-export type Event = SaleRecordedEvent | InventoryAdjustedEvent | LoyaltyAccruedEvent | LoyaltyRedeemedEvent | PaymentInitiatedEvent | PaymentSucceededEvent | PaymentFailedEvent | AuditLoggedEvent;
-
-// Alias for compatibility with PouchDB adapter
-export type KnownEvent = Event & {
-  timestamp: number; // Maps to 'at' field
-  aggregateId?: string; // Maps to 'aggregate.id'
-};
-
-// Error types
-export class IdempotencyConflictError extends Error {
-  public readonly code = 'IDEMPOTENCY_MISMATCH';
-  
-  constructor(message: string) {
-    super(message);
-    this.name = 'IdempotencyConflictError';
+export interface ZReportFinalizedPayload {
+  reportId: string
+  reportNumber: number
+  businessDate: string
+  operatorId: string
+  operatorName: string
+  salesSummary: {
+    grossSales: number
+    totalDiscounts: number
+    netSales: number
+    totalTax: number
+    finalTotal: number
+    transactionCount: number
+    itemCount: number
+    averageTicket: number
+  }
+  paymentSummary: {
+    cash: { count: number; amount: number }
+    card: { count: number; amount: number }
+    other: { count: number; amount: number }
+    total: { count: number; amount: number }
+  }
+  taxSummary: Array<{
+    rate: number
+    taxableAmount: number
+    taxAmount: number
+  }>
+  topItems: Array<{
+    name: string
+    quantity: number
+    revenue: number
+  }>
+  discountSummary: {
+    totalDiscounts: number
+    discountCount: number
+    loyaltyDiscounts: number
+    manualDiscounts: number
+  }
+  finalizedAt: string
+  finalizedBy: string
+  cashReconciliation: {
+    expectedCash: number
+    actualCash: number
+    variance: number
+    notes: string
   }
 }
 
-// Event store interfaces
 export interface AppendOptions {
-  key: string;
-  params: any;
+  key?: string
+  params?: any
+  timestamp?: number
   aggregate?: {
-    id: string;
-    type: string;
-  };
+    id: string
+    type: string
+  }
 }
 
 export interface AppendResult {
-  event: Event;
-  deduped: boolean;
+  event: Event
+  isNew: boolean
+  deduped: boolean
 }
 
 export interface IdempotencyRecord {
-  event: Event;
-  paramsHash: string;
+  eventId: string
+  paramsHash: string
 }
 
 export interface EventStore {
-  append(type: string, payload: any, opts: AppendOptions): AppendResult;
-  getAll(): Event[];
-  getByAggregate(id: string): Event[];
-  getByType(type: string): Event[];
-  getByIdempotencyKey(key: string): IdempotencyRecord | undefined;
-  reset(): void;
+  append(type: string, payload: any, options: AppendOptions): AppendResult
+  getAll(): Event[]
+  getEventsForAggregate(aggregateId: string): Event[]
+  reset(): Promise<void>
+}
+
+export class IdempotencyConflictError extends Error {
+  code = 'IDEMPOTENCY_CONFLICT' as const
+  
+  constructor(message: string) {
+    super(message)
+    this.name = 'IdempotencyConflictError'
+  }
 }

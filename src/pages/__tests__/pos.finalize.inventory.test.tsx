@@ -1,25 +1,19 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { test, expect } from 'vitest'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
+import { test, expect, beforeEach } from 'vitest'
 import POS from '../POS'
 import { setOversellPolicy } from '../../inventory/policy'
-import { ToastProvider } from '../../components/Toast'
 import { setCurrentUser, Role } from '../../rbac/roles'
 import { inventoryEngine } from '../../inventory/engine'
+import { renderWithProviders } from '../../test/renderWithProviders'
 
-function renderPOS() {
-  const qc = new QueryClient()
-  return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter>
-        <ToastProvider>
-          <POS />
-        </ToastProvider>
-      </MemoryRouter>
-    </QueryClientProvider>
-  )
-}
+beforeEach(() => {
+  // Reset inventory for each test
+  inventoryEngine.setQty('beef-patty', 10)
+  inventoryEngine.setQty('burger-bun', 10)
+  inventoryEngine.setQty('lettuce', 0.1)
+  inventoryEngine.setQty('tomato', 0.1)
+  inventoryEngine.setQty('onion', 0.1)
+})
 
 test('block policy shows oversell alert when insufficient', async () => {
   setCurrentUser({ id: 'test-admin', name: 'Test Admin', role: Role.ADMIN }) // Set admin role to enable finalize button
@@ -30,7 +24,7 @@ test('block policy shows oversell alert when insufficient', async () => {
   inventoryEngine.setQty('lettuce', 0.01)
   inventoryEngine.setQty('tomato', 0.01)
   inventoryEngine.setQty('onion', 0.01)
-  renderPOS()
+  renderWithProviders(<POS />, { route: '/pos' })
   // Wait for menu to load
   await waitFor(() => expect(screen.getByText('Classic Burger')).toBeInTheDocument())
   // add two burgers so consumption exceeds seeded stock in demo engine if needed
@@ -55,7 +49,7 @@ test('allow_negative_alert finalizes with alert', async () => {
   inventoryEngine.setQty('lettuce', 0.05)
   inventoryEngine.setQty('tomato', 0.05)
   inventoryEngine.setQty('onion', 0.05)
-  renderPOS()
+  renderWithProviders(<POS />, { route: '/pos' })
   // Wait for menu to load
   await waitFor(() => expect(screen.getByText('Classic Burger')).toBeInTheDocument())
   const add = screen.getAllByText('Add to Cart')[0]

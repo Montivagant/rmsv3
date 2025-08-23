@@ -31,7 +31,10 @@ export class LocalStoragePersistedEventStore implements EventStore {
       // Sort by sequence to maintain order
       events.sort((a, b) => a.seq - b.seq);
 
-      console.log(`💧 Hydrating ${events.length} events from localStorage...`);
+      // Only log hydration once per session to avoid React StrictMode duplicate messages
+      if (!globalThis.__RMS_HYDRATION_LOGGED) {
+        console.log(`💧 Hydrating ${events.length} events from localStorage...`);
+      }
       
       // Reset memory store and add events one by one to maintain consistency
       this.memoryStore.reset();
@@ -45,7 +48,10 @@ export class LocalStoragePersistedEventStore implements EventStore {
         }
       }
 
-      console.log(`✅ Hydrated ${this.memoryStore.getAll().length} events successfully`);
+      if (!globalThis.__RMS_HYDRATION_LOGGED) {
+        console.log(`✅ Hydrated ${this.memoryStore.getAll().length} events successfully`);
+        globalThis.__RMS_HYDRATION_LOGGED = true;
+      }
     } catch (error) {
       console.error('Failed to hydrate from localStorage:', error);
       throw error;
@@ -119,7 +125,11 @@ export class LocalStoragePersistedEventStore implements EventStore {
       });
     }, intervalMs);
     
-    console.log(`🔄 Auto-sync started (${intervalMs}ms interval)`);
+    // Only log auto-sync start once per session to avoid React StrictMode duplicate messages
+    if (!globalThis.__RMS_AUTOSYNC_LOGGED) {
+      console.log(`🔄 Auto-sync started (${intervalMs}ms interval)`);
+      globalThis.__RMS_AUTOSYNC_LOGGED = true;
+    }
   }
 
   /**

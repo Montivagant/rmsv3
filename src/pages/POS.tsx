@@ -12,10 +12,11 @@ import { useToast } from '../components/Toast';
 import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
 import { useFlags } from '../store/flags';
-import { defaultProvider } from '../payments/provider';
+import { defaultProvider, createPaymentProvider, type PlaceholderPaymentProvider } from '../payments/provider';
 import { generatePaymentKeys, handleWebhook } from '../payments/webhook';
 import { derivePaymentStatus } from '../payments/status';
 import { isPaymentInitiated } from '../events/guards';
+import { PaymentModal } from '../components/PaymentModal';
 
 interface MenuItem {
   id: string;
@@ -64,6 +65,10 @@ function POS() {
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<'none' | 'pending' | 'paid' | 'failed'>('none');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<PlaceholderPaymentProvider>(
+    createPaymentProvider({ mode: 'placeholder' }) as PlaceholderPaymentProvider
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
   const currentTicketIdRef = useRef<string | null>(null);
   const toast = useToast();
@@ -127,6 +132,7 @@ function POS() {
     setLoyaltyPoints(0);
     setPaymentStatus('none');
     setIsProcessingPayment(false);
+    setShowPaymentModal(false);
     // Focus search after clearing
     setTimeout(() => searchInputRef.current?.focus(), 100);
   }
@@ -333,49 +339,67 @@ function POS() {
     }
   };
   
-  const takePayment = async () => {
+  const takePayment = () => {
     if (cart.length === 0 || !paymentsEnabled) return;
-    
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentComplete = async (result: any) => {
+    setShowPaymentModal(false);
     setIsProcessingPayment(true);
+    
     try {
       const ticketId = getTicketId();
-      const provider = 'mock';
+      const provider = 'placeholder';
       
-      // Create checkout with provider
-      const checkoutResult = await defaultProvider.createCheckout({
-        ticketId,
-        amount: totals.total,
-        currency: 'USD'
-      });
-      
-      // Generate idempotency key for payment initiation
-      const keys = generatePaymentKeys(provider, checkoutResult.sessionId);
-      
-      // Append PaymentInitiated event
-      const result = store.append('payment.initiated', {
-        ticketId,
-        provider,
-        sessionId: checkoutResult.sessionId,
-        amount: totals.total,
-        currency: 'USD',
-        redirectUrl: checkoutResult.redirectUrl
-      }, {
-        key: keys.initiated,
-        params: { ticketId, amount: totals.total, sessionId: checkoutResult.sessionId },
-        aggregate: { id: ticketId, type: 'ticket' }
-      });
-      
-      if (result.deduped) {
-        toast.show('Payment already initiated for this ticket.');
-      } else {
-        toast.show('Payment initiated. Redirecting to payment provider...');
-        // In a real app, we would redirect to checkoutResult.redirectUrl
-        console.log('Redirect URL:', checkoutResult.redirectUrl);
+      if (result.success) {
+        // Generate idempotency key for payment initiation
+        const keys = generatePaymentKeys(provider, result.sessionId);
+        
+        // Append PaymentInitiated event
+        const initiatedResult = store.append('payment.initiated', {
+          ticketId,
+          provider,
+          sessionId: result.sessionId,
+          amount: totals.total,
+          currency: 'USD',
+          paymentMethod: result.paymentMethod
+        }, {
+          key: keys.initiated,
+          params: { paymentResult: result },
+          aggregate: { id: ticketId, type: 'ticket' }
+        });
+        
+        if (initiatedResult.deduped) {
+          toast.show('Payment already initiated for this ticket.');
+          return;
+        }
+
+        // For direct payments (cash, loyalty), immediately simulate success
+        if (result.paymentMethod === 'cash' || result.paymentMethod === 'loyalty') {
+          setTimeout(async () => {
+            const webhookResult = handleWebhook(store, {
+              provider,
+              sessionId: result.sessionId,
+              eventType: 'succeeded',
+              ticketId,
+              amount: totals.total,
+              currency: 'USD'
+            });
+            
+            if (webhookResult.success) {
+              toast.show(`${result.paymentMethod === 'cash' ? 'Cash' : 'Loyalty'} payment completed!`);
+            }
+          }, 500); // Small delay for realism
+        } else {
+          // For card payments, show redirect message
+          toast.show('Payment initiated. In real app, would redirect to: ' + result.redirectUrl);
+          console.log('Redirect URL:', result.redirectUrl);
+        }
       }
-      
     } catch (error) {
-      toast.show('Failed to initiate payment');
-      console.error('Payment initiation error:', error);
+      toast.show('Failed to process payment');
+      console.error('Payment processing error:', error);
     } finally {
       setIsProcessingPayment(false);
     }
@@ -464,6 +488,7 @@ function POS() {
   }
 
   return (
+    <>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
       {/* Menu Section */}
       <div className="lg:col-span-2 space-y-4">
@@ -776,6 +801,19 @@ function POS() {
         </Card>
       </div>
     </div>
+
+    {/* Payment Modal */}
+    <PaymentModal
+      isOpen={showPaymentModal}
+      onClose={() => setShowPaymentModal(false)}
+      onPaymentComplete={handlePaymentComplete}
+      amount={totals.total}
+      currency="USD"
+      ticketId={getTicketId()}
+      provider={paymentProvider}
+      availableMethods={['card', 'cash', 'loyalty']}
+    />
+    </>
   );
 }
 

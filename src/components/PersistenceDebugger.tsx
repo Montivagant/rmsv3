@@ -7,6 +7,7 @@ import { useState, useContext } from 'react';
 import { useEventStore } from '../events/context';
 import { formatDateTime, formatCurrency } from '../lib/format';
 import { isSaleRecorded } from '../events/guards';
+import { environment } from '../lib/environment';
 import { Card, CardHeader, CardTitle, CardContent, Button } from './index';
 
 export function PersistenceDebugger() {
@@ -57,6 +58,8 @@ export function PersistenceDebugger() {
           {/* Storage Status */}
           <div className="border-b pb-2">
             <p className="font-semibold">📊 Storage Status:</p>
+            <p>Environment: {environment.isElectron ? '🖥️ Electron' : '🌐 Browser'}</p>
+            <p>Database: {environment.isElectron ? 'PouchDB' : 'localStorage'}</p>
             <p>Total Events: {events.length}</p>
             <p>Sales Events: {salesEvents.length}</p>
             {storageInfo && (

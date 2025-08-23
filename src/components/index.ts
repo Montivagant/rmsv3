@@ -7,3 +7,6 @@ export { Breadcrumb } from './Breadcrumb';
 export { default as Tabs } from './Tabs';
 export { UpdateToast, UpdateManager } from './UpdateToast';
 export { OfflineBanner } from './OfflineBanner';
+export { PaymentModal } from './PaymentModal';
+export { SyncStatusIndicator, SyncStatusBadge, SyncStatusPanel } from './SyncStatusIndicator';
+export { PerformanceMonitor, PerformanceBadge } from './PerformanceMonitor';

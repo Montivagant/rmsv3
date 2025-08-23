@@ -11,6 +11,13 @@ export function stableHash(value: any): string {
 }
 
 /**
+ * Generate a unique event ID
+ */
+export function generateEventId(): string {
+  return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
  * Recursively normalizes a value to ensure deterministic ordering
  */
 function normalizeValue(value: any): any {

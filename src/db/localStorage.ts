@@ -164,9 +164,13 @@ export async function openLocalStorageDB(options: { name: string }): Promise<Loc
     localStorage.setItem(testKey, 'test');
     localStorage.removeItem(testKey);
     
-    console.log(`📁 LocalStorage database '${options.name}' opened successfully`);
-    const storageInfo = db.getStorageInfo();
-    console.log(`💾 Storage: ${storageInfo.itemCount} items, ${Math.round(storageInfo.used / 1024)}KB used`);
+    // Only log once per session to avoid React StrictMode duplicate messages
+    if (!globalThis.__RMS_LOCALSTORAGE_LOGGED) {
+      console.log(`📁 LocalStorage database '${options.name}' opened successfully`);
+      const storageInfo = db.getStorageInfo();
+      console.log(`💾 Storage: ${storageInfo.itemCount} items, ${Math.round(storageInfo.used / 1024)}KB used`);
+      globalThis.__RMS_LOCALSTORAGE_LOGGED = true;
+    }
     
     return db;
   } catch (error) {
