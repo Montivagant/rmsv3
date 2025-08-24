@@ -13,10 +13,9 @@ import type {
   ReorderAlert,
   InventoryAnalytics,
   UnitOfMeasure,
-  StorageLocation,
-  DEFAULT_UNITS,
-  DEFAULT_STORAGE_LOCATIONS 
+  StorageLocation
 } from './types';
+import { DEFAULT_UNITS, DEFAULT_STORAGE_LOCATIONS } from './types';
 
 // Enhanced mock data store
 const mockInventoryItems = new Map<string, InventoryItem>();
