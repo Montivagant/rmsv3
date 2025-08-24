@@ -11,11 +11,13 @@ import type { LocalStorageAdapter, DBEvent } from '../db/localStorage';
 export class LocalStoragePersistedEventStore implements EventStore {
   private memoryStore: InMemoryEventStore;
   private db: LocalStorageAdapter;
-  private syncInterval: number | null = null;
+  private syncInterval: ReturnType<typeof setInterval> | null = null;
+  private dbPrefix: string;
 
-  constructor(memoryStore: InMemoryEventStore, db: LocalStorageAdapter) {
+  constructor(memoryStore: InMemoryEventStore, db: LocalStorageAdapter, dbPrefix: string = 'rmsv3_events_') {
     this.memoryStore = memoryStore;
     this.db = db;
+    this.dbPrefix = dbPrefix;
   }
 
   /**
@@ -65,11 +67,18 @@ export class LocalStoragePersistedEventStore implements EventStore {
     // First append to memory store (handles validation, idempotency, etc.)
     const result = this.memoryStore.append(type, payload, opts);
     
-    // Then persist to localStorage asynchronously
-    this.persistEventToLocalStorage(result.event).catch(error => {
-      console.error('Failed to persist event to localStorage:', error);
-      // Note: In a production system, you might want to implement retry logic
-    });
+    // Then persist to localStorage synchronously to ensure it's available immediately
+    if (result.isNew) {
+      try {
+        const dbEvent = this.eventToDBEvent(result.event);
+        // Use the db adapter's put method
+        this.db.put(dbEvent).catch(error => {
+          console.error('Failed to persist event to localStorage:', error);
+        });
+      } catch (error) {
+        console.error('Failed to persist event to localStorage:', error);
+      }
+    }
     
     return result;
   }
@@ -220,8 +229,9 @@ export class LocalStoragePersistedEventStore implements EventStore {
  */
 export async function createLocalStoragePersistedEventStore(
   memoryStore: InMemoryEventStore,
-  db: LocalStorageAdapter
+  db: LocalStorageAdapter,
+  dbPrefix?: string
 ): Promise<LocalStoragePersistedEventStore> {
-  const persistedStore = new LocalStoragePersistedEventStore(memoryStore, db);
+  const persistedStore = new LocalStoragePersistedEventStore(memoryStore, db, dbPrefix);
   return persistedStore;
 }

@@ -14,7 +14,7 @@ export interface LocalStorageAdapter {
   destroy(): Promise<void>;
 }
 
-export interface DBEvent extends KnownEvent {
+export interface DBEvent extends Event {
   _id: string;
   _rev: string;
   timestamp: number;
@@ -22,7 +22,7 @@ export interface DBEvent extends KnownEvent {
 }
 
 class LocalStorageDB implements LocalStorageAdapter {
-  private prefix: string;
+  public readonly prefix: string;
   private revCounter: number;
 
   constructor(dbName: string) {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { eventStore as defaultEventStore, type EventStore } from './store';
+import { getPersistedEventStore } from './persistedStore';
 
 interface EventStoreContextValue {
   store: EventStore;
@@ -13,20 +14,32 @@ export interface EventStoreProviderProps {
   store?: EventStore;
 }
 
-export function EventStoreProvider({ children, store = defaultEventStore }: EventStoreProviderProps) {
+export function EventStoreProvider({ children, store }: EventStoreProviderProps) {
+  const [eventStore, setEventStore] = useState<EventStore | null>(store || null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     // Initialize the store (hydrate from persistence if needed)
     const initStore = async () => {
       try {
-        if ('hydrate' in store && typeof store.hydrate === 'function') {
-          await store.hydrate();
+        let storeToUse = store;
+        
+        // If no store provided, create a persisted one
+        if (!storeToUse) {
+          console.log('🔄 Initializing persisted event store...');
+          storeToUse = await getPersistedEventStore();
+        } else if ('hydrate' in storeToUse && typeof storeToUse.hydrate === 'function') {
+          // If a store was provided with hydrate method, call it
+          await storeToUse.hydrate();
         }
+        
+        setEventStore(storeToUse);
         setIsReady(true);
+        console.log('✅ Event store ready');
       } catch (error) {
         console.error('Failed to initialize event store:', error);
-        // Still mark as ready even if hydration fails
+        // Fallback to default store
+        setEventStore(defaultEventStore);
         setIsReady(true);
       }
     };
@@ -34,8 +47,12 @@ export function EventStoreProvider({ children, store = defaultEventStore }: Even
     initStore();
   }, [store]);
 
+  if (!eventStore) {
+    return <div>Loading event store...</div>;
+  }
+
   return (
-    <EventStoreContext.Provider value={{ store, isReady }}>
+    <EventStoreContext.Provider value={{ store: eventStore, isReady }}>
       {children}
     </EventStoreContext.Provider>
   );
