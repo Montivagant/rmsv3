@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField, LoadingOverlay, SkeletonCard, useNotifications } from '../components';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, LoadingOverlay, SkeletonCard, useNotifications } from '../components';
+import type { FormField } from '../components';
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';

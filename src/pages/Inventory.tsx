@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField, LoadingOverlay, SkeletonTable, useNotifications } from '../components';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, LoadingOverlay, SkeletonTable, useNotifications } from '../components';
+import type { FormField } from '../components';
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { InventoryDashboard } from '../inventory';
 import type { ValidationResult } from '../utils/validation';

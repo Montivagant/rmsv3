@@ -18,12 +18,12 @@ import {
   Button, 
   Input, 
   Select, 
-  SmartForm, 
-  FormField,
+  SmartForm,
   LoadingOverlay,
   SkeletonCard,
   useNotifications
 } from './index';
+import type { FormField } from './index';
 import { useApi, apiPost, apiPatch, apiDelete } from '../hooks/useApi';
 import type { ValidationResult } from '../utils/validation';
 import { 
