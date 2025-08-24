@@ -19,6 +19,9 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
     variance: 0,
     notes: ''
   });
+
+  // Get the event store at component level to avoid hook violations
+  const eventStore = useEventStore();
   
   const currentUser = getRole(); // In real app, get from auth context
   
@@ -27,8 +30,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
     
     try {
       // Get all events from the event store
-      const store = useEventStore();
-      const events = store.getAll();
+      const events = eventStore.getAll();
       
       // Generate the Z-Report
       const report = zReportEngine.generateZReport(events, {
@@ -52,13 +54,12 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
     if (!currentReport) return;
     
     try {
-      const store = useEventStore();
       
       // 1. Store the Z-report finalization event
       const finalizedAt = new Date().toISOString();
       const finalizedBy = currentUser;
       
-      const result = store.append('z-report.finalized', {
+      const result = eventStore.append('z-report.finalized', {
         reportId: currentReport.reportId,
         reportNumber: currentReport.reportNumber,
         businessDate: currentReport.businessDate,

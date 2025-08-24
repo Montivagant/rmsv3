@@ -1,5 +1,5 @@
+import { Suspense, lazy, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy, useState, useEffect } from 'react';
 import { Layout } from './components';
 import { getCurrentUser, Role } from './rbac/roles';
 import { RoleGuard } from './rbac/guard';
@@ -31,11 +31,11 @@ function Loading({ message = 'Loading…' }: { message?: string }) {
 }
 
 // Simple wrapper component - hydration now handled by EventStoreProvider
-function HydrationWrapper({ children }: { children: React.ReactNode }) {
+function HydrationWrapper({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const currentUser = getCurrentUser();
   
   if (!currentUser) {

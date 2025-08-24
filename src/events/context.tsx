@@ -1,83 +1,60 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type PouchDB from 'pouchdb-browser'
-import { type EventStore } from './store'
-import { bootstrapEventStore } from '../bootstrap/persist'
-// import { subscribe as subscribeSync } from '../db/sync'
-// Sync temporarily disabled due to PouchDB module conflicts
-const subscribeSync = (fn: any) => () => {};
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { eventStore as defaultEventStore, type EventStore } from './store';
 
-type Ctx = {
-  store: EventStore | null
-  db: PouchDB.Database<any> | null
-  ready: boolean
+interface EventStoreContextValue {
+  store: EventStore;
+  isReady: boolean;
 }
 
-const EventStoreCtx = createContext<Ctx>({ store: null, db: null, ready: false })
+const EventStoreContext = createContext<EventStoreContextValue | null>(null);
 
-type ProviderProps = {
-  children: ReactNode
-  /** Optional: custom fallback while hydrating (a11y-friendly by default) */
-  fallback?: ReactNode
-  /** Optional: inject a ready store/db (useful in tests) */
-  value?: { store: EventStore; db: PouchDB.Database<any> | any }
+export interface EventStoreProviderProps {
+  children: React.ReactNode;
+  store?: EventStore;
 }
 
-export function EventStoreProvider({ children, fallback, value }: ProviderProps) {
-  const [state, setState] = useState<Ctx>({
-    store: value?.store ?? null,
-    db: value?.db ?? null,
-    ready: !!value,
-  })
+export function EventStoreProvider({ children, store = defaultEventStore }: EventStoreProviderProps) {
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (value) return // test-injected, nothing to hydrate
-    let mounted = true
-    ;(async () => {
-      const { store, db } = await bootstrapEventStore()
-      if (mounted) setState({ store, db, ready: true })
-    })()
-    return () => { mounted = false }
-  }, [value])
+    // Initialize the store (hydrate from persistence if needed)
+    const initStore = async () => {
+      try {
+        if ('hydrate' in store && typeof store.hydrate === 'function') {
+          await store.hydrate();
+        }
+        setIsReady(true);
+      } catch (error) {
+        console.error('Failed to initialize event store:', error);
+        // Still mark as ready even if hydration fails
+        setIsReady(true);
+      }
+    };
 
-  if (!state.ready) {
-    return (
-      <>
-        {fallback ?? (
-          <div role="status" aria-live="polite" className="p-4 text-sm text-gray-600">
-            Loading data…
-          </div>
-        )}
-      </>
-    )
-  }
+    initStore();
+  }, [store]);
 
   return (
-    <EventStoreCtx.Provider value={state}>
+    <EventStoreContext.Provider value={{ store, isReady }}>
       {children}
-    </EventStoreCtx.Provider>
-  )
+    </EventStoreContext.Provider>
+  );
 }
 
-/** Get the hydrated EventStore. Throws if called before ready. */
 export function useEventStore(): EventStore {
-  const ctx = useContext(EventStoreCtx)
-  if (!ctx.ready || !ctx.store) throw new Error('Event store not ready yet')
-  return ctx.store
+  const context = useContext(EventStoreContext);
+  
+  if (!context) {
+    throw new Error('useEventStore must be used within an EventStoreProvider');
+  }
+  
+  if (!context.isReady) {
+    throw new Error('Event store not ready yet');
+  }
+  
+  return context.store;
 }
 
-/** Access the underlying PouchDB instance if you need it. */
-export function useEventDB(): PouchDB.Database<any> | null {
-  return useContext(EventStoreCtx).db
-}
-
-/** Subscribe to replication status as simple state. */
-export function useSyncStatus() {
-  const [status, setStatus] = useState<'idle' | 'active' | 'paused' | 'error'>('idle')
-  useEffect(() => subscribeSync((s) => setStatus(s)), [])
-  return status
-}
-
-/** Optional: tiny hook to guard on hydration */
-export function useEventHydrated() {
-  return useContext(EventStoreCtx).ready
+export function useEventStoreContext(): EventStoreContextValue | null {
+  return useContext(EventStoreContext);
 }

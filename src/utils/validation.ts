@@ -10,8 +10,8 @@ export interface ValidationResult {
   suggestions?: string[];
 }
 
-export interface ValidationRule {
-  validator: (value: any, context?: any) => ValidationResult;
+export interface ValidationRule<T = unknown> {
+  validator: (value: T, context?: Record<string, unknown>) => ValidationResult;
   message: string;
   level: 'error' | 'warning' | 'info';
 }
@@ -224,7 +224,7 @@ export const validateName = (name: string): ValidationResult => {
     };
   }
 
-  if (/[<>{}[\]\\\/]/.test(name)) {
+  if (/[<>{}[\]\\]/.test(name)) {
     return { 
       isValid: false, 
       message: 'Name contains invalid characters'
@@ -238,7 +238,7 @@ export const validateName = (name: string): ValidationResult => {
 export const sanitizeInput = (input: string): string => {
   return input
     .trim()
-    .replace(/[<>{}[\]\\\/]/g, '') // Remove dangerous characters
+    .replace(/[<>{}[\]\\]/g, '') // Remove dangerous characters
     .replace(/\s+/g, ' '); // Normalize whitespace
 };
 
@@ -276,7 +276,7 @@ export const businessRules = {
 // Validation composer for complex forms
 export class FormValidator {
   private rules: Map<string, ValidationRule[]> = new Map();
-  private values: Map<string, any> = new Map();
+  private values: Map<string, unknown> = new Map();
   private errors: Map<string, string> = new Map();
 
   addRule(field: string, rule: ValidationRule): void {
@@ -286,7 +286,7 @@ export class FormValidator {
     this.rules.get(field)!.push(rule);
   }
 
-  setValue(field: string, value: any): void {
+  setValue(field: string, value: unknown): void {
     this.values.set(field, value);
     this.validateField(field);
   }
@@ -294,9 +294,10 @@ export class FormValidator {
   validateField(field: string): ValidationResult {
     const rules = this.rules.get(field) || [];
     const value = this.values.get(field);
+    const context = Object.fromEntries(this.values);
 
     for (const rule of rules) {
-      const result = rule.validator(value, this.values);
+      const result = rule.validator(value, context);
       if (!result.isValid) {
         this.errors.set(field, result.message || 'Invalid value');
         return result;

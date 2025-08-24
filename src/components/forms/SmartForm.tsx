@@ -10,9 +10,10 @@
  * - Error recovery suggestions
  */
 
-import { useState, useEffect, useRef, ReactNode } from 'react';
-import type { ValidationResult } from '../../utils/validation';
-import { FormValidator } from '../../utils/validation';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useFormValidation, type ValidationRule, type FormValidationState } from './validation';
+import { ValidatedInput } from './ValidatedInput';
+import { inputMasks, valueFormatters } from './businessRules';
 
 export interface FormField {
   name: string;
@@ -22,7 +23,9 @@ export interface FormField {
   placeholder?: string;
   helpText?: string;
   options?: { value: string; label: string }[];
-  validation?: (value: any, allValues: Record<string, any>) => ValidationResult;
+  validationRules?: ValidationRule[];
+  inputMask?: keyof typeof inputMasks;
+  formatter?: keyof typeof valueFormatters;
   dependencies?: string[]; // Fields that affect this field's visibility/validation
   visible?: (allValues: Record<string, any>) => boolean;
 }
@@ -58,16 +61,28 @@ export function SmartForm({
   children,
   disabled = false
 }: SmartFormProps) {
-  const [values, setValues] = useState<Record<string, any>>(initialValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasBeenModified, setHasBeenModified] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({});
   const [visibleFields, setVisibleFields] = useState<Set<string>>(new Set());
   
   const formRef = useRef<HTMLFormElement>(null);
-  const validatorRef = useRef(new FormValidator());
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Use the new validation framework
+  const {
+    values,
+    setFieldValue,
+    validateField,
+    validateForm,
+    getFieldState
+  } = useFormValidation(initialValues, {
+    validateOnChange: true,
+    validateOnBlur: true,
+    debounceMs: 300,
+    showWarnings: true,
+    showInfo: true,
+  });
 
   // Initialize visible fields
   useEffect(() => {
@@ -111,7 +126,10 @@ export function SmartForm({
         const draft = localStorage.getItem(`form-draft-${autoSaveKey}`);
         if (draft) {
           const draftValues = JSON.parse(draft);
-          setValues({ ...initialValues, ...draftValues });
+          // Set individual field values using the validation hook
+          Object.entries(draftValues).forEach(([fieldName, value]) => {
+            setFieldValue(fieldName, value, false); // Don't validate on restore
+          });
           setHasBeenModified(true);
         }
       } catch (error) {
@@ -120,70 +138,41 @@ export function SmartForm({
     }
   }, [autoSave, autoSaveKey, initialValues]);
 
-  // Set up validation rules
+  // Set up validation rules from field definitions
   useEffect(() => {
-    const validator = validatorRef.current;
-    
-    // Clear existing rules
-    validator['rules'].clear();
-
     fields.forEach(field => {
-      if (field.validation) {
-        validator.addRule(field.name, {
-          validator: (value) => field.validation!(value, values),
-          message: `${field.label} is invalid`,
-          level: 'error'
-        });
+      if (field.validationRules && field.validationRules.length > 0) {
+        // Rules are handled by the useFormValidation hook and ValidatedInput components
+        // No need to set them up here as they're passed directly to components
       }
     });
-  }, [fields, values]);
+  }, [fields]);
 
   // Handle field value change
   const handleFieldChange = (fieldName: string, value: any) => {
-    const newValues = { ...values, [fieldName]: value };
-    setValues(newValues);
-    setHasBeenModified(true);
-
-    // Validate the specific field
     const field = fields.find(f => f.name === fieldName);
-    if (field?.validation) {
-      const result = field.validation(value, newValues);
-      setValidationResults(prev => ({
-        ...prev,
-        [fieldName]: result
-      }));
+    
+    // Apply formatter if specified
+    let formattedValue = value;
+    if (field?.formatter && valueFormatters[field.formatter]) {
+      formattedValue = valueFormatters[field.formatter](value);
     }
 
-    // Re-validate dependent fields
+    setFieldValue(fieldName, formattedValue);
+    setHasBeenModified(true);
+
+    // Validate dependent fields
     fields.forEach(otherField => {
-      if (otherField.dependencies?.includes(fieldName) && otherField.validation) {
-        const result = otherField.validation(newValues[otherField.name], newValues);
-        setValidationResults(prev => ({
-          ...prev,
-          [otherField.name]: result
-        }));
+      if (otherField.dependencies?.includes(fieldName)) {
+        validateField(otherField.name, values[otherField.name], true);
       }
     });
   };
 
   // Validate all fields
-  const validateAll = (): boolean => {
-    const results: Record<string, ValidationResult> = {};
-    let isValid = true;
-
-    visibleFields.forEach(fieldName => {
-      const field = fields.find(f => f.name === fieldName);
-      if (field?.validation) {
-        const result = field.validation(values[fieldName], values);
-        results[fieldName] = result;
-        if (!result.isValid) {
-          isValid = false;
-        }
-      }
-    });
-
-    setValidationResults(results);
-    return isValid;
+  const validateAll = async (): Promise<boolean> => {
+    const result = await validateForm();
+    return result;
   };
 
   // Handle form submission
@@ -191,11 +180,13 @@ export function SmartForm({
     e.preventDefault();
     setSubmitAttempted(true);
 
-    if (!validateAll()) {
+    const validationResult = await validateAll();
+    if (!validationResult) {
       // Focus first invalid field
-      const firstInvalidField = fields.find(field => 
-        visibleFields.has(field.name) && !validationResults[field.name]?.isValid
-      );
+      const firstInvalidField = fields.find(field => {
+        const fieldState = getFieldState(field.name);
+        return visibleFields.has(field.name) && fieldState?.errors && fieldState.errors.length > 0;
+      });
       
       if (firstInvalidField) {
         const element = formRef.current?.querySelector(`[name="${firstInvalidField.name}"]`) as HTMLElement;
@@ -241,19 +232,21 @@ export function SmartForm({
 
   // Keyboard shortcuts
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case 's':
             e.preventDefault();
-            if (validateAll()) {
+            const validationResult = await validateAll();
+            if (validationResult) {
               handleSubmit(e as any);
             }
             break;
           case 'Enter':
             if (e.shiftKey) {
               e.preventDefault();
-              if (validateAll()) {
+              const validationResult = await validateAll();
+              if (validationResult) {
                 handleSubmit(e as any);
               }
             }
@@ -264,21 +257,47 @@ export function SmartForm({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [values]);
+  }, []);
 
   // Render field based on type
   const renderField = (field: FormField) => {
     const isVisible = visibleFields.has(field.name);
     if (!isVisible) return null;
 
-    const value = values[field.name] || '';
-    const validation = validationResults[field.name];
-    const hasError = submitAttempted && validation && !validation.isValid;
+    const fieldValue = String(values[field.name] || '');
+    const fieldState = getFieldState(field.name);
+    const hasError = submitAttempted && fieldState?.errors && fieldState.errors.length > 0;
+    const hasWarning = fieldState?.warnings && fieldState.warnings.length > 0;
 
+    // For ValidatedInput components (text, email, tel, number, currency, sku)
+    if (['text', 'email', 'tel', 'number', 'currency', 'sku'].includes(field.type)) {
+      return (
+        <ValidatedInput
+          name={field.name}
+          label={field.label}
+          type={field.type === 'currency' || field.type === 'sku' ? 'text' : field.type}
+          value={fieldValue as string}
+          onChange={(value) => handleFieldChange(field.name, value)}
+          validationRules={field.validationRules || []}
+          required={field.required}
+          placeholder={field.placeholder}
+          helpText={field.helpText}
+          disabled={disabled || isSubmitting}
+          inputMask={field.inputMask ? inputMasks[field.inputMask] : undefined}
+          formatValue={field.formatter ? valueFormatters[field.formatter] : undefined}
+          error={hasError ? fieldState?.errors?.[0] : undefined}
+          warning={hasWarning ? fieldState?.warnings?.[0] : undefined}
+          retainFocusOnError={true}
+          showValidationIcon={true}
+        />
+      );
+    }
+
+    // For other input types, use standard HTML elements with validation styling
     const commonProps = {
       name: field.name,
       id: field.name,
-      value,
+      value: fieldValue,
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => 
         handleFieldChange(field.name, e.target.value),
       required: field.required,
@@ -289,6 +308,8 @@ export function SmartForm({
       className: `w-full px-3 py-2 border rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
         hasError 
           ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+          : hasWarning
+          ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
           : 'border-gray-300 dark:border-gray-600'
       }`
     };
@@ -299,12 +320,13 @@ export function SmartForm({
           <textarea
             {...commonProps}
             rows={4}
+            value={fieldValue as string}
           />
         );
       
       case 'select':
         return (
-          <select {...commonProps}>
+          <select {...commonProps} value={fieldValue as string}>
             <option value="">Select {field.label}</option>
             {field.options?.map(option => (
               <option key={option.value} value={option.value}>
@@ -319,6 +341,7 @@ export function SmartForm({
           <input
             {...commonProps}
             type={field.type}
+            value={fieldValue as string}
           />
         );
     }
@@ -373,14 +396,35 @@ export function SmartForm({
             )}
 
             {/* Validation Message */}
-            {submitAttempted && validationResults[field.name] && !validationResults[field.name].isValid && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
-                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                {validationResults[field.name].message}
-              </p>
-            )}
+            {submitAttempted && (() => {
+              const fieldState = getFieldState(field.name);
+              const hasFieldError = fieldState?.errors && fieldState.errors.length > 0;
+              const hasFieldWarning = fieldState?.warnings && fieldState.warnings.length > 0;
+              
+              if (hasFieldError) {
+                return (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {fieldState.errors[0]}
+                  </p>
+                );
+              }
+              
+              if (hasFieldWarning) {
+                return (
+                  <p className="mt-1 text-sm text-yellow-600 dark:text-yellow-400 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {fieldState.warnings[0]}
+                  </p>
+                );
+              }
+              
+              return null;
+            })()}
           </div>
         ))}
       </div>

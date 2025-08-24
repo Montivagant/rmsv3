@@ -1,16 +1,24 @@
-import { openLocalStorageDB } from '../db/localStorage'
 import { LocalStoragePersistedEventStore } from '../events/localStoragePersisted'
 import { InMemoryEventStore } from '../events/store'
 import { OptimizedEventStore } from '../events/optimizedStore'
 import { createOptimizedQueries } from '../events/optimizedQueries'
+import type { EventStore, Event } from '../events/types'
+import { openLocalStorageDB } from '../db/localStorage'
 import { setOptimizedQueries } from '../loyalty/state'
 import { environment } from '../lib/environment'
 
+// Types for bootstrap results
+interface BootstrapResult {
+  store: OptimizedEventStore
+  db?: unknown
+  persistedStore?: LocalStoragePersistedEventStore
+}
+
 // Global optimized store instances with React StrictMode protection
 let optimizedStore: OptimizedEventStore | null = null
-let optimizedQueries: any = null
+let optimizedQueries: ReturnType<typeof createOptimizedQueries> | null = null
 let isBootstrapping = false
-let bootstrapPromise: Promise<any> | null = null
+let bootstrapPromise: Promise<BootstrapResult> | null = null
 
 // Singleton protection - prevent React StrictMode from creating multiple stores
 globalThis.__RMS_OPTIMIZED_STORE_SINGLETON = globalThis.__RMS_OPTIMIZED_STORE_SINGLETON || null
@@ -20,7 +28,7 @@ async function tryPouchDBAdapter(dbName: string) {
   try {
     const { createPouchDBAdapter } = await import('../db/pouch')
     return await createPouchDBAdapter({ name: dbName })
-  } catch (error) {
+  } catch (_error) {
     // PouchDB unavailable - will use localStorage fallback
     return null
   }
@@ -91,7 +99,7 @@ export async function bootstrapEventStore() {
         
         return result
       }
-    } catch (error) {
+    } catch (_error) {
       // Silently fall back to localStorage
     }
   }
@@ -149,7 +157,7 @@ export async function bootstrapEventStore() {
 /**
  * Migrate data from legacy store to optimized store (with duplication protection)
  */
-async function migrateToOptimizedStore(legacyStore: any): Promise<void> {
+async function migrateToOptimizedStore(legacyStore: EventStore): Promise<void> {
   const events = legacyStore.getAll()
   
   if (events.length > 0) {
@@ -169,7 +177,7 @@ async function migrateToOptimizedStore(legacyStore: any): Promise<void> {
     const startTime = performance.now()
 
     // Sort by sequence to maintain order
-    events.sort((a: any, b: any) => a.seq - b.seq)
+    events.sort((a: Event, b: Event) => a.seq - b.seq)
 
     // Add events directly to optimized store (only new ones)
     for (const event of events) {
@@ -187,7 +195,7 @@ async function migrateToOptimizedStore(legacyStore: any): Promise<void> {
       console.log(`✅ Migration completed in ${duration.toFixed(2)}ms`)
       
       // Log initial performance metrics
-      const metrics = optimizedStore!.getMetrics()
+      const _metrics = optimizedStore!.getMetrics()
       console.log(`📊 Initial store metrics: ${optimizedStore!.getAll().length} events indexed`)
     }
   }

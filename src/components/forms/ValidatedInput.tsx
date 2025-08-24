@@ -1,277 +1,322 @@
 /**
- * Enhanced Input Component with Real-time Validation
- * 
- * Features:
- * - Real-time validation feedback
- * - Smart suggestions and error recovery
- * - Auto-formatting for specific input types
- * - Accessibility enhancements
+ * ValidatedInput Component
+ * Enhanced input component with real-time validation, accessibility, and UX improvements
  */
 
-import { useState, useEffect, useRef, forwardRef } from 'react';
-import type { ValidationResult } from '../../utils/validation';
-import { validateEmail, validatePhone, formatPhone, validateCurrency, validateName, sanitizeInput } from '../../utils/validation';
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { cn } from '../../utils/cn'
+import type { ValidationRule } from './validation'
+import { useFormValidation } from './validation'
 
-export interface ValidatedInputProps {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  onValidation?: (result: ValidationResult) => void;
-  type?: 'text' | 'email' | 'tel' | 'number' | 'currency' | 'sku';
-  placeholder?: string;
-  required?: boolean;
-  disabled?: boolean;
-  autoFocus?: boolean;
-  className?: string;
-  existingValues?: string[]; // For uniqueness validation
-  suggestions?: string[]; // Custom suggestions
-  helpText?: string;
-  maxLength?: number;
-  min?: number;
-  max?: number;
+export interface ValidatedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'onBlur'> {
+  name: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  onBlur?: () => void
+  validationRules?: ValidationRule<string>[]
+  showValidationIcon?: boolean
+  helpText?: string
+  required?: boolean
+  error?: string
+  warning?: string
+  info?: string
+  loading?: boolean
+  autoFocus?: boolean
+  retainFocusOnError?: boolean
+  debounceMs?: number
+  inputMask?: (value: string) => string
+  formatValue?: (value: string) => string
+  placeholder?: string
+  className?: string
+  containerClassName?: string
+  labelClassName?: string
+  errorClassName?: string
+  warningClassName?: string
+  infoClassName?: string
+  'aria-describedby'?: string
 }
 
-export const ValidatedInput = forwardRef<HTMLInputElement, ValidatedInputProps>(({
+export const ValidatedInput: React.FC<ValidatedInputProps> = ({
+  name,
   label,
   value,
   onChange,
-  onValidation,
-  type = 'text',
-  placeholder,
-  required = false,
-  disabled = false,
-  autoFocus = false,
-  className = '',
-  existingValues = [],
-  suggestions = [],
+  onBlur,
+  validationRules = [],
+  showValidationIcon = true,
   helpText,
-  maxLength,
-  min,
-  max,
-  ...props
-}, ref) => {
-  const [validation, setValidation] = useState<ValidationResult>({ isValid: true });
-  const [isFocused, setIsFocused] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [internalValue, setInternalValue] = useState(value);
+  required = false,
+  error: externalError,
+  warning: externalWarning,
+  info: externalInfo,
+  loading = false,
+  autoFocus = false,
+  retainFocusOnError = true,
+  debounceMs = 300,
+  inputMask,
+  formatValue,
+  placeholder,
+  className,
+  containerClassName,
+  labelClassName,
+  errorClassName,
+  warningClassName,
+  infoClassName,
+  disabled,
+  ...inputProps
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [internalValue, setInternalValue] = useState(value)
+  const [isFocused, setIsFocused] = useState(false)
+  const [hasBeenTouched, setHasBeenTouched] = useState(false)
+  const [validationState, setValidationState] = useState({
+    errors: [] as string[],
+    warnings: [] as string[],
+    info: [] as string[],
+    isValidating: false,
+  })
 
-  // Validation function based on input type
-  const validateValue = (val: string): ValidationResult => {
-    if (!val && required) {
-      return { isValid: false, message: `${label} is required` };
-    }
-
-    if (!val) {
-      return { isValid: true };
-    }
-
-    switch (type) {
-      case 'email':
-        return validateEmail(val);
-      case 'tel':
-        return validatePhone(val);
-      case 'currency':
-        return validateCurrency(val);
-      case 'sku':
-        return { isValid: true }; // Will be handled by parent with existing SKUs
-      default:
-        return validateName(val);
-    }
-  };
-
-  // Format value based on input type
-  const formatValue = (val: string): string => {
-    switch (type) {
-      case 'tel':
-        return formatPhone(val);
-      case 'sku':
-        return val.toUpperCase();
-      default:
-        return sanitizeInput(val);
-    }
-  };
-
-  // Real-time validation
+  // Debounced validation
   useEffect(() => {
-    const result = validateValue(internalValue);
-    setValidation(result);
-    onValidation?.(result);
-  }, [internalValue, type, required, label, onValidation]);
+    if (!hasBeenTouched && !isFocused) return
 
-  // Handle input change with formatting
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let newValue = e.target.value;
-    
-    // Apply length constraints
-    if (maxLength && newValue.length > maxLength) {
-      newValue = newValue.slice(0, maxLength);
+    const timeoutId = setTimeout(async () => {
+      if (validationRules.length === 0) return
+
+      setValidationState(prev => ({ ...prev, isValidating: true }))
+
+      const errors: string[] = []
+      const warnings: string[] = []
+      const info: string[] = []
+
+      for (const rule of validationRules) {
+        try {
+          const isValid = await rule.validate(internalValue)
+          if (!isValid) {
+            const severity = rule.severity || 'error'
+            if (severity === 'error') errors.push(rule.message)
+            else if (severity === 'warning') warnings.push(rule.message)
+            else if (severity === 'info') info.push(rule.message)
+          }
+        } catch (error) {
+          console.error(`Validation rule ${rule.id} failed:`, error)
+          errors.push('Validation error occurred')
+        }
+      }
+
+      setValidationState({
+        errors,
+        warnings,
+        info,
+        isValidating: false,
+      })
+    }, debounceMs)
+
+    return () => clearTimeout(timeoutId)
+  }, [internalValue, validationRules, debounceMs, hasBeenTouched, isFocused])
+
+  // Auto focus on mount if requested
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [autoFocus])
+
+  // Retain focus on error if requested
+  useEffect(() => {
+    if (retainFocusOnError && (validationState.errors.length > 0 || externalError) && inputRef.current && document.activeElement !== inputRef.current) {
+      inputRef.current.focus()
+    }
+  }, [validationState.errors, externalError, retainFocusOnError])
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    let newValue = e.target.value
+
+    // Apply input mask if provided
+    if (inputMask) {
+      newValue = inputMask(newValue)
     }
 
-    // Format value based on type
-    const formattedValue = formatValue(newValue);
-    
-    setInternalValue(formattedValue);
-    onChange(formattedValue);
-  };
+    setInternalValue(newValue)
+    setHasBeenTouched(true)
 
-  // Handle focus events
-  const handleFocus = () => {
-    setIsFocused(true);
-    if (suggestions.length > 0 || validation.suggestions?.length) {
-      setShowSuggestions(true);
+    // Format value for external use if formatter provided
+    const formattedValue = formatValue ? formatValue(newValue) : newValue
+    onChange(formattedValue)
+  }, [inputMask, formatValue, onChange])
+
+  const handleFocus = useCallback(() => {
+    setIsFocused(true)
+  }, [])
+
+  const handleBlur = useCallback(() => {
+    setIsFocused(false)
+    setHasBeenTouched(true)
+    onBlur?.()
+  }, [onBlur])
+
+  // Determine final validation state (external props override internal validation)
+  const finalErrors = externalError ? [externalError] : validationState.errors
+  const finalWarnings = externalWarning ? [externalWarning] : validationState.warnings
+  const finalInfo = externalInfo ? [externalInfo] : validationState.info
+
+  const hasError = finalErrors.length > 0
+  const hasWarning = finalWarnings.length > 0
+  const hasInfo = finalInfo.length > 0
+  const isValidating = validationState.isValidating || loading
+
+  // Generate IDs for accessibility
+  const inputId = `input-${name}`
+  const errorId = `${inputId}-error`
+  const warningId = `${inputId}-warning`
+  const infoId = `${inputId}-info`
+  const helpId = `${inputId}-help`
+
+  // Build aria-describedby
+  const ariaDescribedBy = [
+    helpText ? helpId : null,
+    hasError ? errorId : null,
+    hasWarning ? warningId : null,
+    hasInfo ? infoId : null,
+    inputProps['aria-describedby'],
+  ].filter(Boolean).join(' ') || undefined
+
+  // Validation icon
+  const ValidationIcon = () => {
+    if (!showValidationIcon || !hasBeenTouched) return null
+
+    if (isValidating) {
+      return (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+        </div>
+      )
     }
-  };
 
-  const handleBlur = () => {
-    setIsFocused(false);
-    setTimeout(() => setShowSuggestions(false), 200); // Delay to allow suggestion clicks
-  };
-
-  // Apply suggestion
-  const applySuggestion = (suggestion: string) => {
-    setInternalValue(suggestion);
-    onChange(suggestion);
-    setShowSuggestions(false);
-    inputRef.current?.focus();
-  };
-
-  // Generate input props based on type
-  const getInputProps = () => {
-    const baseProps = {
-      value: internalValue,
-      onChange: handleChange,
-      onFocus: handleFocus,
-      onBlur: handleBlur,
-      placeholder,
-      disabled,
-      autoFocus,
-      required,
-      'aria-describedby': `${label}-help ${label}-error`,
-      'aria-invalid': !validation.isValid,
-    };
-
-    switch (type) {
-      case 'email':
-        return { ...baseProps, type: 'email', autoComplete: 'email' };
-      case 'tel':
-        return { ...baseProps, type: 'tel', autoComplete: 'tel' };
-      case 'number':
-      case 'currency':
-        return { 
-          ...baseProps, 
-          type: 'number', 
-          step: type === 'currency' ? '0.01' : '1',
-          min,
-          max
-        };
-      default:
-        return { ...baseProps, type: 'text' };
+    if (hasError) {
+      return (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-red-500" aria-hidden="true">
+          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+        </div>
+      )
     }
-  };
 
-  // Determine styling based on validation state
-  const getInputStyling = () => {
-    const baseStyles = 'w-full px-3 py-2 border rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white';
-    
-    if (!validation.isValid) {
-      return `${baseStyles} border-red-500 bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-200`;
+    if (hasWarning) {
+      return (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-yellow-500" aria-hidden="true">
+          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+        </div>
+      )
     }
-    
-    if (validation.suggestions?.length && isFocused) {
-      return `${baseStyles} border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20`;
+
+    if (finalErrors.length === 0 && internalValue && hasBeenTouched) {
+      return (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" aria-hidden="true">
+          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        </div>
+      )
     }
-    
-    if (validation.isValid && internalValue) {
-      return `${baseStyles} border-green-500 bg-green-50 dark:bg-green-900/20`;
-    }
-    
-    return `${baseStyles} border-gray-300 dark:border-gray-600`;
-  };
+
+    return null
+  }
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={cn('space-y-1', containerClassName)}>
       {/* Label */}
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <label 
+        htmlFor={inputId}
+        className={cn(
+          'block text-sm font-medium',
+          hasError ? 'text-red-700' : hasWarning ? 'text-yellow-700' : 'text-gray-700',
+          labelClassName
+        )}
+      >
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required && (
+          <span className="text-red-500 ml-1" aria-label="required">*</span>
+        )}
       </label>
 
-      {/* Input Field */}
-      <input
-        ref={ref || inputRef}
-        className={getInputStyling()}
-        {...getInputProps()}
-        {...props}
-      />
+      {/* Input Container */}
+      <div className="relative">
+        <input
+          ref={inputRef}
+          id={inputId}
+          name={name}
+          type="text"
+          value={internalValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          disabled={disabled || isValidating}
+          aria-invalid={hasError}
+          aria-describedby={ariaDescribedBy}
+          aria-required={required}
+          className={cn(
+            'block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6',
+            hasError
+              ? 'ring-red-300 focus:ring-red-500'
+              : hasWarning
+              ? 'ring-yellow-300 focus:ring-yellow-500'
+              : 'ring-gray-300 focus:ring-blue-600',
+            showValidationIcon && hasBeenTouched ? 'pr-10' : 'pr-3',
+            disabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'bg-white',
+            className
+          )}
+          {...inputProps}
+        />
+        <ValidationIcon />
+      </div>
 
       {/* Help Text */}
       {helpText && (
-        <p id={`${label}-help`} className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p id={helpId} className="text-sm text-gray-600">
           {helpText}
         </p>
       )}
 
-      {/* Validation Message */}
-      {(!validation.isValid || validation.message) && (
-        <div id={`${label}-error`} className="mt-1">
-          <p className={`text-sm flex items-center ${
-            validation.isValid ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'
-          }`}>
-            {!validation.isValid && (
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            )}
-            {validation.isValid && validation.message && (
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            )}
-            {validation.message}
-          </p>
+      {/* Error Messages */}
+      {hasError && (
+        <div id={errorId} className="space-y-1" role="alert" aria-live="polite">
+          {finalErrors.map((error, index) => (
+            <p key={index} className={cn('text-sm text-red-600', errorClassName)}>
+              {error}
+            </p>
+          ))}
         </div>
       )}
 
-      {/* Suggestions Dropdown */}
-      {showSuggestions && (validation.suggestions?.length || suggestions.length) && (
-        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
-          <div className="py-1">
-            <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-              Suggestions
-            </div>
-            {(validation.suggestions || []).map((suggestion, index) => (
-              <button
-                key={index}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none"
-                onClick={() => applySuggestion(suggestion)}
-              >
-                {suggestion}
-              </button>
-            ))}
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={`custom-${index}`}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none"
-                onClick={() => applySuggestion(suggestion)}
-              >
-                {suggestion}
-              </button>
-            ))}
-          </div>
+      {/* Warning Messages */}
+      {hasWarning && !hasError && (
+        <div id={warningId} className="space-y-1" role="alert" aria-live="polite">
+          {finalWarnings.map((warning, index) => (
+            <p key={index} className={cn('text-sm text-yellow-600', warningClassName)}>
+              {warning}
+            </p>
+          ))}
         </div>
       )}
 
-      {/* Validation Success Indicator */}
-      {validation.isValid && internalValue && !isFocused && (
-        <div className="absolute right-3 top-8 text-green-500">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
+      {/* Info Messages */}
+      {hasInfo && !hasError && !hasWarning && (
+        <div id={infoId} className="space-y-1">
+          {finalInfo.map((info, index) => (
+            <p key={index} className={cn('text-sm text-blue-600', infoClassName)}>
+              {info}
+            </p>
+          ))}
         </div>
       )}
     </div>
-  );
-});
+  )
+}
 
-ValidatedInput.displayName = 'ValidatedInput';
+export default ValidatedInput
