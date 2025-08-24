@@ -40,13 +40,20 @@ async function initializeApp() {
   if (useSW) {
     await import('./sw/register').then(m => m.maybeRegisterServiceWorker())
   } else if (import.meta.env.DEV || import.meta.env.VITE_USE_MSW === '1') {
-    // Gracefully handle MSW loading in case of dependency issues
+    // Initialize MSW for development
     try {
+      console.log('🔄 Initializing MSW...');
       const { worker } = await import('./mocks/browser');
-      await worker.start({ onUnhandledRequest: 'bypass' });
-      console.log('✅ MSW worker ready');
+      console.log('📦 MSW module loaded successfully');
+      await worker.start({ 
+        onUnhandledRequest: 'bypass',
+        quiet: false 
+      });
+      console.log('✅ MSW worker ready and intercepting requests');
     } catch (error) {
-      console.log('ℹ️ MSW not available (dependency issues) - API calls will go to real endpoints');
+      console.error('❌ MSW initialization failed:', error);
+      console.log('ℹ️ MSW not available - API calls will go to real endpoints');
+      console.log('📋 To fix: run "npx msw init public/ --save" and refresh');
     }
   }
 
