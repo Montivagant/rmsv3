@@ -10,6 +10,7 @@ export { OfflineBanner } from './OfflineBanner';
 export { PaymentModal } from './PaymentModal';
 export { MenuManagement } from './MenuManagement';
 export { CategoryManagement } from './CategoryManagement';
+export { default as RecipeManagement } from './RecipeManagement';
 export { SyncStatusIndicator, SyncStatusBadge, SyncStatusPanel } from './SyncStatusIndicator';
 export { PerformanceMonitor, PerformanceBadge } from './PerformanceMonitor';
 

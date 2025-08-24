@@ -3,6 +3,7 @@ import { eventStore } from '../events/store';
 import { handleWebhook } from '../payments/webhook';
 import { categoryApiHandlers } from '../inventory/categories/api';
 import { inventoryItemApiHandlers } from '../inventory/items/api';
+import { recipeApiHandlers } from '../recipes/api';
 
 // Mock data
 const mockMenuItems = [
@@ -80,6 +81,9 @@ export const handlers = [
   
   // Enhanced Inventory Items
   ...inventoryItemApiHandlers,
+  
+  // Recipe & BOM Management
+  ...recipeApiHandlers,
   
   // Menu items
   http.get('/api/menu', () => {

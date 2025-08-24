@@ -24,17 +24,18 @@ import type {
   InventoryItemUpdatedEvent,
   InventoryMovementRecordedEvent,
   StockLevelAdjustedEvent,
-  ReorderAlertTriggeredEvent,
-  DEFAULT_UNITS,
-  DEFAULT_STORAGE_LOCATIONS
+  ReorderAlertTriggeredEvent
 } from './types';
+import { DEFAULT_UNITS, DEFAULT_STORAGE_LOCATIONS } from './types';
 
 export class InventoryItemService {
+  private eventStore: EventStore;
   private units: Map<string, UnitOfMeasure> = new Map();
   private conversions: Map<string, UOMConversion[]> = new Map();
   private storageLocations: Map<string, StorageLocation> = new Map();
 
-  constructor(private eventStore: EventStore) {
+  constructor(eventStore: EventStore) {
+    this.eventStore = eventStore;
     this.initializeUnits();
     this.initializeStorageLocations();
   }
@@ -279,13 +280,19 @@ export class InventoryItemService {
   }
 
   async getAllItems(query: InventoryItemQuery = {}): Promise<InventoryItem[]> {
-    const allEvents = this.eventStore.getEventsByType('inventory.item.created')
-      .concat(this.eventStore.getEventsByType('inventory.item.updated'));
+    const allEvents = this.eventStore.getAll();
+    
+    // Filter to inventory item events
+    const inventoryEvents = allEvents.filter(event => 
+      event.type === 'inventory.item.created' || 
+      event.type === 'inventory.item.updated' ||
+      event.type === 'inventory.stock.adjusted'
+    );
 
     // Group events by item ID
     const itemEvents = new Map<string, any[]>();
-    for (const event of allEvents) {
-      const itemId = event.aggregateId;
+    for (const event of inventoryEvents) {
+      const itemId = event.aggregate.id;
       if (!itemEvents.has(itemId)) {
         itemEvents.set(itemId, []);
       }
