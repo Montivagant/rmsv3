@@ -25,6 +25,12 @@ import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { InventoryDashboard } from '../inventory';
 import type { ValidationResult } from '../utils/validation';
 import { validateSKU, validateCurrency, validateQuantity, validateName } from '../utils/validation';
+import { getCurrentUser } from '../rbac/roles';
+import { 
+  hasInventoryPermission, 
+  INVENTORY_UI_RULES, 
+  INVENTORY_ACCESS_LEVELS 
+} from '../rbac/inventory-permissions';
 
 // Enhanced Inventory Item Interface (matching our types)
 interface EnhancedInventoryItem {
@@ -121,6 +127,10 @@ interface StorageLocation {
 }
 
 function EnhancedInventory() {
+  // Get current user and role for RBAC
+  const currentUser = getCurrentUser();
+  const userRole = currentUser?.role || 'STAFF';
+  
   const { data: inventoryResponse, loading, error, refetch } = useApi<{
     items: EnhancedInventoryItem[];
     total: number;
@@ -564,17 +574,34 @@ function EnhancedInventory() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with RBAC Role Indicator */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Enhanced Inventory Management</h1>
-          <p className="text-gray-600 dark:text-gray-400">Production-ready inventory with UOM, lot tracking, and category integration</p>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Enhanced Inventory Management</h1>
+            <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+              userRole === 'TECH_ADMIN' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+              userRole === 'ADMIN' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+              'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+            }`}>
+              {INVENTORY_ACCESS_LEVELS[userRole]?.name || 'Basic Access'}
+            </span>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">
+            {INVENTORY_ACCESS_LEVELS[userRole]?.description || 'View stock levels and report issues'}
+          </p>
         </div>
-        <Button onClick={() => setShowAddForm(true)}>Add Inventory Item</Button>
+        {INVENTORY_UI_RULES.showAddItemButton(userRole) && (
+          <Button onClick={() => setShowAddForm(true)}>Add Inventory Item</Button>
+        )}
       </div>
 
-      {/* Summary Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Summary Statistics with RBAC Controls */}
+      <div className={`grid gap-4 ${
+        INVENTORY_UI_RULES.showFinancialMetrics(userRole) 
+          ? 'grid-cols-1 md:grid-cols-4' 
+          : 'grid-cols-1 md:grid-cols-3'
+      }`}>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{summaryStats.total}</div>
@@ -593,12 +620,14 @@ function EnhancedInventory() {
             <div className="text-sm text-gray-600 dark:text-gray-400">Below Reorder</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">${summaryStats.totalValue.toFixed(2)}</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">Total Value</div>
-          </CardContent>
-        </Card>
+        {INVENTORY_UI_RULES.showFinancialMetrics(userRole) && (
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">${summaryStats.totalValue.toFixed(2)}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total Value</div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Add Form */}
@@ -640,9 +669,10 @@ function EnhancedInventory() {
       <Card>
         <CardContent className="p-0">
           <div>
-            {/* Tab Navigation */}
+            {/* Tab Navigation with RBAC Controls */}
             <div className="border-b border-gray-200 dark:border-gray-700">
               <nav className="-mb-px flex">
+                {/* Advanced Dashboard - Available to all roles */}
                 <button
                   role="tab"
                   className={`px-6 py-4 text-sm font-medium border-b-2 ${
@@ -653,8 +683,10 @@ function EnhancedInventory() {
                   aria-selected={activeTab === 'advanced'}
                   onClick={() => setActiveTab('advanced')}
                 >
-                  Advanced Dashboard
+                  📊 Dashboard
                 </button>
+                
+                {/* Enhanced Inventory - Available to all roles */}
                 <button
                   role="tab"
                   className={`px-6 py-4 text-sm font-medium border-b-2 ${
@@ -665,48 +697,56 @@ function EnhancedInventory() {
                   aria-selected={activeTab === 'enhanced'}
                   onClick={() => setActiveTab('enhanced')}
                 >
-                  Enhanced Inventory
+                  📦 Inventory
                 </button>
-                <button
-                  role="tab"
-                  className={`px-6 py-4 text-sm font-medium border-b-2 ${
-                    activeTab === 'categories' 
-                      ? 'border-blue-600 text-blue-600' 
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                  aria-selected={activeTab === 'categories'}
-                  onClick={() => setActiveTab('categories')}
-                >
-                  Categories
-                </button>
-                <button
-                  role="tab"
-                  className={`px-6 py-4 text-sm font-medium border-b-2 ${
-                    activeTab === 'recipes' 
-                      ? 'border-blue-600 text-blue-600' 
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                  aria-selected={activeTab === 'recipes'}
-                  onClick={() => setActiveTab('recipes')}
-                >
-                  Recipes & BOM
-                </button>
+                
+                {/* Categories - Available to ADMIN and TECH_ADMIN */}
+                {INVENTORY_UI_RULES.showCategoriesTab(userRole) && (
+                  <button
+                    role="tab"
+                    className={`px-6 py-4 text-sm font-medium border-b-2 ${
+                      activeTab === 'categories' 
+                        ? 'border-blue-600 text-blue-600' 
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                    aria-selected={activeTab === 'categories'}
+                    onClick={() => setActiveTab('categories')}
+                  >
+                    🏷️ Categories
+                  </button>
+                )}
+                
+                {/* Recipes & BOM - Available to TECH_ADMIN only */}
+                {INVENTORY_UI_RULES.showRecipesTab(userRole) && (
+                  <button
+                    role="tab"
+                    className={`px-6 py-4 text-sm font-medium border-b-2 ${
+                      activeTab === 'recipes' 
+                        ? 'border-blue-600 text-blue-600' 
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                    aria-selected={activeTab === 'recipes'}
+                    onClick={() => setActiveTab('recipes')}
+                  >
+                    🍽️ Recipes & BOM
+                  </button>
+                )}
               </nav>
             </div>
             
-            {/* Tab Content */}
+            {/* Tab Content with RBAC Controls */}
             <div role="tabpanel" className="p-0">
               {activeTab === 'advanced' ? (
                 <div className="p-6">
                   <InventoryDashboard />
                 </div>
-              ) : activeTab === 'categories' ? (
+              ) : activeTab === 'categories' && INVENTORY_UI_RULES.showCategoriesTab(userRole) ? (
                 <div className="p-6">
                   <CategoryManagement onCategoryUpdated={() => {
                     refetch();
                   }} />
                 </div>
-              ) : activeTab === 'recipes' ? (
+              ) : activeTab === 'recipes' && INVENTORY_UI_RULES.showRecipesTab(userRole) ? (
                 <div className="p-6">
                   <RecipeManagement onRecipeUpdated={() => {
                     // Refresh inventory data when recipes are updated
@@ -727,6 +767,7 @@ function EnhancedInventory() {
                     onAdjustStock={adjustStock}
                     updatingItem={updatingItem}
                     loading={loading}
+                    userRole={userRole}
                   />
                 </div>
               )}
