@@ -14,7 +14,8 @@ export { PerformanceMonitor, PerformanceBadge } from './PerformanceMonitor';
 // Enhanced Form Components
 export { ValidatedInput } from './forms/ValidatedInput';
 export { SmartForm } from './forms/SmartForm';
-export type { ValidatedInputProps, SmartFormProps, FormField } from './forms/SmartForm';
+export type { ValidatedInputProps } from './forms/ValidatedInput';
+export type { SmartFormProps, FormField } from './forms/SmartForm';
 
 // Enhanced Feedback Components
 export { 
