@@ -6,20 +6,14 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Button,
-  Input,
-  Select,
-  SmartForm,
-  LoadingOverlay,
-  SkeletonCard,
-  useNotifications
-} from './index';
-import type { FormField } from './index';
+import { Card, CardHeader, CardTitle, CardContent } from './Card';
+import { Button } from './Button';
+import { Input } from './Input';
+import { Select } from './Select';
+import { SmartForm } from './forms/SmartForm';
+import type { FormField } from './forms/SmartForm';
+import { LoadingOverlay, SkeletonCard } from './feedback/LoadingSpinner';
+import { useNotifications } from './feedback/NotificationSystem';
 import { useApi, apiPost, apiPatch, apiDelete } from '../hooks/useApi';
 import type { ValidationResult } from '../utils/validation';
 import { validateName, validateQuantity, validateCurrency } from '../utils/validation';
