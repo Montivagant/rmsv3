@@ -57,7 +57,6 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
   }>('/api/recipes');
 
   const { data: inventoryItems } = useApi<InventoryItem[]>('/api/inventory/items');
-  const { data: recipeCategories } = useApi<typeof RECIPE_CATEGORIES>('/api/recipes/categories');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -78,18 +77,16 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
   // Get category options
   const categoryOptions = useMemo(() => {
     const options = [{ value: 'All', label: 'All Categories' }];
-    if (recipeCategories) {
-      options.push(...Object.entries(recipeCategories).map(([key, cat]) => ({
-        value: key,
-        label: `${cat.icon} ${cat.name}`
-      })));
-    }
+    options.push(...Object.entries(RECIPE_CATEGORIES).map(([key, cat]) => ({
+      value: key,
+      label: `${cat.icon} ${cat.name}`
+    })));
     return options;
-  }, [recipeCategories]);
+  }, []);
 
   // Get inventory options for ingredients
   const inventoryOptions = useMemo(() => {
-    if (!inventoryItems) return [];
+    if (!inventoryItems || !Array.isArray(inventoryItems)) return [];
     return inventoryItems.map(item => ({
       value: item.id,
       label: `${item.name} (${item.sku}) - $${item.costing.averageCost.toFixed(2)}/${item.uom.recipe}`
@@ -644,7 +641,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                   <CardTitle className="text-lg font-semibold truncate">{recipe.name}</CardTitle>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm text-gray-500">
-                      {recipeCategories?.[recipe.category as keyof typeof recipeCategories]?.icon || '🍽️'} {recipe.category.replace('_', ' ')}
+                      {RECIPE_CATEGORIES[recipe.category as keyof typeof RECIPE_CATEGORIES]?.icon || '🍽️'} {recipe.category.replace('_', ' ')}
                     </span>
                     <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
                       {recipe.type.replace('_', ' ')}
@@ -761,7 +758,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-2xl flex items-center gap-2">
-                  {recipeCategories?.[viewingRecipe.category as keyof typeof recipeCategories]?.icon || '🍽️'}
+                  {RECIPE_CATEGORIES[viewingRecipe.category as keyof typeof RECIPE_CATEGORIES]?.icon || '🍽️'}
                   {viewingRecipe.name}
                 </CardTitle>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">{viewingRecipe.description}</p>
