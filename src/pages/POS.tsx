@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from '../components';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select, MenuManagement } from '../components';
 import { useApi, apiPost } from '../hooks/useApi';
 import { computeTotals, type Line } from '../money/totals';
 import { useEventStore } from '../events/context';
@@ -53,7 +53,7 @@ interface Customer {
 
 function POS() {
   const store = useEventStore();
-  const { data: menuItems, loading, error } = useApi<MenuItem[]>('/api/menu');
+  const { data: menuItems, loading, error, refetch: refetchMenu } = useApi<MenuItem[]>('/api/menu');
   const { data: customers } = useApi<Customer[]>('/api/customers');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,6 +71,7 @@ function POS() {
     createPaymentProvider({ mode: 'placeholder' }) as PlaceholderPaymentProvider
   );
   const [taxCalculation, setTaxCalculation] = useState<TaxCalculationResult | null>(null);
+  const [showMenuManagement, setShowMenuManagement] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const currentTicketIdRef = useRef<string | null>(null);
   const toast = useToast();
@@ -97,6 +98,11 @@ function POS() {
   
   const currentRole = getRole();
   const canFinalize = RANK[currentRole] >= RANK[Role.ADMIN];
+
+  // Handle menu updates
+  const handleMenuUpdated = () => {
+    refetchMenu();
+  };
   
   // Update payment status when events change
   useEffect(() => {
@@ -565,38 +571,53 @@ function POS() {
       {/* Menu Section */}
       <div className="lg:col-span-2 space-y-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Point of Sale
-          </h1>
-          <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <div className="relative max-w-md">
-              <Input
-                ref={searchInputRef}
-                placeholder="Search menu items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-                Press / to focus
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {showMenuManagement ? 'Menu Management' : 'Point of Sale'}
+            </h1>
+            {canFinalize && (
+              <Button
+                variant="outline"
+                onClick={() => setShowMenuManagement(!showMenuManagement)}
+              >
+                {showMenuManagement ? 'Back to POS' : 'Manage Menu'}
+              </Button>
+            )}
+          </div>
+          {!showMenuManagement && (
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+              <div className="relative max-w-md">
+                <Input
+                  ref={searchInputRef}
+                  placeholder="Search menu items..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full"
+                />
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
+                  Press / to focus
+                </div>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {categories.map(category => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                  >
+                    {category}
+                  </Button>
+                ))}
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {categories.map(category => (
-                <Button
-                  key={category}
-                  variant={selectedCategory === category ? 'primary' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category}
-                </Button>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+        {showMenuManagement ? (
+          <MenuManagement onItemUpdated={handleMenuUpdated} />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {filteredItems.map(item => (
             <Card key={item.id} className="cursor-pointer hover:shadow-md transition-shadow">
               <CardContent className="p-4">
@@ -625,11 +646,13 @@ function POS() {
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+        )}
       </div>
       
-      {/* Cart Section */}
-      <div>
+      {/* Cart Section - only show when not in menu management mode */}
+      {!showMenuManagement && (
+        <div>
         <Card className="h-fit">
           <CardHeader>
             <CardTitle>Current Order {cart.length > 0 && `(Items: ${cart.reduce((sum, item) => sum + item.quantity, 0)})`}</CardTitle>
@@ -889,7 +912,8 @@ function POS() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
+      )}
     </div>
 
     {/* Payment Modal */}

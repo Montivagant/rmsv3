@@ -97,3 +97,18 @@ export async function apiPatch<T>(url: string, data: any): Promise<T> {
 
   return response.json();
 }
+
+export async function apiDelete<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}

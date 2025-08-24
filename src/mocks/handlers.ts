@@ -82,7 +82,31 @@ export const handlers = [
     const newItem = await request.json() as any;
     const item = { ...newItem, id: String(mockMenuItems.length + 1) };
     mockMenuItems.push(item);
+    console.log('🍔 MSW: Added new menu item:', item.name);
     return HttpResponse.json(item, { status: 201 });
+  }),
+
+  http.patch('/api/menu/:id', async ({ params, request }) => {
+    const { id } = params;
+    const updates = await request.json() as any;
+    const itemIndex = mockMenuItems.findIndex(item => item.id === id);
+    if (itemIndex !== -1) {
+      mockMenuItems[itemIndex] = { ...mockMenuItems[itemIndex], ...updates };
+      console.log('🍔 MSW: Updated menu item:', mockMenuItems[itemIndex].name);
+      return HttpResponse.json(mockMenuItems[itemIndex]);
+    }
+    return new HttpResponse(null, { status: 404 });
+  }),
+
+  http.delete('/api/menu/:id', async ({ params }) => {
+    const { id } = params;
+    const itemIndex = mockMenuItems.findIndex(item => item.id === id);
+    if (itemIndex !== -1) {
+      const deletedItem = mockMenuItems.splice(itemIndex, 1)[0];
+      console.log('🍔 MSW: Deleted menu item:', deletedItem.name);
+      return HttpResponse.json({ message: 'Menu item deleted successfully' });
+    }
+    return new HttpResponse(null, { status: 404 });
   }),
 
   // Orders

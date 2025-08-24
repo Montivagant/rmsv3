@@ -333,4 +333,119 @@ export class FormValidator {
   }
 }
 
+// Menu Item Validation
+export const validateMenuItemName = (name: string): ValidationResult => {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { 
+      isValid: false, 
+      message: 'Menu item name is required',
+      suggestions: ['Enter a descriptive name for the menu item']
+    };
+  }
+  if (trimmed.length < 2) {
+    return { 
+      isValid: false, 
+      message: 'Menu item name must be at least 2 characters',
+      suggestions: ['Try: "Burger", "Coffee", "Fries"']
+    };
+  }
+  if (trimmed.length > 50) {
+    return { 
+      isValid: false, 
+      message: 'Menu item name must be 50 characters or less',
+      suggestions: [`Try shortening: "${trimmed.substring(0, 47)}..."`]
+    };
+  }
+  return { isValid: true };
+};
+
+export const validateMenuItemDescription = (description: string): ValidationResult => {
+  if (!description) return { isValid: true }; // Optional field
+  
+  const trimmed = description.trim();
+  if (trimmed.length > 200) {
+    return { 
+      isValid: false, 
+      message: 'Description must be 200 characters or less',
+      suggestions: [`Current: ${trimmed.length} characters. Try shortening the description.`]
+    };
+  }
+  return { isValid: true };
+};
+
+export const validateMenuItemPrice = (price: string | number): ValidationResult => {
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  
+  if (isNaN(numPrice)) {
+    return { 
+      isValid: false, 
+      message: 'Price must be a valid number',
+      suggestions: ['Enter a decimal number like 9.99']
+    };
+  }
+  
+  if (numPrice < 0) {
+    return { 
+      isValid: false, 
+      message: 'Price cannot be negative',
+      suggestions: ['Enter a positive price amount']
+    };
+  }
+  
+  if (numPrice === 0) {
+    return { 
+      isValid: false, 
+      message: 'Price cannot be zero',
+      suggestions: ['Enter the actual price for this menu item']
+    };
+  }
+  
+  if (numPrice > 1000) {
+    return { 
+      isValid: false, 
+      message: 'Price seems unusually high (over $1000)',
+      suggestions: ['Double-check the price amount']
+    };
+  }
+  
+  // Check for reasonable decimal precision
+  const decimalPlaces = (numPrice.toString().split('.')[1] || '').length;
+  if (decimalPlaces > 2) {
+    return { 
+      isValid: false, 
+      message: 'Price should have at most 2 decimal places',
+      suggestions: [`Try: $${numPrice.toFixed(2)}`]
+    };
+  }
+  
+  return { isValid: true };
+};
+
+export const validateMenuItemCategory = (category: string, existingCategories: string[] = []): ValidationResult => {
+  const trimmed = category.trim();
+  if (!trimmed) {
+    return { 
+      isValid: false, 
+      message: 'Category is required',
+      suggestions: existingCategories.length > 0 ? existingCategories : ['Main', 'Sides', 'Drinks', 'Desserts']
+    };
+  }
+  if (trimmed.length < 2) {
+    return { 
+      isValid: false, 
+      message: 'Category must be at least 2 characters',
+      suggestions: ['Main', 'Sides', 'Drinks']
+    };
+  }
+  if (trimmed.length > 30) {
+    return { 
+      isValid: false, 
+      message: 'Category must be 30 characters or less',
+      suggestions: [`Try shortening: "${trimmed.substring(0, 27)}..."`]
+    };
+  }
+  return { isValid: true };
+};
+
 
