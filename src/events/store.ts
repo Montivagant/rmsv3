@@ -8,8 +8,9 @@ import type {
 import { IdempotencyConflictError } from './types';
 import { stableHash } from './hash';
 import { logEvent } from './log';
+// PouchDB integration disabled in development mode
 // import { openLocalDBLegacy, type PouchDBAdapter } from '../db/pouch';
-type PouchDBAdapter = any; // Temporary to avoid spark-md5 issues
+type PouchDBAdapter = any; // Placeholder type
 
 /**
  * In-memory event store with strict idempotency
@@ -24,8 +25,9 @@ export class InMemoryEventStore implements IEventStore {
   private pouchAdapter?: PouchDBAdapter;
 
   constructor(options: { persistToPouch?: boolean; dbName?: string } = {}) {
-    // PouchDB integration temporarily disabled
-    // LocalStorage persistence is now handled by bootstrap/persist.ts
+    // Skip PouchDB initialization in development mode
+    // PouchDB is handled by the bootstrap layer with proper fallbacks
+    // Note: React StrictMode may cause multiple initializations in development
   }
 
   append(type: string, payload: any, opts: AppendOptions): AppendResult {
@@ -45,7 +47,8 @@ export class InMemoryEventStore implements IEventStore {
       if (existing.paramsHash === paramsHash) {
         return {
           event: existingEvent,
-          deduped: true
+          deduped: true,
+          isNew: false
         };
       }
       
@@ -88,12 +91,17 @@ export class InMemoryEventStore implements IEventStore {
     
     return {
       event,
-      deduped: false
+      deduped: false,
+      isNew: true
     };
   }
 
   getAll(): Event[] {
     return [...this.events];
+  }
+
+  getEventsForAggregate(aggregateId: string): Event[] {
+    return this.events.filter(event => event.aggregate?.id === aggregateId);
   }
 
   getByAggregate(id: string): Event[] {

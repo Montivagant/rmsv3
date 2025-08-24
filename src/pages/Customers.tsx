@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '../components';
-import { useApi, apiPatch } from '../hooks/useApi';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, LoadingOverlay, SkeletonCard, useNotifications } from '../components';
+import type { FormField } from '../components';
+import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
+import type { ValidationResult } from '../utils/validation';
+import { validateEmail, validatePhone, validateName } from '../utils/validation';
 
 interface Customer {
   id: string;
@@ -18,7 +21,19 @@ interface Customer {
 function Customers() {
   const { data: customers, loading, error, refetch } = useApi<Customer[]>('/api/customers');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [updatingCustomer, setUpdatingCustomer] = useState<string | null>(null);
+  const [showFilterForm, setShowFilterForm] = useState(false);
+  const { showSuccess, showError, showLoading, removeNotification } = useNotifications();
+  const [filters, setFilters] = useState({
+    minPoints: '',
+    maxPoints: '',
+    minVisits: '',
+    maxVisits: '',
+    minSpent: '',
+    maxSpent: ''
+  });
   
   const updatePoints = async (customerId: string, pointsToAdd: number) => {
     try {
@@ -36,12 +51,132 @@ function Customers() {
       setUpdatingCustomer(null);
     }
   };
+
+  // Get existing emails for validation
+  const existingEmails = customers?.map(customer => customer.email.toLowerCase()) || [];
+
+  // Enhanced add customer function
+  const addCustomer = async (values: Record<string, any>) => {
+    const loadingId = showLoading(
+      'Adding Customer',
+      `Creating customer account for "${values.name}"...`
+    );
+    
+    setIsAddingCustomer(true);
+    try {
+      await apiPost('/api/customers', values);
+      setShowAddForm(false);
+      refetch();
+      
+      removeNotification(loadingId);
+      showSuccess(
+        'Customer Added Successfully',
+        `${values.name} has been added to the customer database and enrolled in the loyalty program`,
+        [
+          {
+            label: 'Add Another',
+            action: () => setShowAddForm(true),
+            style: 'secondary'
+          }
+        ]
+      );
+    } catch (error) {
+      removeNotification(loadingId);
+      showError(
+        'Failed to Add Customer',
+        `Could not add "${values.name}" to the customer database. Please check your connection and try again.`,
+        [
+          {
+            label: 'Try Again',
+            action: () => addCustomer(values),
+            style: 'primary'
+          }
+        ]
+      );
+      console.error('Error adding customer:', error);
+      throw error; // Let SmartForm handle the error display
+    } finally {
+      setIsAddingCustomer(false);
+    }
+  };
+
+  // Customer form fields configuration with enhanced validation
+  const customerFormFields: FormField[] = [
+    {
+      name: 'name',
+      label: 'Full Name',
+      type: 'text',
+      required: true,
+      placeholder: 'Enter customer name',
+      helpText: 'Customer\'s full name for account identification',
+      validation: (value: string) => validateName(value)
+    },
+    {
+      name: 'email',
+      label: 'Email Address',
+      type: 'email',
+      required: true,
+      placeholder: 'customer@example.com',
+      helpText: 'Email for receipts, promotions, and account recovery',
+      validation: (value: string) => {
+        const result = validateEmail(value);
+        if (!result.isValid) return result;
+
+        // Check for duplicate emails
+        if (existingEmails.includes(value.toLowerCase())) {
+          return {
+            isValid: false,
+            message: 'Email address already exists',
+            suggestions: ['Try a different email address']
+          };
+        }
+
+        return result;
+      }
+    },
+    {
+      name: 'phone',
+      label: 'Phone Number',
+      type: 'tel',
+      required: false,
+      placeholder: '(555) 123-4567',
+      helpText: 'Phone number for order notifications and contact (optional)',
+      validation: (value: string) => {
+        if (!value) return { isValid: true }; // Optional field
+        return validatePhone(value);
+      }
+    }
+  ];
   
-  const filteredCustomers = customers?.filter(customer => 
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const clearFilters = () => {
+    setFilters({
+      minPoints: '',
+      maxPoints: '',
+      minVisits: '',
+      maxVisits: '',
+      minSpent: '',
+      maxSpent: ''
+    });
+  };
+
+  const filteredCustomers = customers?.filter(customer => {
+    // Text search filter
+    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.phone.includes(searchTerm) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
+
+    // Advanced filters
+    if (filters.minPoints && customer.points < parseInt(filters.minPoints)) return false;
+    if (filters.maxPoints && customer.points > parseInt(filters.maxPoints)) return false;
+    if (filters.minVisits && customer.visits < parseInt(filters.minVisits)) return false;
+    if (filters.maxVisits && customer.visits > parseInt(filters.maxVisits)) return false;
+    if (filters.minSpent && customer.totalSpent < parseFloat(filters.minSpent)) return false;
+    if (filters.maxSpent && customer.totalSpent > parseFloat(filters.maxSpent)) return false;
+
+    return true;
+  }) || [];
   
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -49,10 +184,27 @@ function Customers() {
   
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading customers...</p>
+      <div className="space-y-6">
+        {/* Loading header */}
+        <div className="flex justify-between items-center">
+          <div className="space-y-2">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse"></div>
+          </div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+        </div>
+        
+        {/* Loading search and filters */}
+        <div className="flex gap-4">
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1 animate-pulse"></div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+        </div>
+        
+        {/* Loading customer cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <SkeletonCard key={index} showAvatar={false} lines={4} />
+          ))}
         </div>
       </div>
     );
@@ -78,8 +230,28 @@ function Customers() {
             Manage customer profiles and loyalty points
           </p>
         </div>
-        <Button>Add Customer</Button>
+        <Button onClick={() => setShowAddForm(true)}>Add Customer</Button>
       </div>
+
+      {/* Enhanced Add Customer Form */}
+      {showAddForm && (
+        <Card>
+          <CardContent className="p-6">
+            <SmartForm
+              fields={customerFormFields}
+              onSubmit={addCustomer}
+              onCancel={() => setShowAddForm(false)}
+              title="Add New Customer"
+              description="Create a new customer account with automatic loyalty program enrollment"
+              submitLabel="Add Customer"
+              cancelLabel="Cancel"
+              autoSave={true}
+              autoSaveKey="customer-add"
+              disabled={isAddingCustomer}
+            />
+          </CardContent>
+        </Card>
+      )}
       
       <div className="flex gap-4">
         <Input 
@@ -88,8 +260,84 @@ function Customers() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <Button variant="outline">Filter</Button>
+        <Button variant="outline" onClick={() => setShowFilterForm(!showFilterForm)}>
+          {showFilterForm ? 'Hide Filters' : 'Filter'}
+        </Button>
+        {(filters.minPoints || filters.maxPoints || filters.minVisits || filters.maxVisits || filters.minSpent || filters.maxSpent) && (
+          <Button variant="outline" onClick={clearFilters}>
+            Clear Filters
+          </Button>
+        )}
       </div>
+
+      {/* Advanced Filter Form */}
+      {showFilterForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Advanced Filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Loyalty Points</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minPoints}
+                    onChange={(e) => setFilters({...filters, minPoints: e.target.value})}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxPoints}
+                    onChange={(e) => setFilters({...filters, maxPoints: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Number of Visits</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    placeholder="Min"
+                    value={filters.minVisits}
+                    onChange={(e) => setFilters({...filters, minVisits: e.target.value})}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Max"
+                    value={filters.maxVisits}
+                    onChange={(e) => setFilters({...filters, maxVisits: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Total Spent ($)</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Min"
+                    value={filters.minSpent}
+                    onChange={(e) => setFilters({...filters, minSpent: e.target.value})}
+                  />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="Max"
+                    value={filters.maxSpent}
+                    onChange={(e) => setFilters({...filters, maxSpent: e.target.value})}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+              Showing {filteredCustomers.length} of {customers?.length || 0} customers
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCustomers.map(customer => (

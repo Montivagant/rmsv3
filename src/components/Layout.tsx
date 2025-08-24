@@ -4,6 +4,9 @@ import { getCurrentUser, setCurrentUser } from '../rbac/roles';
 import { Button } from './Button';
 import { Breadcrumb } from './Breadcrumb';
 import { OfflineBanner } from './OfflineBanner';
+import { SyncStatusBadge } from './SyncStatusIndicator';
+import { PerformanceBadge } from './PerformanceMonitor';
+import { getPerformanceMetrics } from '../bootstrap/persist';
 import { useUI } from '../store/ui';
 import { useFlags } from '../store/flags';
 
@@ -138,6 +141,15 @@ export function Layout() {
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Performance badge */}
+              <PerformanceBadge 
+                getMetrics={getPerformanceMetrics} 
+                className="p-2" 
+              />
+              
+              {/* Sync status indicator */}
+              <SyncStatusBadge className="p-2" />
+              
               {/* Dark mode toggle */}
               <button
                 onClick={toggleDarkMode}

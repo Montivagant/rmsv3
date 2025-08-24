@@ -4,6 +4,7 @@ import { getOversellPolicy, setOversellPolicy } from '../inventory/policy'
 import { useState, useEffect } from 'react'
 import type { OversellPolicy } from '../inventory/types'
 import { auditLogger } from '../rbac/audit'
+import { TaxConfigurationPanel } from '../tax/components/TaxConfigurationPanel'
 
 export default function AdminConsole() {
   const { flags, setFlag, resetToDefaults } = useFlags()
@@ -117,6 +118,14 @@ export default function AdminConsole() {
             <p><strong>Block oversell:</strong> Prevents finalization if any component would go below 0.</p>
             <p><strong>Allow negative & alert:</strong> Allows finalization but shows alerts for negative stock.</p>
           </div>
+        </div>
+      </section>
+
+      {/* Tax Configuration Section */}
+      <section className="mt-8">
+        <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Tax Management</h2>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+          <TaxConfigurationPanel />
         </div>
       </section>
     </div>

@@ -1,5 +1,5 @@
+import { Suspense, lazy, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy, useState, useEffect } from 'react';
 import { Layout } from './components';
 import { getCurrentUser, Role } from './rbac/roles';
 import { RoleGuard } from './rbac/guard';
@@ -11,7 +11,7 @@ import { useFeature } from './store/flags';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const POS = lazy(() => import('./pages/POS'));
 const KDS = lazy(() => import('./pages/KDS'));
-const Inventory = lazy(() => import('./pages/Inventory'));
+const Inventory = lazy(() => import('./pages/EnhancedInventory'));
 const Customers = lazy(() => import('./pages/Customers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -31,11 +31,11 @@ function Loading({ message = 'Loading…' }: { message?: string }) {
 }
 
 // Simple wrapper component - hydration now handled by EventStoreProvider
-function HydrationWrapper({ children }: { children: React.ReactNode }) {
+function HydrationWrapper({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
   const currentUser = getCurrentUser();
   
   if (!currentUser) {
@@ -68,7 +68,7 @@ function AppContent() {
   
   return (
     <div className={getDensityClasses(density)}>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Suspense fallback={<Loading />}>
           <Routes>
           <Route path="/login" element={<Login />} />

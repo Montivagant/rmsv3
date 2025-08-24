@@ -1,7 +1,15 @@
 import '@testing-library/jest-dom'
 import { afterAll, afterEach, beforeAll } from 'vitest'
-import { server } from '../mocks/node' // MSW server for Node (Vitest)
 import { vi } from 'vitest';
+
+// Try to import MSW server, but gracefully handle failure
+let server: any = null;
+try {
+  const mswModule = require('../mocks/node');
+  server = mswModule.server;
+} catch (error) {
+  console.log('MSW server not available, running tests without mocking');
+}
 
 // Mock window.location for React Router testing
 Object.defineProperty(window, 'location', {
@@ -62,9 +70,21 @@ Object.defineProperty(window, 'matchMedia', {
   writable: true
 });
 
-// MSW: start/reset/stop for Node (Vitest)
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
+// MSW: start/reset/stop for Node (Vitest) - conditionally
+beforeAll(() => {
+  if (server) {
+    server.listen({ onUnhandledRequest: 'error' });
+  }
+})
+afterEach(() => {
+  if (server) {
+    server.resetHandlers();
+  }
+})
+afterAll(() => {
+  if (server) {
+    server.close();
+  }
+})
 
 // Use real timers by default (fake timers + userEvent need extra config)

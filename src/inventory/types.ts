@@ -3,6 +3,22 @@ export interface InventoryItem {
   name: string
   qty: number
   unit?: string
+  // Enhanced inventory properties
+  reorderPoint?: number
+  reorderQuantity?: number
+  maxStockLevel?: number
+  costPerUnit?: number
+  avgCostPerUnit?: number // Weighted average cost
+  lastOrderDate?: string
+  lastOrderCost?: number
+  primarySupplierId?: string
+  category?: InventoryCategory
+  isActive?: boolean
+  notes?: string
+  // Batch tracking
+  batches?: BatchInfo[]
+  // Location-specific quantities
+  locationQuantities?: Record<string, number>
 }
 
 export type OversellPolicy = 'block' | 'allow_negative_alert'
@@ -29,5 +45,400 @@ export class OversellError extends Error {
   constructor(sku: string, message = `Oversell blocked for SKU: ${sku}`) {
     super(message)
     this.sku = sku
+  }
+}
+
+// Advanced Inventory Management Types
+
+export type InventoryCategory = 
+  | 'food_perishable'
+  | 'food_non_perishable'
+  | 'beverages'
+  | 'alcohol'
+  | 'packaging'
+  | 'cleaning_supplies'
+  | 'equipment'
+  | 'other';
+
+export interface BatchInfo {
+  batchId: string
+  quantity: number
+  expirationDate?: string
+  receivedDate: string
+  supplierId: string
+  costPerUnit: number
+  lotNumber?: string
+  isExpired?: boolean
+  notes?: string
+}
+
+export interface Location {
+  id: string
+  name: string
+  type: LocationType
+  address?: LocationAddress
+  isActive: boolean
+  managerName?: string
+  phone?: string
+  email?: string
+  operatingHours?: OperatingHours
+  notes?: string
+}
+
+export type LocationType = 
+  | 'restaurant'
+  | 'warehouse'
+  | 'central_kitchen'
+  | 'commissary'
+  | 'storage_unit';
+
+export interface LocationAddress {
+  street: string
+  city: string
+  state: string
+  zipCode: string
+  country: string
+}
+
+export interface OperatingHours {
+  monday?: TimeRange
+  tuesday?: TimeRange
+  wednesday?: TimeRange
+  thursday?: TimeRange
+  friday?: TimeRange
+  saturday?: TimeRange
+  sunday?: TimeRange
+}
+
+export interface TimeRange {
+  open: string  // "HH:MM" format
+  close: string // "HH:MM" format
+}
+
+export interface Supplier {
+  id: string
+  name: string
+  contactPerson?: string
+  email?: string
+  phone?: string
+  address?: LocationAddress
+  paymentTerms?: PaymentTerms
+  leadTimeDays?: number
+  minimumOrderAmount?: number
+  deliveryDays?: DayOfWeek[]
+  notes?: string
+  isActive: boolean
+  rating?: number // 1-5 scale
+  // Performance metrics
+  averageLeadTime?: number
+  onTimeDeliveryRate?: number // percentage
+  qualityRating?: number // 1-5 scale
+  lastOrderDate?: string
+  totalOrdersCount?: number
+  totalOrderValue?: number
+}
+
+export type PaymentTerms = 
+  | 'cash_on_delivery'
+  | 'net_15'
+  | 'net_30'
+  | 'net_60'
+  | 'prepaid'
+  | 'credit_terms';
+
+export type DayOfWeek = 
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+export interface PurchaseOrder {
+  id: string
+  supplierId: string
+  locationId: string
+  status: PurchaseOrderStatus
+  orderDate: string
+  expectedDeliveryDate?: string
+  actualDeliveryDate?: string
+  totalAmount: number
+  subtotal: number
+  taxAmount?: number
+  shippingCost?: number
+  items: PurchaseOrderItem[]
+  notes?: string
+  createdBy: string
+  approvedBy?: string
+  receivedBy?: string
+  // Tracking
+  trackingNumber?: string
+  shippingMethod?: string
+}
+
+export type PurchaseOrderStatus = 
+  | 'draft'
+  | 'pending_approval'
+  | 'approved'
+  | 'sent_to_supplier'
+  | 'confirmed_by_supplier'
+  | 'in_transit'
+  | 'partially_received'
+  | 'fully_received'
+  | 'cancelled'
+  | 'returned';
+
+export interface PurchaseOrderItem {
+  sku: string
+  name: string
+  quantityOrdered: number
+  quantityReceived?: number
+  unitCost: number
+  totalCost: number
+  unit: string
+  notes?: string
+  expirationDate?: string
+  batchId?: string
+}
+
+export interface StockTransfer {
+  id: string
+  fromLocationId: string
+  toLocationId: string
+  status: TransferStatus
+  transferDate: string
+  expectedArrivalDate?: string
+  actualArrivalDate?: string
+  items: TransferItem[]
+  notes?: string
+  createdBy: string
+  approvedBy?: string
+  receivedBy?: string
+  shippingMethod?: string
+  trackingNumber?: string
+}
+
+export type TransferStatus = 
+  | 'draft'
+  | 'pending_approval'
+  | 'approved'
+  | 'in_transit'
+  | 'partially_received'
+  | 'fully_received'
+  | 'cancelled';
+
+export interface TransferItem {
+  sku: string
+  name: string
+  quantityTransferred: number
+  quantityReceived?: number
+  unit: string
+  batchId?: string
+  notes?: string
+}
+
+export interface ReorderAlert {
+  id: string
+  sku: string
+  itemName: string
+  currentQuantity: number
+  reorderPoint: number
+  reorderQuantity: number
+  locationId: string
+  status: AlertStatus
+  createdDate: string
+  acknowledgedBy?: string
+  acknowledgedDate?: string
+  notes?: string
+  urgencyLevel: UrgencyLevel
+}
+
+export type AlertStatus = 
+  | 'active'
+  | 'acknowledged'
+  | 'resolved'
+  | 'dismissed';
+
+export type UrgencyLevel = 
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'critical';
+
+export interface ExpirationAlert {
+  id: string
+  sku: string
+  itemName: string
+  batchId: string
+  quantity: number
+  expirationDate: string
+  daysUntilExpiration: number
+  locationId: string
+  status: AlertStatus
+  createdDate: string
+  notes?: string
+  urgencyLevel: UrgencyLevel
+}
+
+export interface InventoryAnalytics {
+  sku: string
+  itemName: string
+  locationId?: string
+  // Turnover metrics
+  turnoverRate?: number // times per year
+  daysInInventory?: number
+  // Usage patterns
+  averageDailyUsage?: number
+  averageWeeklyUsage?: number
+  averageMonthlyUsage?: number
+  // Cost metrics
+  totalInventoryValue?: number
+  averageCostPerUnit?: number
+  lastPurchaseCost?: number
+  // Performance indicators
+  stockoutDays?: number // days out of stock in period
+  overstockDays?: number // days overstocked in period
+  wasteAmount?: number // quantity wasted/expired
+  wasteValue?: number // value of waste
+  // Forecasting
+  predictedUsage30Days?: number
+  predictedUsage90Days?: number
+  recommendedReorderPoint?: number
+  recommendedReorderQuantity?: number
+}
+
+export interface InventoryCount {
+  id: string
+  locationId: string
+  status: CountStatus
+  countDate: string
+  countType: CountType
+  items: InventoryCountItem[]
+  discrepancies: InventoryDiscrepancy[]
+  createdBy: string
+  supervisedBy?: string
+  notes?: string
+  totalVarianceValue?: number
+}
+
+export type CountStatus = 
+  | 'in_progress'
+  | 'completed'
+  | 'approved'
+  | 'rejected';
+
+export type CountType = 
+  | 'full_inventory'
+  | 'partial_inventory'
+  | 'cycle_count'
+  | 'spot_check';
+
+export interface InventoryCountItem {
+  sku: string
+  name: string
+  systemQuantity: number
+  countedQuantity: number
+  variance: number
+  variancePercentage: number
+  unit: string
+  countedBy: string
+  notes?: string
+  batchId?: string
+}
+
+export interface InventoryDiscrepancy {
+  sku: string
+  systemQuantity: number
+  countedQuantity: number
+  variance: number
+  varianceValue: number
+  reason?: DiscrepancyReason
+  investigationNotes?: string
+  resolution?: string
+  resolvedBy?: string
+  resolvedDate?: string
+}
+
+export type DiscrepancyReason = 
+  | 'theft'
+  | 'spoilage'
+  | 'damage'
+  | 'data_entry_error'
+  | 'system_error'
+  | 'unknown'
+  | 'transfer_not_recorded'
+  | 'sale_not_recorded';
+
+// Event types for advanced inventory management
+
+export interface ReorderAlertCreatedEvent {
+  type: 'inventory.reorder_alert.created'
+  payload: {
+    alert: ReorderAlert
+    automaticallyGenerated: boolean
+  }
+  at: number
+  aggregate?: {
+    id: string
+    type: 'inventory_item'
+  }
+}
+
+export interface PurchaseOrderCreatedEvent {
+  type: 'inventory.purchase_order.created'
+  payload: {
+    purchaseOrder: PurchaseOrder
+    triggeredByReorderAlert?: string
+  }
+  at: number
+  aggregate?: {
+    id: string
+    type: 'purchase_order'
+  }
+}
+
+export interface InventoryReceivedEvent {
+  type: 'inventory.received'
+  payload: {
+    purchaseOrderId: string
+    items: Array<{
+      sku: string
+      quantityReceived: number
+      batchInfo?: BatchInfo
+      costPerUnit: number
+    }>
+    receivedBy: string
+    locationId: string
+  }
+  at: number
+  aggregate?: {
+    id: string
+    type: 'inventory_item'
+  }
+}
+
+export interface StockTransferInitiatedEvent {
+  type: 'inventory.transfer.initiated'
+  payload: {
+    transfer: StockTransfer
+  }
+  at: number
+  aggregate?: {
+    id: string
+    type: 'stock_transfer'
+  }
+}
+
+export interface ExpirationAlertCreatedEvent {
+  type: 'inventory.expiration_alert.created'
+  payload: {
+    alert: ExpirationAlert
+    daysUntilExpiration: number
+  }
+  at: number
+  aggregate?: {
+    id: string
+    type: 'inventory_item'
   }
 }
