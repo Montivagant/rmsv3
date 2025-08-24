@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField, LoadingOverlay, SkeletonTable, useNotifications } from '../components';
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { InventoryDashboard } from '../inventory';
-import { validateSKU, validateCurrency, validateQuantity, validateName, ValidationResult } from '../utils/validation';
+import type { ValidationResult } from '../utils/validation';
+import { validateSKU, validateCurrency, validateQuantity, validateName } from '../utils/validation';
 
 interface InventoryItem {
   id: string;

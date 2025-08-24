@@ -3,7 +3,8 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, For
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
-import { validateEmail, validatePhone, validateName, ValidationResult } from '../utils/validation';
+import type { ValidationResult } from '../utils/validation';
+import { validateEmail, validatePhone, validateName } from '../utils/validation';
 
 interface Customer {
   id: string;

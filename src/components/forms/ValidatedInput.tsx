@@ -9,7 +9,8 @@
  */
 
 import { useState, useEffect, useRef, forwardRef } from 'react';
-import { ValidationResult, validateEmail, validatePhone, formatPhone, validateCurrency, validateName, sanitizeInput } from '../../utils/validation';
+import type { ValidationResult } from '../../utils/validation';
+import { validateEmail, validatePhone, formatPhone, validateCurrency, validateName, sanitizeInput } from '../../utils/validation';
 
 export interface ValidatedInputProps {
   label: string;

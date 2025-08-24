@@ -11,7 +11,8 @@
  */
 
 import { useState, useEffect, useRef, ReactNode } from 'react';
-import { ValidationResult, FormValidator } from '../../utils/validation';
+import type { ValidationResult } from '../../utils/validation';
+import { FormValidator } from '../../utils/validation';
 
 export interface FormField {
   name: string;

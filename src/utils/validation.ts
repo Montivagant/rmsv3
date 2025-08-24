@@ -332,3 +332,18 @@ export class FormValidator {
     return this.errors.get(field);
   }
 }
+
+// Explicit re-exports to ensure all types and functions are available
+export type { ValidationResult, ValidationRule };
+export { 
+  validateEmail, 
+  validatePhone, 
+  formatPhone, 
+  validateSKU, 
+  validateCurrency, 
+  validateQuantity, 
+  validateName, 
+  sanitizeInput, 
+  businessRules,
+  FormValidator 
+};
