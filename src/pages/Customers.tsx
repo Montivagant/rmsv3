@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '../components';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField } from '../components';
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
+import { validateEmail, validatePhone, validateName, ValidationResult } from '../utils/validation';
 
 interface Customer {
   id: string;
@@ -20,11 +21,6 @@ function Customers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({
-    name: '',
-    email: '',
-    phone: ''
-  });
   const [updatingCustomer, setUpdatingCustomer] = useState<string | null>(null);
   const [showFilterForm, setShowFilterForm] = useState(false);
   const [filters, setFilters] = useState({
@@ -53,23 +49,71 @@ function Customers() {
     }
   };
 
-  const addCustomer = async () => {
+  // Get existing emails for validation
+  const existingEmails = customers?.map(customer => customer.email.toLowerCase()) || [];
+
+  // Enhanced add customer function
+  const addCustomer = async (values: Record<string, any>) => {
+    setIsAddingCustomer(true);
     try {
-      setIsAddingCustomer(true);
-      await apiPost('/api/customers', newCustomer);
-      setNewCustomer({
-        name: '',
-        email: '',
-        phone: ''
-      });
+      await apiPost('/api/customers', values);
       setShowAddForm(false);
       refetch();
     } catch (error) {
       console.error('Error adding customer:', error);
+      throw error; // Let SmartForm handle the error display
     } finally {
       setIsAddingCustomer(false);
     }
   };
+
+  // Customer form fields configuration with enhanced validation
+  const customerFormFields: FormField[] = [
+    {
+      name: 'name',
+      label: 'Full Name',
+      type: 'text',
+      required: true,
+      placeholder: 'Enter customer name',
+      helpText: 'Customer\'s full name for account identification',
+      validation: (value: string) => validateName(value)
+    },
+    {
+      name: 'email',
+      label: 'Email Address',
+      type: 'email',
+      required: true,
+      placeholder: 'customer@example.com',
+      helpText: 'Email for receipts, promotions, and account recovery',
+      validation: (value: string) => {
+        const result = validateEmail(value);
+        if (!result.isValid) return result;
+
+        // Check for duplicate emails
+        if (existingEmails.includes(value.toLowerCase())) {
+          return {
+            isValid: false,
+            message: 'Email address already exists',
+            suggestions: ['Try a different email address']
+          };
+        }
+
+        return result;
+      }
+    },
+    {
+      name: 'phone',
+      label: 'Phone Number',
+      type: 'tel',
+      required: false,
+      placeholder: '(555) 123-4567',
+      helpText: 'Phone number for order notifications and contact (optional)',
+      validation: (value: string) => {
+        if (!value) return { isValid: true }; // Optional field
+        return validatePhone(value);
+      }
+    }
+  ];
   
   const clearFilters = () => {
     setFilters({
@@ -139,56 +183,22 @@ function Customers() {
         <Button onClick={() => setShowAddForm(true)}>Add Customer</Button>
       </div>
 
-      {/* Add Customer Form */}
+      {/* Enhanced Add Customer Form */}
       {showAddForm && (
         <Card>
-          <CardHeader>
-            <CardTitle>Add New Customer</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Full Name</label>
-                <Input
-                  value={newCustomer.name}
-                  onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
-                  placeholder="Enter customer name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
-                <Input
-                  type="email"
-                  value={newCustomer.email}
-                  onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
-                  placeholder="customer@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Phone Number</label>
-                <Input
-                  type="tel"
-                  value={newCustomer.phone}
-                  onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
-                  placeholder="555-0123"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-6">
-              <Button 
-                onClick={addCustomer} 
-                disabled={isAddingCustomer || !newCustomer.name || !newCustomer.email}
-              >
-                {isAddingCustomer ? 'Adding...' : 'Add Customer'}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAddForm(false)}
-                disabled={isAddingCustomer}
-              >
-                Cancel
-              </Button>
-            </div>
+          <CardContent className="p-6">
+            <SmartForm
+              fields={customerFormFields}
+              onSubmit={addCustomer}
+              onCancel={() => setShowAddForm(false)}
+              title="Add New Customer"
+              description="Create a new customer account with automatic loyalty program enrollment"
+              submitLabel="Add Customer"
+              cancelLabel="Cancel"
+              autoSave={true}
+              autoSaveKey="customer-add"
+              disabled={isAddingCustomer}
+            />
           </CardContent>
         </Card>
       )}

@@ -10,3 +10,8 @@ export { OfflineBanner } from './OfflineBanner';
 export { PaymentModal } from './PaymentModal';
 export { SyncStatusIndicator, SyncStatusBadge, SyncStatusPanel } from './SyncStatusIndicator';
 export { PerformanceMonitor, PerformanceBadge } from './PerformanceMonitor';
+
+// Enhanced Form Components
+export { ValidatedInput } from './forms/ValidatedInput';
+export { SmartForm } from './forms/SmartForm';
+export type { ValidatedInputProps, SmartFormProps, FormField } from './forms/SmartForm';

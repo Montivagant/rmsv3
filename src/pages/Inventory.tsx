@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '../components';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField } from '../components';
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { InventoryDashboard } from '../inventory';
+import { validateSKU, validateCurrency, validateQuantity, validateName, ValidationResult } from '../utils/validation';
 
 interface InventoryItem {
   id: string;
@@ -21,15 +22,6 @@ function Inventory() {
   const [activeTab, setActiveTab] = useState('advanced');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isAddingItem, setIsAddingItem] = useState(false);
-  const [newItem, setNewItem] = useState({
-    name: '',
-    sku: '',
-    quantity: 0,
-    unit: 'pieces',
-    lowStock: 10,
-    category: '',
-    cost: 0
-  });
   
   const updateStock = async (itemId: string, newQuantity: number) => {
     try {
@@ -43,27 +35,122 @@ function Inventory() {
     }
   };
 
-  const addItem = async () => {
+  // Get existing SKUs for validation
+  const existingSKUs = inventory?.map(item => item.sku.toUpperCase()) || [];
+
+  // Enhanced add item function
+  const addItem = async (values: Record<string, any>) => {
+    setIsAddingItem(true);
     try {
-      setIsAddingItem(true);
-      await apiPost('/api/inventory', newItem);
-      setNewItem({
-        name: '',
-        sku: '',
-        quantity: 0,
-        unit: 'pieces',
-        lowStock: 10,
-        category: '',
-        cost: 0
-      });
+      await apiPost('/api/inventory', values);
       setShowAddForm(false);
       refetch();
     } catch (error) {
       console.error('Error adding item:', error);
+      throw error; // Let SmartForm handle the error display
     } finally {
       setIsAddingItem(false);
     }
   };
+
+  // Form fields configuration with enhanced validation
+  const inventoryFormFields: FormField[] = [
+    {
+      name: 'name',
+      label: 'Item Name',
+      type: 'text',
+      required: true,
+      placeholder: 'Enter item name',
+      helpText: 'A descriptive name for the inventory item',
+      validation: (value: string) => validateName(value)
+    },
+    {
+      name: 'sku',
+      label: 'SKU (Stock Keeping Unit)',
+      type: 'text',
+      required: true,
+      placeholder: 'BEEF-001, CHKN_BREAST',
+      helpText: 'Unique identifier (letters, numbers, underscore, hyphen only)',
+      validation: (value: string) => validateSKU(value, existingSKUs)
+    },
+    {
+      name: 'category',
+      label: 'Category',
+      type: 'select',
+      required: true,
+      helpText: 'Product category for organization',
+      options: [
+        { value: 'Food - Perishable', label: 'Food - Perishable' },
+        { value: 'Food - Non-Perishable', label: 'Food - Non-Perishable' },
+        { value: 'Beverages', label: 'Beverages' },
+        { value: 'Condiments', label: 'Condiments' },
+        { value: 'Cooking Supplies', label: 'Cooking Supplies' },
+        { value: 'Packaging', label: 'Packaging' },
+        { value: 'Cleaning Supplies', label: 'Cleaning Supplies' },
+        { value: 'Other', label: 'Other' }
+      ]
+    },
+    {
+      name: 'unit',
+      label: 'Unit of Measurement',
+      type: 'select',
+      required: true,
+      helpText: 'How this item is measured/counted',
+      options: [
+        { value: 'pieces', label: 'Pieces' },
+        { value: 'lbs', label: 'Pounds (lbs)' },
+        { value: 'kg', label: 'Kilograms (kg)' },
+        { value: 'gallons', label: 'Gallons' },
+        { value: 'liters', label: 'Liters' },
+        { value: 'boxes', label: 'Boxes' },
+        { value: 'cases', label: 'Cases' },
+        { value: 'bottles', label: 'Bottles' }
+      ]
+    },
+    {
+      name: 'quantity',
+      label: 'Initial Quantity',
+      type: 'number',
+      required: true,
+      placeholder: '0',
+      helpText: 'Starting inventory count',
+      validation: (value: string) => validateQuantity(value, { maxStock: 10000 })
+    },
+    {
+      name: 'lowStock',
+      label: 'Low Stock Alert Level',
+      type: 'number',
+      required: true,
+      placeholder: '10',
+      helpText: 'Alert when inventory falls below this level',
+      validation: (value: string, allValues: Record<string, any>) => {
+        const result = validateQuantity(value, { maxStock: 1000 });
+        if (!result.isValid) return result;
+
+        const quantity = parseInt(allValues.quantity || '0');
+        const lowStock = parseInt(value || '0');
+        
+        if (lowStock >= quantity && quantity > 0) {
+          return {
+            isValid: false,
+            message: 'Low stock alert should be less than initial quantity',
+            suggestions: [`Try: ${Math.floor(quantity * 0.2)} (20% of initial quantity)`]
+          };
+        }
+        
+        return { isValid: true };
+      }
+    },
+    {
+      name: 'cost',
+      label: 'Cost per Unit',
+      type: 'currency',
+      required: true,
+      placeholder: '0.00',
+      helpText: 'Cost to purchase this item (for profit calculations)',
+      validation: (value: string) => validateCurrency(value)
+    }
+  ];
   
   const filteredInventory = inventory?.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -106,90 +193,28 @@ function Inventory() {
         <Button onClick={() => setShowAddForm(true)}>Add Item</Button>
       </div>
 
-      {/* Add Item Form */}
+      {/* Enhanced Add Item Form */}
       {showAddForm && (
         <Card>
-          <CardHeader>
-            <CardTitle>Add New Inventory Item</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Item Name</label>
-                <Input
-                  value={newItem.name}
-                  onChange={(e) => setNewItem({...newItem, name: e.target.value})}
-                  placeholder="Enter item name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">SKU</label>
-                <Input
-                  value={newItem.sku}
-                  onChange={(e) => setNewItem({...newItem, sku: e.target.value})}
-                  placeholder="Enter SKU"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Category</label>
-                <Input
-                  value={newItem.category}
-                  onChange={(e) => setNewItem({...newItem, category: e.target.value})}
-                  placeholder="Enter category"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Unit</label>
-                <Input
-                  value={newItem.unit}
-                  onChange={(e) => setNewItem({...newItem, unit: e.target.value})}
-                  placeholder="e.g., pieces, lbs, gallons"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Initial Quantity</label>
-                <Input
-                  type="number"
-                  value={newItem.quantity}
-                  onChange={(e) => setNewItem({...newItem, quantity: parseInt(e.target.value) || 0})}
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Low Stock Alert</label>
-                <Input
-                  type="number"
-                  value={newItem.lowStock}
-                  onChange={(e) => setNewItem({...newItem, lowStock: parseInt(e.target.value) || 0})}
-                  placeholder="10"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Cost per Unit ($)</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={newItem.cost}
-                  onChange={(e) => setNewItem({...newItem, cost: parseFloat(e.target.value) || 0})}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-6">
-              <Button 
-                onClick={addItem} 
-                disabled={isAddingItem || !newItem.name || !newItem.sku}
-              >
-                {isAddingItem ? 'Adding...' : 'Add Item'}
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAddForm(false)}
-                disabled={isAddingItem}
-              >
-                Cancel
-              </Button>
-            </div>
+          <CardContent className="p-6">
+            <SmartForm
+              fields={inventoryFormFields}
+              onSubmit={addItem}
+              onCancel={() => setShowAddForm(false)}
+              title="Add New Inventory Item"
+              description="Create a new inventory item with comprehensive validation and business rules"
+              submitLabel="Add Item"
+              cancelLabel="Cancel"
+              autoSave={true}
+              autoSaveKey="inventory-add-item"
+              disabled={isAddingItem}
+              initialValues={{
+                unit: 'pieces',
+                lowStock: 10,
+                quantity: 0,
+                cost: 0
+              }}
+            />
           </CardContent>
         </Card>
       )}
