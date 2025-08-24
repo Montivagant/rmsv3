@@ -5,7 +5,6 @@
  */
 
 import { http, HttpResponse } from 'msw';
-import { getCategoryService } from './service';
 import type { CategoryCreateInput, CategoryUpdateInput, CategoryQuery } from './types';
 
 // Mock data store for MSW
