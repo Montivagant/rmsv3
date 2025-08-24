@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { eventStore } from '../events/store';
 import { handleWebhook } from '../payments/webhook';
+import { categoryApiHandlers } from '../inventory/categories/api';
 
 // Mock data
 const mockMenuItems = [
@@ -73,6 +74,9 @@ const mockReports = {
 };
 
 export const handlers = [
+  // Category management
+  ...categoryApiHandlers,
+  
   // Menu items
   http.get('/api/menu', () => {
     return HttpResponse.json(mockMenuItems);

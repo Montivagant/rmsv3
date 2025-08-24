@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, LoadingOverlay, SkeletonTable, useNotifications } from '../components';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, LoadingOverlay, SkeletonTable, useNotifications, CategoryManagement } from '../components';
 import type { FormField } from '../components';
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { InventoryDashboard } from '../inventory';
@@ -305,6 +305,18 @@ function Inventory() {
               >
                 Basic Inventory
               </button>
+              <button
+                role="tab"
+                className={`px-6 py-4 text-sm font-medium border-b-2 ${
+                  activeTab === 'categories' 
+                    ? 'border-blue-600 text-blue-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+                aria-selected={activeTab === 'categories'}
+                onClick={() => setActiveTab('categories')}
+              >
+                Categories
+              </button>
             </div>
             
             {/* Tab Content */}
@@ -312,6 +324,13 @@ function Inventory() {
               {activeTab === 'advanced' ? (
                 <div className="p-6">
                   <InventoryDashboard />
+                </div>
+              ) : activeTab === 'categories' ? (
+                <div className="p-6">
+                  <CategoryManagement onCategoryUpdated={() => {
+                    // Refresh inventory data when categories are updated
+                    refetch();
+                  }} />
                 </div>
               ) : (
                 <div className="p-6">

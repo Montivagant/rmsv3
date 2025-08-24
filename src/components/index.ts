@@ -9,6 +9,7 @@ export { UpdateToast, UpdateManager } from './UpdateToast';
 export { OfflineBanner } from './OfflineBanner';
 export { PaymentModal } from './PaymentModal';
 export { MenuManagement } from './MenuManagement';
+export { CategoryManagement } from './CategoryManagement';
 export { SyncStatusIndicator, SyncStatusBadge, SyncStatusPanel } from './SyncStatusIndicator';
 export { PerformanceMonitor, PerformanceBadge } from './PerformanceMonitor';
 
