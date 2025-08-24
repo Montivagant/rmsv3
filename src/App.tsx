@@ -11,7 +11,7 @@ import { useFeature } from './store/flags';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const POS = lazy(() => import('./pages/POS'));
 const KDS = lazy(() => import('./pages/KDS'));
-const Inventory = lazy(() => import('./pages/Inventory'));
+const Inventory = lazy(() => import('./pages/EnhancedInventory'));
 const Customers = lazy(() => import('./pages/Customers'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));

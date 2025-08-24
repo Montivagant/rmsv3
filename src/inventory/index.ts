@@ -11,6 +11,16 @@ export { ReorderManager, createReorderManager } from './reorderManager';
 export { SupplierManager, createSupplierManager } from './supplierManager';
 export { BatchTracker, createBatchTracker } from './batchTracker';
 
+// Enhanced Inventory Items System
+export {
+  createInventoryItemService,
+  getInventoryItemService,
+  type InventoryItemService,
+  inventoryItemApiHandlers,
+  DEFAULT_UNITS,
+  DEFAULT_STORAGE_LOCATIONS
+} from './items';
+
 // React Components
 export { InventoryDashboard } from './components/InventoryDashboard';
 
@@ -21,8 +31,29 @@ export * from './recipes';
 
 // Types
 export type {
-  // Enhanced Inventory Types
-  InventoryItem,
+  // Enhanced Inventory Items (from items module)
+  InventoryItem as EnhancedInventoryItem,
+  UnitOfMeasure,
+  UOMConversion,
+  StorageLocation,
+  LotInfo,
+  SupplierInfo,
+  InventoryMovement,
+  StockCount,
+  StockCountItem,
+  StockDiscrepancy,
+  ReorderAlert as EnhancedReorderAlert,
+  InventoryAnalytics as EnhancedInventoryAnalytics,
+  InventoryItemQuery,
+  InventoryItemValidation,
+  InventoryItemCreatedEvent,
+  InventoryItemUpdatedEvent,
+  InventoryMovementRecordedEvent,
+  StockLevelAdjustedEvent,
+  ReorderAlertTriggeredEvent,
+  
+  // Legacy Enhanced Inventory Types (from types module)
+  InventoryItem as LegacyInventoryItem,
   InventoryCategory,
   BatchInfo,
   Location,
