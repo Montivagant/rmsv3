@@ -501,11 +501,11 @@ const validateRecipeName = (name: string): string | null => {
   return null;
 };
 
-const validateYield = (yield: any): string | null => {
-  if (!yield || !yield.quantity || yield.quantity <= 0) {
+const validateYield = (yieldData: any): string | null => {
+  if (!yieldData || !yieldData.quantity || yieldData.quantity <= 0) {
     return 'Recipe yield quantity must be greater than 0';
   }
-  if (!yield.unit) {
+  if (!yieldData.unit) {
     return 'Recipe yield unit is required';
   }
   return null;
