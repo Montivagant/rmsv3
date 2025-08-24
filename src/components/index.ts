@@ -15,3 +15,26 @@ export { PerformanceMonitor, PerformanceBadge } from './PerformanceMonitor';
 export { ValidatedInput } from './forms/ValidatedInput';
 export { SmartForm } from './forms/SmartForm';
 export type { ValidatedInputProps, SmartFormProps, FormField } from './forms/SmartForm';
+
+// Enhanced Feedback Components
+export { 
+  LoadingSpinner, 
+  LoadingOverlay, 
+  Skeleton, 
+  SkeletonTable, 
+  SkeletonCard, 
+  ButtonLoading, 
+  ProgressBar 
+} from './feedback/LoadingSpinner';
+export { 
+  NotificationProvider, 
+  useNotifications 
+} from './feedback/NotificationSystem';
+export type { 
+  LoadingSpinnerProps, 
+  LoadingOverlayProps, 
+  SkeletonProps,
+  Notification, 
+  NotificationAction, 
+  NotificationType 
+} from './feedback/NotificationSystem';

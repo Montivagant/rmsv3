@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField } from '../components';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField, LoadingOverlay, SkeletonTable, useNotifications } from '../components';
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { InventoryDashboard } from '../inventory';
 import { validateSKU, validateCurrency, validateQuantity, validateName, ValidationResult } from '../utils/validation';
@@ -22,13 +22,38 @@ function Inventory() {
   const [activeTab, setActiveTab] = useState('advanced');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const { showSuccess, showError, showLoading, removeNotification } = useNotifications();
   
   const updateStock = async (itemId: string, newQuantity: number) => {
+    const item = inventory?.find(i => i.id === itemId);
+    const loadingId = showLoading(
+      'Updating Stock', 
+      `Updating ${item?.name || 'item'} quantity...`
+    );
+    
     try {
       setUpdatingItem(itemId);
       await apiPatch(`/api/inventory/${itemId}`, { quantity: newQuantity });
       refetch();
+      
+      removeNotification(loadingId);
+      showSuccess(
+        'Stock Updated',
+        `${item?.name || 'Item'} quantity updated to ${newQuantity} ${item?.unit || 'units'}`
+      );
     } catch (error) {
+      removeNotification(loadingId);
+      showError(
+        'Update Failed',
+        `Failed to update ${item?.name || 'item'} stock. Please try again.`,
+        [
+          {
+            label: 'Retry',
+            action: () => updateStock(itemId, newQuantity),
+            style: 'primary'
+          }
+        ]
+      );
       console.error('Failed to update stock:', error);
     } finally {
       setUpdatingItem(null);
@@ -40,12 +65,42 @@ function Inventory() {
 
   // Enhanced add item function
   const addItem = async (values: Record<string, any>) => {
+    const loadingId = showLoading(
+      'Adding Item',
+      `Creating inventory item "${values.name}"...`
+    );
+    
     setIsAddingItem(true);
     try {
       await apiPost('/api/inventory', values);
       setShowAddForm(false);
       refetch();
+      
+      removeNotification(loadingId);
+      showSuccess(
+        'Item Added Successfully',
+        `${values.name} (${values.sku}) has been added to inventory with ${values.quantity} ${values.unit}`,
+        [
+          {
+            label: 'Add Another',
+            action: () => setShowAddForm(true),
+            style: 'secondary'
+          }
+        ]
+      );
     } catch (error) {
+      removeNotification(loadingId);
+      showError(
+        'Failed to Add Item',
+        `Could not add "${values.name}" to inventory. Please check your connection and try again.`,
+        [
+          {
+            label: 'Try Again',
+            action: () => addItem(values),
+            style: 'primary'
+          }
+        ]
+      );
       console.error('Error adding item:', error);
       throw error; // Let SmartForm handle the error display
     } finally {
@@ -303,10 +358,20 @@ function BasicInventoryView({
 }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading inventory...</p>
+      <div className="space-y-6">
+        {/* Loading search bar */}
+        <div className="flex gap-4">
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1 animate-pulse"></div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+        </div>
+        
+        {/* Loading table */}
+        <SkeletonTable rows={8} columns={6} />
+        
+        {/* Loading indicator */}
+        <div className="flex items-center justify-center py-4">
+          <LoadingSpinner size="md" className="mr-2" />
+          <span className="text-gray-600 dark:text-gray-400">Loading inventory...</span>
         </div>
       </div>
     );

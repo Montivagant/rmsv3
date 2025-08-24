@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField } from '../components';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, FormField, LoadingOverlay, SkeletonCard, useNotifications } from '../components';
 import { useApi, apiPatch, apiPost } from '../hooks/useApi';
 import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
@@ -23,6 +23,7 @@ function Customers() {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [updatingCustomer, setUpdatingCustomer] = useState<string | null>(null);
   const [showFilterForm, setShowFilterForm] = useState(false);
+  const { showSuccess, showError, showLoading, removeNotification } = useNotifications();
   const [filters, setFilters] = useState({
     minPoints: '',
     maxPoints: '',
@@ -54,12 +55,42 @@ function Customers() {
 
   // Enhanced add customer function
   const addCustomer = async (values: Record<string, any>) => {
+    const loadingId = showLoading(
+      'Adding Customer',
+      `Creating customer account for "${values.name}"...`
+    );
+    
     setIsAddingCustomer(true);
     try {
       await apiPost('/api/customers', values);
       setShowAddForm(false);
       refetch();
+      
+      removeNotification(loadingId);
+      showSuccess(
+        'Customer Added Successfully',
+        `${values.name} has been added to the customer database and enrolled in the loyalty program`,
+        [
+          {
+            label: 'Add Another',
+            action: () => setShowAddForm(true),
+            style: 'secondary'
+          }
+        ]
+      );
     } catch (error) {
+      removeNotification(loadingId);
+      showError(
+        'Failed to Add Customer',
+        `Could not add "${values.name}" to the customer database. Please check your connection and try again.`,
+        [
+          {
+            label: 'Try Again',
+            action: () => addCustomer(values),
+            style: 'primary'
+          }
+        ]
+      );
       console.error('Error adding customer:', error);
       throw error; // Let SmartForm handle the error display
     } finally {
@@ -151,10 +182,27 @@ function Customers() {
   
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading customers...</p>
+      <div className="space-y-6">
+        {/* Loading header */}
+        <div className="flex justify-between items-center">
+          <div className="space-y-2">
+            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse"></div>
+          </div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+        </div>
+        
+        {/* Loading search and filters */}
+        <div className="flex gap-4">
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1 animate-pulse"></div>
+          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+        </div>
+        
+        {/* Loading customer cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <SkeletonCard key={index} showAvatar={false} lines={4} />
+          ))}
         </div>
       </div>
     );

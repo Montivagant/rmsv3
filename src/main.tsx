@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
-import { UpdateManager } from './components'
+import { UpdateManager, NotificationProvider } from './components'
 import { ToastProvider } from './components/Toast'
 import { EventStoreProvider } from './events/context'
 
@@ -55,11 +55,13 @@ async function initializeApp() {
   root.render(
     <StrictMode>
       <EventStoreProvider>
-        <ToastProvider>
-          <UpdateManager>
-            <App />
-          </UpdateManager>
-        </ToastProvider>
+        <NotificationProvider>
+          <ToastProvider>
+            <UpdateManager>
+              <App />
+            </UpdateManager>
+          </ToastProvider>
+        </NotificationProvider>
       </EventStoreProvider>
     </StrictMode>,
   )
