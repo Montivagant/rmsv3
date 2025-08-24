@@ -33,15 +33,9 @@ export default defineConfig({
         include: [
           'react', 
           'react-dom', 
-          'react-router', 
-          'react-router-dom',
-          'pouchdb', 
-          'pouchdb-adapter-idb', 
-          'pouchdb-replication', 
-          'pouchdb-adapter-memory', 
-          'pouchdb-browser'
+          'react-router-dom'
         ],
-        exclude: ['spark-md5', 'vuvuzela'],
+        exclude: ['spark-md5', 'vuvuzela', 'pouchdb', 'pouchdb-adapter-idb', 'pouchdb-replication', 'pouchdb-adapter-memory', 'pouchdb-browser'],
         force: true
       },
   define: {
