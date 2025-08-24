@@ -27,8 +27,8 @@ import type {
   RecipeAnalytics
 } from '../recipes/types';
 import { RECIPE_CATEGORIES } from '../recipes/types';
-import { FaPlus, FaEdit, FaTrash, FaCopy, FaCalculator, FaChartLine, FaClock, FaDollarSign, FaUsers, FaUtensils, FaInfo, FaExclamationTriangle, FaTags, FaFlask } from 'react-icons/fa';
-import { MdRestaurant, MdKitchenware } from 'react-icons/md';
+import { FaPlus, FaEdit, FaTrash, FaClock, FaDollarSign, FaUsers, FaUtensils, FaInfo, FaExclamationTriangle, FaTags, FaFlask } from 'react-icons/fa';
+import { MdRestaurant } from 'react-icons/md';
 
 interface RecipeManagementProps {
   onRecipeUpdated?: () => void;
