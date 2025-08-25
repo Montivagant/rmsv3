@@ -69,6 +69,10 @@ class LocalStorageDB implements LocalStorageAdapter {
     try {
       const rows: Array<{ doc: DBEvent }> = [];
       
+      // Debug: log all localStorage keys
+      console.log(`[DEBUG] Looking for keys with prefix: ${this.prefix}`);
+      console.log(`[DEBUG] Total localStorage items: ${localStorage.length}`);
+      
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key && key.startsWith(this.prefix) && !key.endsWith('_rev_counter')) {
@@ -77,12 +81,15 @@ class LocalStorageDB implements LocalStorageAdapter {
             try {
               const doc = JSON.parse(data);
               rows.push({ doc });
+              console.log(`[DEBUG] Found document with key: ${key}`);
             } catch (parseError) {
               console.warn('Failed to parse document:', key, parseError);
             }
           }
         }
       }
+      
+      console.log(`[DEBUG] Found ${rows.length} documents with prefix ${this.prefix}`);
       
       // Sort by sequence for consistent ordering
       rows.sort((a, b) => a.doc.seq - b.doc.seq);

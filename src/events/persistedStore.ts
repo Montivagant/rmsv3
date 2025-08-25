@@ -23,11 +23,11 @@ export async function getPersistedEventStore(): Promise<EventStore> {
     // Create in-memory store
     const memoryStore = new InMemoryEventStore();
     
-    // Create localStorage adapter
+    // Create localStorage adapter - use consistent naming
     const db = await openLocalStorageDB({ name: 'rmsv3_events' });
     
-    // Create persisted store with the correct prefix
-    const persistedStore = await createLocalStoragePersistedEventStore(memoryStore, db, 'rmsv3_events_');
+    // Create persisted store - the db already adds underscore, so just pass the base name
+    const persistedStore = await createLocalStoragePersistedEventStore(memoryStore, db, 'rmsv3_events');
     
     // Hydrate from localStorage
     await persistedStore.hydrateFromLocalStorage();
@@ -66,7 +66,7 @@ export async function resetPersistedEventStore(): Promise<void> {
  */
 export function getStorageStats(): { used: number; available: number; itemCount: number } | null {
   if (persistedStoreInstance && 'getStorageInfo' in persistedStoreInstance) {
-    return (persistedStoreInstance as LocalStoragePersistedEventStore).getStorageInfo();
+    return (persistedStoreInstance as any).getStorageInfo();
   }
   return null;
 }

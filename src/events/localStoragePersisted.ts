@@ -14,9 +14,10 @@ export class LocalStoragePersistedEventStore implements EventStore {
   private syncInterval: ReturnType<typeof setInterval> | null = null;
   private dbPrefix: string;
 
-  constructor(memoryStore: InMemoryEventStore, db: LocalStorageAdapter, dbPrefix: string = 'rmsv3_events_') {
+  constructor(memoryStore: InMemoryEventStore, db: LocalStorageAdapter, dbPrefix: string = 'rmsv3_events') {
     this.memoryStore = memoryStore;
     this.db = db;
+    // The db already handles the prefix, we just store it for reference
     this.dbPrefix = dbPrefix;
   }
 
@@ -24,6 +25,12 @@ export class LocalStoragePersistedEventStore implements EventStore {
    * Load events from localStorage into memory store
    */
   async hydrateFromLocalStorage(): Promise<void> {
+    console.log('Attempting to hydrate from localStorage...');
+    console.log('Current localStorage keys:', Object.keys(localStorage));
+    
+    console.log('Attempting to hydrate from localStorage...');
+    console.log('Current localStorage keys:', Object.keys(localStorage));
+    
     try {
       const result = await this.db.allDocs();
       const events = result.rows
@@ -60,20 +67,35 @@ export class LocalStoragePersistedEventStore implements EventStore {
     }
   }
 
+  private pendingWrites: Promise<void>[] = [];
+
   /**
    * Append event to both memory and localStorage
+   * Made synchronous-like by immediately saving to localStorage
    */
   append(type: string, payload: any, opts: AppendOptions): AppendResult {
     // First append to memory store (handles validation, idempotency, etc.)
     const result = this.memoryStore.append(type, payload, opts);
     
-    // Then persist to localStorage synchronously to ensure it's available immediately
+    // Then persist to localStorage immediately if it's a new event
     if (result.isNew) {
       try {
         const dbEvent = this.eventToDBEvent(result.event);
-        // Use the db adapter's put method
-        this.db.put(dbEvent).catch(error => {
+        // Track the pending write so we can wait for it if needed
+        const writePromise = this.db.put(dbEvent).then(() => {
+          // Success - event is persisted
+        }).catch(error => {
           console.error('Failed to persist event to localStorage:', error);
+        });
+        
+        this.pendingWrites.push(writePromise);
+        
+        // Clean up completed writes
+        writePromise.finally(() => {
+          const index = this.pendingWrites.indexOf(writePromise);
+          if (index > -1) {
+            this.pendingWrites.splice(index, 1);
+          }
         });
       } catch (error) {
         console.error('Failed to persist event to localStorage:', error);
@@ -81,6 +103,15 @@ export class LocalStoragePersistedEventStore implements EventStore {
     }
     
     return result;
+  }
+
+  /**
+   * Wait for all pending writes to complete
+   */
+  async waitForPendingWrites(): Promise<void> {
+    if (this.pendingWrites.length > 0) {
+      await Promise.all(this.pendingWrites);
+    }
   }
 
   /**
@@ -198,7 +229,7 @@ export class LocalStoragePersistedEventStore implements EventStore {
       _id: event.id,
       _rev: '', // Will be set by localStorage adapter
       timestamp: event.at,
-      aggregateId: event.aggregate.id
+      aggregateId: event.aggregate?.id || ''
     };
   }
 
@@ -207,9 +238,17 @@ export class LocalStoragePersistedEventStore implements EventStore {
    */
   private dbEventToEvent(dbEvent: DBEvent): Event | null {
     try {
-      // Remove localStorage-specific fields
-      const { _id, _rev, timestamp, aggregateId, ...eventData } = dbEvent;
-      return eventData as Event;
+      // Reconstruct the event from the stored data
+      const event: Event = {
+        id: dbEvent._id || dbEvent.id,
+        seq: dbEvent.seq,
+        type: dbEvent.type,
+        at: dbEvent.timestamp || dbEvent.at,
+        aggregate: dbEvent.aggregate,
+        payload: dbEvent.payload
+      } as Event;
+      
+      return event;
     } catch (error) {
       console.warn('Failed to convert DBEvent to Event:', error);
       return null;

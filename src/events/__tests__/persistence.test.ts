@@ -61,6 +61,9 @@ describe('EventStore Persistence', () => {
         aggregate: { id: 'agg-1', type: 'test' }
       });
 
+      // Wait for all pending writes to complete
+      await persistedStore1.waitForPendingWrites();
+
       // Now create a new store and hydrate from localStorage
       const memoryStore2 = new InMemoryEventStore();
       const db2 = await openLocalStorageDB({ name: 'test_hydrate' });
@@ -163,20 +166,29 @@ describe('EventStore Persistence', () => {
 
   describe('Event Persistence Across Sessions', () => {
     it('should simulate persistence across page reloads', async () => {
-      // Session 1: Create events
-      const store1 = await getPersistedEventStore();
+      // Use a unique database name for this test to avoid conflicts
+      const memoryStore1 = new InMemoryEventStore();
+      const db1 = await openLocalStorageDB({ name: 'session_test' });
+      const store1 = await createLocalStoragePersistedEventStore(memoryStore1, db1);
       
+      // Session 1: Create events
       store1.append('SESSION_1_EVENT', { session: 1 }, {
         key: 'session-1',
         params: {},
         aggregate: { id: 'session-agg', type: 'test' }
       });
 
-      // Reset the store (simulating page reload)
-      await resetPersistedEventStore();
+      // Wait for pending writes to complete
+      await store1.waitForPendingWrites();
 
-      // Session 2: Load and verify events persist
-      const store2 = await getPersistedEventStore();
+      // Session 2: Create a new store instance with the same database name
+      // This simulates a page reload where the JS objects are lost but localStorage persists
+      const memoryStore2 = new InMemoryEventStore();
+      const db2 = await openLocalStorageDB({ name: 'session_test' });
+      const store2 = await createLocalStoragePersistedEventStore(memoryStore2, db2);
+      
+      // Hydrate from localStorage
+      await store2.hydrateFromLocalStorage();
       
       const events = store2.getAll();
       expect(events).toContainEqual(expect.objectContaining({
