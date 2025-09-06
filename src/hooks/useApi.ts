@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface UseApiState<T> {
   data: T | null;
@@ -10,9 +10,12 @@ interface UseApiReturn<T> extends UseApiState<T> {
   refetch: () => Promise<void>;
 }
 
-export function useApi<T>(url: string): UseApiReturn<T> {
+export function useApi<T>(url: string, defaultValue?: T): UseApiReturn<T> {
+  // Use a ref to store defaultValue to avoid dependency issues
+  const defaultValueRef = useRef(defaultValue);
+  
   const [state, setState] = useState<UseApiState<T>>({
-    data: null,
+    data: defaultValueRef.current || null,
     loading: true,
     error: null,
   });
@@ -20,6 +23,19 @@ export function useApi<T>(url: string): UseApiReturn<T> {
   const fetchData = async (retryCount = 0) => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
+      
+      // Safety check for empty URL
+      if (!url) {
+        console.warn('Empty URL provided to useApi hook');
+        setState({ 
+          data: defaultValueRef.current || null, 
+          loading: false, 
+          error: 'Invalid API endpoint' 
+        });
+        return;
+      }
+      
+      console.log(`🔄 Fetching data from ${url}`);
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -46,18 +62,47 @@ export function useApi<T>(url: string): UseApiReturn<T> {
       }
       
       const data = await response.json();
+      
+      // Ensure we have valid data
+      if (data === null || data === undefined) {
+        console.warn(`API ${url} returned null or undefined data`);
+        setState({ 
+          data: defaultValueRef.current || null, 
+          loading: false, 
+          error: 'API returned no data' 
+        });
+        return;
+      }
+      
+      console.log(`✅ Data fetched successfully from ${url}`);
       setState({ data, loading: false, error: null });
     } catch (error) {
+      console.error(`❌ Error fetching data from ${url}:`, error);
       setState({
-        data: null,
+        data: defaultValueRef.current || null,
         loading: false,
         error: error instanceof Error ? error.message : 'An error occurred',
       });
     }
   };
 
+  // Update ref if defaultValue changes
   useEffect(() => {
-    fetchData();
+    defaultValueRef.current = defaultValue;
+  }, [defaultValue]);
+  
+  useEffect(() => {
+    if (url) {
+      fetchData();
+    } else {
+      setState({
+        data: defaultValueRef.current || null,
+        loading: false,
+        error: 'Invalid API endpoint'
+      });
+    }
+    // Intentionally omit defaultValue from dependencies to prevent infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   return {

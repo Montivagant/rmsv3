@@ -4,9 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from 
 import { Role, setCurrentUser } from '../rbac/roles';
 
 const roleOptions = [
-  { value: Role.STAFF, label: 'Staff' },
-  { value: Role.ADMIN, label: 'Admin' },
-  { value: Role.TECH_ADMIN, label: 'Technical Admin' },
+  { value: Role.BUSINESS_OWNER, label: 'Business Owner' },
 ];
 
 function Login() {
@@ -18,7 +16,7 @@ function Login() {
   }>({
     username: '',
     password: '',
-    role: Role.STAFF,
+    role: Role.BUSINESS_OWNER,
   });
   
   const handleSubmit = (e: React.FormEvent) => {
@@ -36,13 +34,13 @@ function Login() {
   };
   
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            RMS v3
+          <h1 className="text-3xl font-bold text-primary">
+            DashUp
           </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-secondary">
             Restaurant Management System
           </p>
         </div>
@@ -59,6 +57,7 @@ function Login() {
                 value={formData.username}
                 onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                 placeholder="Enter username"
+                autoComplete="username"
                 required
               />
               
@@ -68,6 +67,7 @@ function Login() {
                 value={formData.password}
                 onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                 placeholder="Enter password"
+                autoComplete="current-password"
                 required
               />
               
@@ -83,8 +83,8 @@ function Login() {
               </Button>
             </form>
             
-            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
+            <div className="mt-4 p-3 bg-surface-secondary rounded-md border border-secondary">
+              <p className="text-sm text-tertiary">
                 💡 Demo Mode: Use any username/password to login with selected role
               </p>
             </div>

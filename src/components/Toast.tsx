@@ -9,7 +9,7 @@ const ToastCtx = createContext<Ctx | null>(null)
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const show = useCallback((message: string) => {
-    const id = Date.now()
+    const id = Date.now() + Math.random() * 1000 // Add randomness to prevent duplicate keys
     setToasts(t => [...t, { id, message }])
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 2500)
   }, [])
@@ -20,7 +20,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {/* Live region for tests & a11y */}
       <div role="status" aria-live="polite" aria-atomic="true" className="fixed bottom-3 right-3 space-y-2">
         {toasts.map(t => (
-          <div key={t.id} className="rounded border bg-white shadow px-3 py-2 text-sm">{t.message}</div>
+          <div key={t.id} className="rounded border bg-surface border-border shadow px-3 py-2 text-sm text-text-primary">{t.message}</div>
         ))}
       </div>
     </ToastCtx.Provider>

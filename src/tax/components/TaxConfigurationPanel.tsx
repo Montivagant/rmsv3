@@ -4,9 +4,8 @@
  * Administrative interface for managing tax rates, exemptions, and rules
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from '../../components';
-import type { SelectOption } from '../../components';
 import type { TaxConfiguration, TaxRate, TaxExemption, TaxType, ExemptionType } from '../types';
 import { taxConfigurationManager } from '../configuration';
 
@@ -22,10 +21,21 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
   const [showNewRateForm, setShowNewRateForm] = useState(false);
   const [showNewExemptionForm, setShowNewExemptionForm] = useState(false);
 
+  const loadConfigurations = useCallback(() => {
+    const configs = taxConfigurationManager.listConfigurations();
+    setConfigurations(configs);
+    
+    // Auto-select default configuration
+    const defaultConfig = configs.find(c => c.isDefault);
+    if (defaultConfig && !selectedConfigId) {
+      setSelectedConfigId(defaultConfig.id);
+    }
+  }, [selectedConfigId]);
+
   // Load configurations on mount
   useEffect(() => {
     loadConfigurations();
-  }, []);
+  }, [loadConfigurations]);
 
   // Load selected configuration when selection changes
   useEffect(() => {
@@ -38,17 +48,6 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
     }
   }, [selectedConfigId, onConfigurationChange]);
 
-  const loadConfigurations = () => {
-    const configs = taxConfigurationManager.listConfigurations();
-    setConfigurations(configs);
-    
-    // Auto-select default configuration
-    const defaultConfig = configs.find(c => c.isDefault);
-    if (defaultConfig && !selectedConfigId) {
-      setSelectedConfigId(defaultConfig.id);
-    }
-  };
-
   const handleSetDefault = () => {
     if (selectedConfigId) {
       taxConfigurationManager.setDefaultConfiguration(selectedConfigId);
@@ -58,13 +57,6 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
 
   const formatRate = (rate: number): string => {
     return `${(rate * 100).toFixed(2)}%`;
-  };
-
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   };
 
   if (!selectedConfig) {
@@ -108,7 +100,7 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
           <div className="flex justify-between items-center">
             <div>
               <CardTitle>{selectedConfig.name}</CardTitle>
-              <p className="text-sm text-gray-600 mt-1">{selectedConfig.description}</p>
+              <p className="text-sm text-secondary mt-1">{selectedConfig.description}</p>
             </div>
             <div className="flex gap-2">
               {!selectedConfig.isDefault && (
@@ -126,19 +118,19 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="font-medium">Tax Rates:</span>
-              <div className="text-gray-600">{selectedConfig.rates.length}</div>
+              <div className="text-secondary">{selectedConfig.rates.length}</div>
             </div>
             <div>
               <span className="font-medium">Exemptions:</span>
-              <div className="text-gray-600">{selectedConfig.exemptions.length}</div>
+              <div className="text-secondary">{selectedConfig.exemptions.length}</div>
             </div>
             <div>
               <span className="font-medium">Rules:</span>
-              <div className="text-gray-600">{selectedConfig.rules.length}</div>
+              <div className="text-secondary">{selectedConfig.rules.length}</div>
             </div>
             <div>
               <span className="font-medium">Last Updated:</span>
-              <div className="text-gray-600">
+              <div className="text-secondary">
                 {new Date(selectedConfig.updatedAt).toLocaleDateString()}
               </div>
             </div>
@@ -175,17 +167,17 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
           
           <div className="space-y-3">
             {selectedConfig.rates.map(rate => (
-              <div key={rate.id} className="border rounded-lg p-4 bg-gray-50">
+              <div key={rate.id} className="border border-secondary rounded-lg p-4 bg-surface-secondary">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium">{rate.displayName}</h4>
                       <span className={`px-2 py-1 rounded text-xs ${
-                        rate.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        rate.isActive ? 'bg-success-100 text-success-700' : 'bg-surface-secondary text-secondary'
                       }`}>
                         {rate.isActive ? 'Active' : 'Inactive'}
                       </span>
-                      <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                      <span className="px-2 py-1 rounded text-xs bg-primary-100 text-primary-700">
                         {rate.type.replace('_', ' ').toUpperCase()}
                       </span>
                     </div>
@@ -197,33 +189,33 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
                       </div>
                       <div>
                         <span className="font-medium">Jurisdiction:</span>
-                        <div className="text-gray-600">
+                        <div className="text-secondary">
                           {rate.jurisdiction.country}
                           {rate.jurisdiction.state && `-${rate.jurisdiction.state}`}
                         </div>
                       </div>
                       <div>
                         <span className="font-medium">Effective:</span>
-                        <div className="text-gray-600">
+                        <div className="text-secondary">
                           {new Date(rate.effectiveDate).toLocaleDateString()}
                         </div>
                       </div>
                       <div>
                         <span className="font-medium">Expires:</span>
-                        <div className="text-gray-600">
+                        <div className="text-secondary">
                           {rate.expiryDate ? new Date(rate.expiryDate).toLocaleDateString() : 'Never'}
                         </div>
                       </div>
                     </div>
 
                     {rate.description && (
-                      <p className="mt-2 text-sm text-gray-600">{rate.description}</p>
+                      <p className="mt-2 text-sm text-secondary">{rate.description}</p>
                     )}
 
                     {rate.applicableCategories && rate.applicableCategories.length > 0 && (
                       <div className="mt-2">
                         <span className="text-sm font-medium">Categories: </span>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-secondary">
                           {rate.applicableCategories.join(', ')}
                         </span>
                       </div>
@@ -243,7 +235,7 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
             ))}
 
             {selectedConfig.rates.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-tertiary">
                 No tax rates configured
               </div>
             )}
@@ -279,27 +271,27 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
           )}
 
           <div className="space-y-3">
-            {selectedConfig.exemptions.map(exemption => (
-              <div key={exemption.id} className="border rounded-lg p-4 bg-gray-50">
+            {selectedConfig.exemptions.map((exemption, index) => (
+              <div key={index} className="border border-secondary rounded-lg p-4 bg-surface-secondary">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium">{exemption.name}</h4>
-                      <span className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">
+                      <span className="px-2 py-1 rounded text-xs bg-primary-100 text-primary-700">
                         {exemption.type.replace('_', ' ').toUpperCase()}
                       </span>
                       {exemption.certificateRequired && (
-                        <span className="px-2 py-1 rounded text-xs bg-orange-100 text-orange-800">
+                        <span className="px-2 py-1 rounded text-xs bg-warning-100 text-warning-700">
                           Certificate Required
                         </span>
                       )}
                     </div>
                     
-                    <p className="mt-2 text-sm text-gray-600">{exemption.description}</p>
+                    <p className="mt-2 text-sm text-secondary">{exemption.description}</p>
                     
                     <div className="mt-2 text-sm">
                       <span className="font-medium">Exempt from: </span>
-                      <span className="text-gray-600">
+                      <span className="text-secondary">
                         {exemption.exemptFromTaxTypes.join(', ')}
                       </span>
                     </div>
@@ -307,7 +299,7 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
                     {exemption.validUntil && (
                       <div className="mt-2 text-sm">
                         <span className="font-medium">Valid until: </span>
-                        <span className="text-gray-600">
+                        <span className="text-secondary">
                           {new Date(exemption.validUntil).toLocaleDateString()}
                         </span>
                       </div>
@@ -325,7 +317,7 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
             ))}
 
             {selectedConfig.exemptions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-tertiary">
                 No tax exemptions configured
               </div>
             )}
@@ -375,7 +367,7 @@ function NewTaxRateForm({ onSave, onCancel }: NewTaxRateFormProps) {
   };
 
   return (
-    <div className="border rounded-lg p-4 bg-blue-50 mb-4">
+    <div className="border border-secondary rounded-lg p-4 bg-surface-secondary mb-4">
       <h4 className="font-medium mb-4">Add New Tax Rate</h4>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -384,7 +376,7 @@ function NewTaxRateForm({ onSave, onCancel }: NewTaxRateFormProps) {
             <Input
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="e.g., ca_sales_tax"
+              placeholder="Tax identifier (e.g., california-sales-tax)"
               required
             />
           </div>
@@ -432,7 +424,7 @@ function NewTaxRateForm({ onSave, onCancel }: NewTaxRateFormProps) {
             <Input
               value={formData.country}
               onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
-              placeholder="e.g., US"
+              placeholder="United States"
               required
             />
           </div>
@@ -441,7 +433,7 @@ function NewTaxRateForm({ onSave, onCancel }: NewTaxRateFormProps) {
             <Input
               value={formData.state}
               onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
-              placeholder="e.g., CA"
+              placeholder="California"
             />
           </div>
         </div>
@@ -496,7 +488,7 @@ function NewTaxExemptionForm({ onSave, onCancel }: NewTaxExemptionFormProps) {
   };
 
   return (
-    <div className="border rounded-lg p-4 bg-purple-50 mb-4">
+    <div className="border border-secondary rounded-lg p-4 bg-surface-secondary mb-4">
       <h4 className="font-medium mb-4">Add New Tax Exemption</h4>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">

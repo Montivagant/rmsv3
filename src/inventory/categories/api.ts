@@ -5,7 +5,7 @@
  */
 
 import { http, HttpResponse } from 'msw';
-import type { CategoryCreateInput, CategoryUpdateInput, CategoryQuery } from './types';
+import type { CategoryCreateInput, CategoryUpdateInput } from './types';
 
 // Mock data store for MSW
 const mockCategories = new Map();
@@ -30,8 +30,8 @@ const validateCategoryName = (name: string): string | null => {
 
 // MSW API Handlers
 export const categoryApiHandlers = [
-  // GET /api/categories - List categories with optional filtering
-  http.get('/api/categories', async ({ request }) => {
+  // GET /api/inventory/categories - List categories with optional filtering
+  http.get('/api/inventory/categories', async ({ request }) => {
     const url = new URL(request.url);
     const parentId = url.searchParams.get('parentId');
     const level = url.searchParams.get('level');
@@ -92,8 +92,8 @@ export const categoryApiHandlers = [
     return HttpResponse.json(categories);
   }),
 
-  // GET /api/categories/hierarchy - Get category hierarchy
-  http.get('/api/categories/hierarchy', async () => {
+  // GET /api/inventory/categories/hierarchy - Get category hierarchy
+  http.get('/api/inventory/categories/hierarchy', async () => {
     if (mockCategories.size === 0) {
       await initializeMockCategories();
     }
@@ -105,8 +105,8 @@ export const categoryApiHandlers = [
     return HttpResponse.json(hierarchy);
   }),
 
-  // GET /api/categories/stats - Get category statistics
-  http.get('/api/categories/stats', async () => {
+  // GET /api/inventory/categories/stats - Get category statistics
+  http.get('/api/inventory/categories/stats', async () => {
     if (mockCategories.size === 0) {
       await initializeMockCategories();
     }
@@ -125,8 +125,8 @@ export const categoryApiHandlers = [
     return HttpResponse.json(stats);
   }),
 
-  // GET /api/categories/:id - Get category by ID
-  http.get('/api/categories/:id', async ({ params }) => {
+  // GET /api/inventory/categories/:id - Get category by ID
+  http.get('/api/inventory/categories/:id', async ({ params }) => {
     const { id } = params;
     const category = mockCategories.get(id);
     
@@ -141,8 +141,8 @@ export const categoryApiHandlers = [
     return HttpResponse.json(category);
   }),
 
-  // GET /api/categories/:id/path - Get category path/breadcrumb
-  http.get('/api/categories/:id/path', async ({ params }) => {
+  // GET /api/inventory/categories/:id/path - Get category path/breadcrumb
+  http.get('/api/inventory/categories/:id/path', async ({ params }) => {
     const { id } = params;
     const category = mockCategories.get(id);
     
@@ -158,8 +158,8 @@ export const categoryApiHandlers = [
     return HttpResponse.json(path);
   }),
 
-  // POST /api/categories - Create new category
-  http.post('/api/categories', async ({ request }) => {
+  // POST /api/inventory/categories - Create new category
+  http.post('/api/inventory/categories', async ({ request }) => {
     const input = await request.json() as CategoryCreateInput;
     
     // Validate input
@@ -240,8 +240,8 @@ export const categoryApiHandlers = [
     return HttpResponse.json(category, { status: 201 });
   }),
 
-  // PATCH /api/categories/:id - Update category
-  http.patch('/api/categories/:id', async ({ params, request }) => {
+  // PATCH /api/inventory/categories/:id - Update category
+  http.patch('/api/inventory/categories/:id', async ({ params, request }) => {
     const { id } = params;
     const input = await request.json() as CategoryUpdateInput;
     
@@ -312,8 +312,8 @@ export const categoryApiHandlers = [
     return HttpResponse.json(updatedCategory);
   }),
 
-  // DELETE /api/categories/:id - Archive category
-  http.delete('/api/categories/:id', async ({ params, request }) => {
+  // DELETE /api/inventory/categories/:id - Archive category
+  http.delete('/api/inventory/categories/:id', async ({ params, request }) => {
     const { id } = params;
     const body = await request.json().catch(() => ({}));
     const reason = body.reason;

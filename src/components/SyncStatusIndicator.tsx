@@ -42,15 +42,15 @@ export function SyncStatusIndicator({ className = '', showDetails = false }: Syn
   };
 
   const getStatusColor = () => {
-    if (!isOnline) return 'text-orange-600';
+    if (!isOnline) return 'text-warning';
     
     switch (syncStatus) {
-      case 'active': return 'text-green-600';
-      case 'error': return 'text-red-600';
-      case 'offline': return 'text-orange-600';
-      case 'unavailable': return 'text-gray-400';
-      case 'paused': return 'text-yellow-600';
-      default: return 'text-gray-400';
+      case 'active': return 'text-success';
+      case 'error': return 'text-error';
+      case 'offline': return 'text-warning';
+      case 'unavailable': return 'text-muted';
+      case 'paused': return 'text-warning';
+      default: return 'text-muted';
     }
   };
 
@@ -58,7 +58,7 @@ export function SyncStatusIndicator({ className = '', showDetails = false }: Syn
     if (!isOnline) return 'Network offline';
     
     switch (syncStatus) {
-      case 'active': return 'Syncing with CouchDB';
+      case 'active': return 'Syncing with cloud database';
       case 'error': return `Sync error${statusInfo?.error ? ': ' + statusInfo.error : ''}`;
       case 'offline': return 'Sync paused (offline)';
       case 'unavailable': return 'Sync not available';

@@ -1,7 +1,5 @@
 export const Role = {
-  TECH_ADMIN: 'TECH_ADMIN',
-  ADMIN: 'ADMIN',
-  STAFF: 'STAFF',
+  BUSINESS_OWNER: 'BUSINESS_OWNER',
 } as const;
 
 export type Role = typeof Role[keyof typeof Role];
@@ -12,11 +10,9 @@ export interface User {
   role: Role;
 }
 
-// Role hierarchy: TECH_ADMIN > ADMIN > STAFF
+// Role hierarchy: BUSINESS_OWNER has highest privilege
 export const roleHierarchy: Record<Role, number> = {
-  [Role.TECH_ADMIN]: 3,
-  [Role.ADMIN]: 2,
-  [Role.STAFF]: 1,
+  [Role.BUSINESS_OWNER]: 10,
 };
 
 // Alias for roleHierarchy to match component usage
@@ -25,11 +21,13 @@ export const RANK = roleHierarchy;
 // Get current user's role
 export function getRole(): Role {
   const user = getCurrentUser();
-  // In development, default to TECH_ADMIN if no user is set
+  // In development, default to BUSINESS_OWNER if no user is set
   if (!user && import.meta.env.DEV) {
-    return Role.TECH_ADMIN;
+    return Role.BUSINESS_OWNER;
   }
-  return user?.role || Role.STAFF;
+  
+  // Always return BUSINESS_OWNER (single role system)
+  return Role.BUSINESS_OWNER;
 }
 
 export function hasPermission(userRole: Role, requiredRole: Role): boolean {

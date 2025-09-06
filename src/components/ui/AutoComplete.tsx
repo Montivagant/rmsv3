@@ -3,8 +3,8 @@
  * Smart input components with fuzzy search, keyboard navigation, and caching
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { cn } from '../../utils/cn'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { cn } from '../../lib/utils'
 
 // Fuzzy search utility
 function fuzzySearch(query: string, text: string): number {
@@ -299,20 +299,20 @@ export function AutoCompleteInput<T extends AutoCompleteOption>({
   const defaultRenderOption = (option: T, isHighlighted: boolean) => (
     <div className={cn(
       'px-3 py-2 cursor-pointer flex items-center justify-between',
-      isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+      isHighlighted ? 'bg-surface-secondary' : 'hover:bg-surface-secondary'
     )}>
       <div className="flex-1">
-        <div className="font-medium text-gray-900 dark:text-gray-100">
+        <div className="font-medium text-primary">
           {option.label}
         </div>
         {option.description && (
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="text-sm text-tertiary">
             {option.description}
           </div>
         )}
       </div>
       {option.category && (
-        <span className="text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
+        <span className="text-xs bg-surface-tertiary text-secondary px-2 py-1 rounded">
           {option.category}
         </span>
       )}
@@ -324,9 +324,9 @@ export function AutoCompleteInput<T extends AutoCompleteOption>({
   return (
     <div className={cn('relative', className)}>
       {/* Label */}
-      <label htmlFor={name} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <label id={`${name}-label`} htmlFor={name} className="field-label">
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required && <span className="text-error ml-1" aria-hidden="true">*</span>}
       </label>
 
       {/* Input */}
@@ -352,25 +352,28 @@ export function AutoCompleteInput<T extends AutoCompleteOption>({
           disabled={disabled}
           required={required}
           className={cn(
-            'w-full px-3 py-2 pr-10 border rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white',
-            displayError
-              ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-              : 'border-gray-300 dark:border-gray-600',
-            disabled && 'opacity-50 cursor-not-allowed'
+            'input-base pr-10',
+            displayError && 'input-error',
+            disabled && 'opacity-50 cursor-not-allowed bg-surface-secondary'
           )}
+          role="combobox"
           aria-expanded={isOpen}
           aria-haspopup="listbox"
           aria-autocomplete="list"
+          aria-controls={isOpen ? `${name}-listbox` : undefined}
+          aria-activedescendant={isOpen && highlightedIndex >= 0 ? `${name}-option-${highlightedIndex}` : undefined}
           aria-invalid={!!displayError}
           aria-describedby={helpText ? `${name}-help` : undefined}
+          aria-labelledby={`${name}-label`}
+          aria-label={label}
         />
 
         {/* Loading/Arrow Icon */}
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
           {isLoading ? (
-            <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+            <div className="animate-spin h-4 w-4 border-2 border-brand border-t-transparent rounded-full" />
           ) : (
-            <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="h-4 w-4 text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           )}
@@ -381,13 +384,15 @@ export function AutoCompleteInput<T extends AutoCompleteOption>({
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto"
+          id={`${name}-listbox`}
+          className="absolute z-50 w-full mt-1 bg-surface border border-primary rounded-md shadow-lg max-h-60 overflow-auto"
           role="listbox"
         >
           {options.length > 0 ? (
             options.map((option, index) => (
               <div
                 key={option.id}
+                id={`${name}-option-${index}`}
                 role="option"
                 aria-selected={index === highlightedIndex}
                 onClick={() => handleOptionSelect(option)}
@@ -397,7 +402,7 @@ export function AutoCompleteInput<T extends AutoCompleteOption>({
               </div>
             ))
           ) : (
-            <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-center">
+            <div className="px-3 py-2 text-tertiary text-center">
               {isLoading ? 'Searching...' : emptyMessage}
             </div>
           )}
@@ -406,17 +411,14 @@ export function AutoCompleteInput<T extends AutoCompleteOption>({
 
       {/* Help Text */}
       {helpText && (
-        <p id={`${name}-help`} className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p id={`${name}-help`} className="field-help">
           {helpText}
         </p>
       )}
 
       {/* Error Message */}
       {displayError && (
-        <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
-          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
+        <p className="field-error">
           {displayError}
         </p>
       )}
@@ -517,7 +519,7 @@ export const SKUAutoComplete: React.FC<SKUAutoCompleteProps> = ({
   searchProducts,
   label = 'Product SKU',
   placeholder = 'Search products...',
-  helpText = 'Start typing to search for products by SKU or name',
+  helpText = 'Start typing to search for products by name or code',
   onChange,
   ...props
 }) => {

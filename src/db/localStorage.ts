@@ -4,7 +4,7 @@
  * Safe fallback while PouchDB spark-md5 issue is resolved
  */
 
-import type { Event, KnownEvent } from '../events/types';
+import type { Event } from '../events/types';
 
 export interface LocalStorageAdapter {
   get(id: string): Promise<DBEvent | null>;
@@ -27,13 +27,22 @@ class LocalStorageDB implements LocalStorageAdapter {
 
   constructor(dbName: string) {
     this.prefix = `${dbName}_`;
-    // Load revision counter from localStorage
-    this.revCounter = parseInt(localStorage.getItem(`${this.prefix}_rev_counter`) || '0');
+    // Load revision counter from localStorage (support legacy key with extra underscore)
+    const revKeyNew = `${this.prefix}rev_counter`;
+    const revKeyLegacy = `${this.prefix}_rev_counter`;
+    const storedRev = localStorage.getItem(revKeyNew) ?? localStorage.getItem(revKeyLegacy) ?? '0';
+    this.revCounter = parseInt(storedRev);
   }
 
   private generateRev(): string {
     this.revCounter++;
-    localStorage.setItem(`${this.prefix}_rev_counter`, this.revCounter.toString());
+    const revKeyNew = `${this.prefix}rev_counter`;
+    const revKeyLegacy = `${this.prefix}_rev_counter`;
+    localStorage.setItem(revKeyNew, this.revCounter.toString());
+    // Clean up legacy key if present to avoid confusion
+    if (localStorage.getItem(revKeyLegacy) !== null) {
+      localStorage.removeItem(revKeyLegacy);
+    }
     return `1-${this.revCounter.toString().padStart(8, '0')}`;
   }
 
@@ -69,27 +78,22 @@ class LocalStorageDB implements LocalStorageAdapter {
     try {
       const rows: Array<{ doc: DBEvent }> = [];
       
-      // Debug: log all localStorage keys
-      console.log(`[DEBUG] Looking for keys with prefix: ${this.prefix}`);
-      console.log(`[DEBUG] Total localStorage items: ${localStorage.length}`);
+      // Debug: inspect localStorage for matching keys
       
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith(this.prefix) && !key.endsWith('_rev_counter')) {
+        if (key && key.startsWith(this.prefix) && !key.endsWith('rev_counter')) {
           const data = localStorage.getItem(key);
           if (data) {
             try {
               const doc = JSON.parse(data);
               rows.push({ doc });
-              console.log(`[DEBUG] Found document with key: ${key}`);
             } catch (parseError) {
               console.warn('Failed to parse document:', key, parseError);
             }
           }
         }
       }
-      
-      console.log(`[DEBUG] Found ${rows.length} documents with prefix ${this.prefix}`);
       
       // Sort by sequence for consistent ordering
       rows.sort((a, b) => a.doc.seq - b.doc.seq);
@@ -128,7 +132,6 @@ class LocalStorageDB implements LocalStorageAdapter {
       }
       
       keysToRemove.forEach(key => localStorage.removeItem(key));
-      console.log(`LocalStorage database '${this.prefix}' destroyed`);
     } catch (error) {
       console.error('LocalStorage destroy error:', error);
       throw error;
@@ -173,9 +176,8 @@ export async function openLocalStorageDB(options: { name: string }): Promise<Loc
     
     // Only log once per session to avoid React StrictMode duplicate messages
     if (!globalThis.__RMS_LOCALSTORAGE_LOGGED) {
-      console.log(`📁 LocalStorage database '${options.name}' opened successfully`);
+      // Development info: LocalStorage database opened successfully
       const storageInfo = db.getStorageInfo();
-      console.log(`💾 Storage: ${storageInfo.itemCount} items, ${Math.round(storageInfo.used / 1024)}KB used`);
       globalThis.__RMS_LOCALSTORAGE_LOGGED = true;
     }
     

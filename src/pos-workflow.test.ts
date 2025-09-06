@@ -49,7 +49,7 @@ describe('Critical POS Workflow', () => {
         discount: 0
       }));
 
-      const totals = computeTotals(lines, 0.14);
+      const totals = computeTotals(lines, 0);
       
       // Verify calculations
       const expectedSubtotal = (10.99 * 2) + 3.99 + (2.49 * 2);

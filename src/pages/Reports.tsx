@@ -38,8 +38,8 @@ function Reports() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading reports...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-secondary">Loading your reports...</p>
         </div>
       </div>
     );
@@ -48,7 +48,7 @@ function Reports() {
   if (error) {
     return (
       <div className="text-center py-8">
-        <p className="text-red-600 dark:text-red-400">Error loading reports: {error}</p>
+        <p className="text-error-600">Error loading reports: {error}</p>
         <Button onClick={refetch} className="mt-4">Retry</Button>
       </div>
     );
@@ -58,25 +58,25 @@ function Reports() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl font-bold text-primary">
             Reports & Analytics
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-secondary">
             View sales reports and business analytics
           </p>
         </div>
-        <Button>Export Report</Button>
+        <Button>Export Current Report</Button>
       </div>
       
       <div className="flex gap-4">
         <Select
           options={reportOptions}
-          placeholder="Select report type"
+          placeholder="Choose report type"
           className="max-w-xs"
           value={selectedReport}
           onChange={(e) => setSelectedReport(e.target.value)}
         />
-        <Button variant="outline" onClick={refetch}>Refresh</Button>
+        <Button variant="outline" onClick={refetch}>Update Data</Button>
       </div>
       
       {selectedReport === 'z-report' ? (
@@ -89,10 +89,10 @@ function Reports() {
             <CardTitle>Today's Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+            <div className="text-2xl font-bold text-success-600">
               {formatCurrency(reportData?.todayRevenue || 0)}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-secondary">
               Daily sales performance
             </p>
           </CardContent>
@@ -103,10 +103,10 @@ function Reports() {
             <CardTitle>Orders Completed</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            <div className="text-2xl font-bold text-primary-600">
               {reportData?.todayOrders || 0}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-secondary">
               Orders processed today
             </p>
           </CardContent>
@@ -117,10 +117,10 @@ function Reports() {
             <CardTitle>Average Order</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+            <div className="text-2xl font-bold text-primary-600">
               {formatCurrency(reportData?.avgOrderValue || 0)}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-secondary">
               Average order value
             </p>
           </CardContent>
@@ -131,10 +131,10 @@ function Reports() {
             <CardTitle>Top Items</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+            <div className="text-2xl font-bold text-warning-600">
               {reportData?.topItems?.length || 0}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-secondary">
               Best-selling items
             </p>
           </CardContent>
@@ -149,21 +149,21 @@ function Reports() {
           <CardContent>
             <div className="space-y-3">
               {reportData?.topItems?.map((item, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div key={index} className="flex justify-between items-center p-3 bg-surface-secondary rounded-lg">
                   <div>
                     <div className="font-medium">{item.name}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm text-secondary">
                       {item.quantity} sold
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-green-600 dark:text-green-400">
+                    <div className="font-semibold text-success-600">
                       {formatCurrency(item.revenue)}
                     </div>
                   </div>
                 </div>
               )) || (
-                <div className="text-center text-gray-500 py-4">
+                <div className="text-center text-tertiary py-4">
                   No data available
                 </div>
               )}
@@ -178,21 +178,21 @@ function Reports() {
           <CardContent>
             <div className="space-y-3">
               {reportData?.salesTrend?.slice(0, 7).map((day, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div key={index} className="flex justify-between items-center p-3 bg-surface-secondary rounded-lg">
                   <div>
                     <div className="font-medium">{formatDate(day.date)}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm text-secondary">
                       {day.orders} orders
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-blue-600 dark:text-blue-400">
+                    <div className="font-semibold text-primary-600">
                       {formatCurrency(day.revenue)}
                     </div>
                   </div>
                 </div>
               )) || (
-                <div className="text-center text-gray-500 py-4">
+                <div className="text-center text-tertiary py-4">
                   No trend data available
                 </div>
               )}

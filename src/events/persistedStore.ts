@@ -6,7 +6,7 @@
 
 import { InMemoryEventStore } from './store';
 import { openLocalStorageDB } from '../db/localStorage';
-import { LocalStoragePersistedEventStore, createLocalStoragePersistedEventStore } from './localStoragePersisted';
+import { createLocalStoragePersistedEventStore } from './localStoragePersisted';
 import type { EventStore } from './types';
 
 let persistedStoreInstance: EventStore | null = null;

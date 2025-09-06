@@ -7,25 +7,19 @@
 
 import { http, HttpResponse } from 'msw';
 import type { 
-  Recipe, 
-  RecipeQuery,
+  Recipe,
   RecipeIngredient,
   RecipeScale,
-  BatchProduction,
   RecipeAnalytics,
   CostCalculationOptions,
   RecipeCategory,
-  RecipeType,
-  MenuItemRecipe
+  RecipeType
 } from './types';
 import { RECIPE_CATEGORIES, RECIPE_TEMPLATES } from './types';
 
 // Mock data stores
 const mockRecipes = new Map<string, Recipe>();
-const mockMenuItemRecipes = new Map<string, MenuItemRecipe>();
-const mockBatchProductions = new Map<string, BatchProduction>();
 let nextRecipeId = 1;
-let nextBatchId = 1;
 
 // Initialize mock data
 function initializeMockRecipes() {
@@ -511,12 +505,13 @@ const validateYield = (yieldData: any): string | null => {
   return null;
 };
 
-const validateIngredients = (ingredients: RecipeIngredient[]): string | null => {
-  if (!ingredients || ingredients.length === 0) {
+const validateIngredients = (ingredients: RecipeIngredient[], isUpdate: boolean = false): string | null => {
+  // Allow empty ingredients during initial recipe creation, but require them for updates
+  if (isUpdate && (!ingredients || ingredients.length === 0)) {
     return 'Recipe must have at least one ingredient';
   }
   
-  for (const ingredient of ingredients) {
+  for (const ingredient of ingredients || []) {
     if (!ingredient.inventoryItemId) {
       return `Ingredient "${ingredient.name}" must be linked to an inventory item`;
     }
@@ -673,7 +668,7 @@ export const recipeApiHandlers = [
       });
     }
 
-    const ingredientsError = validateIngredients(recipeData.ingredients || []);
+    const ingredientsError = validateIngredients(recipeData.ingredients || [], false);
     if (ingredientsError) {
       return new HttpResponse(JSON.stringify({ error: ingredientsError }), { 
         status: 400,
@@ -801,7 +796,7 @@ export const recipeApiHandlers = [
     }
 
     if (updates.ingredients) {
-      const ingredientsError = validateIngredients(updates.ingredients);
+      const ingredientsError = validateIngredients(updates.ingredients, true);
       if (ingredientsError) {
         return new HttpResponse(JSON.stringify({ error: ingredientsError }), { 
           status: 400,

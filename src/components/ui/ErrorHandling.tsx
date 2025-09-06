@@ -124,10 +124,10 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 
   const variantClasses = {
     error: {
-      container: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
-      icon: 'text-red-400',
-      title: 'text-red-800 dark:text-red-200',
-      message: 'text-red-700 dark:text-red-300'
+      container: 'bg-error border-error',
+      icon: 'text-error',
+      title: 'text-error',
+      message: 'text-error'
     },
     warning: {
       container: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
@@ -204,9 +204,9 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
               {onRetry && (
                 <button
                   onClick={onRetry}
-                  className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="bg-surface text-primary px-4 py-2 border border-primary rounded-md text-sm font-medium hover:bg-surface-secondary transition-colors"
                 >
-                  Try Again
+                  Retry
                 </button>
               )}
               
@@ -217,9 +217,9 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
                   disabled={action.disabled}
                   className={cn(
                     'px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                    action.variant === 'primary' && 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-300',
-                    action.variant === 'danger' && 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300',
-                    (!action.variant || action.variant === 'secondary') && 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700',
+                    action.variant === 'primary' && 'bg-brand text-inverse hover:bg-brand/90 disabled:bg-brand/30',
+                    action.variant === 'danger' && 'bg-error text-inverse hover:bg-error/90 disabled:bg-error/30',
+                    (!action.variant || action.variant === 'secondary') && 'bg-surface text-primary border border-primary hover:bg-surface-secondary',
                     action.disabled && 'opacity-50 cursor-not-allowed'
                   )}
                 >
@@ -247,7 +247,7 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({
   showIcon = true
 }) => {
   return (
-    <div className={cn('flex items-center text-red-600 dark:text-red-400 text-sm', className)}>
+    <div className={cn('flex items-center text-error text-sm', className)}>
       {showIcon && (
         <svg className="h-4 w-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -274,7 +274,7 @@ export const SuccessMessage: React.FC<SuccessMessageProps> = ({
 }) => {
   return (
     <div className={cn(
-      'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md p-4',
+      'bg-success text-success rounded-md p-4',
       className
     )}>
       <div className="flex items-center">
@@ -283,13 +283,13 @@ export const SuccessMessage: React.FC<SuccessMessageProps> = ({
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
         )}
-        <span className="text-green-800 dark:text-green-200 text-sm font-medium flex-1">
+        <span className="text-success text-sm font-medium flex-1">
           {message}
         </span>
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="ml-2 text-green-400 hover:text-green-600 dark:hover:text-green-300"
+            className="ml-2 text-success hover:text-success/80"
           >
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />

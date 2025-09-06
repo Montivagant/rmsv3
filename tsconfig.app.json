@@ -6,16 +6,18 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
-
-    /* Bundler mode */
+    "preserveSymlinks": false,
+    "typeRoots": ["./node_modules/@types"],
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-
-    /* Linting */
+    "baseUrl": "src", // Added baseUrl
+    "paths": {
+      "@/*": ["*"] // Added paths
+    },
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,

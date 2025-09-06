@@ -1,0 +1,1 @@
+export { RBACAdminPanel } from './RBACAdminPanel';

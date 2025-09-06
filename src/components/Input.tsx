@@ -1,41 +1,97 @@
 import { forwardRef } from 'react';
-import type { InputHTMLAttributes } from 'react';
-import { cn } from '../utils/cn';
+import type { InputHTMLAttributes, ReactNode } from 'react';
+import { cn } from '../lib/utils';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  helpText?: string;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
+  variant?: 'default' | 'filled';
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, id, ...props }, ref) => {
-    const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+  ({ 
+    className, 
+    label, 
+    error, 
+    helpText,
+    leftIcon,
+    rightIcon,
+    variant = 'default',
+    id, 
+    disabled,
+    required,
+    ...props 
+  }, ref) => {
+    const inputId = id || `input-${Math.random().toString(36).slice(2, 11)}`;
+    const helpId = helpText ? `${inputId}-help` : undefined;
+    const errorId = error ? `${inputId}-error` : undefined;
+    const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+    const hasError = Boolean(error);
     
     return (
-      <div className="space-y-1">
+      <div className="space-y-field">
         {label && (
           <label
+            id={`${inputId}-label`}
             htmlFor={inputId}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            className={cn(
+              'field-label',
+              required && 'after:content-["*"] after:ml-1 after:text-error'
+            )}
           >
             {label}
           </label>
         )}
-        <input
-          id={inputId}
-          className={cn(
-            'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm',
-            'placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            'dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500',
-            error && 'border-red-500 focus:ring-red-500',
-            className
+        
+        <div className="relative">
+          {leftIcon && (
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="text-text-tertiary" aria-hidden="true">
+                {leftIcon}
+              </span>
+            </div>
           )}
-          ref={ref}
-          {...props}
-        />
+          
+          <input
+            id={inputId}
+            className={cn(
+              'input-base',
+              variant === 'filled' && 'bg-surface-secondary border-transparent',
+              hasError && 'input-error',
+              leftIcon && 'pl-10',
+              rightIcon && 'pr-10',
+              disabled && 'opacity-50 cursor-not-allowed bg-surface-secondary',
+              className
+            )}
+            ref={ref}
+            disabled={disabled}
+            required={required}
+            aria-invalid={hasError ? 'true' : 'false'}
+            aria-describedby={describedBy}
+            aria-labelledby={label ? `${inputId}-label` : undefined}
+            {...props}
+          />
+          
+          {rightIcon && (
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <span className="text-text-tertiary" aria-hidden="true">
+                {rightIcon}
+              </span>
+            </div>
+          )}
+        </div>
+        
+        {helpText && !error && (
+          <p id={helpId} className="field-help">
+            {helpText}
+          </p>
+        )}
+        
         {error && (
-          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+          <p id={errorId} className="field-error" role="alert">
             {error}
           </p>
         )}
@@ -47,3 +103,4 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = 'Input';
 
 export { Input };
+export type { InputProps };

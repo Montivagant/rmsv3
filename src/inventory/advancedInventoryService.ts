@@ -10,17 +10,11 @@ import { ReorderManager, createReorderManager } from './reorderManager';
 import { SupplierManager, createSupplierManager } from './supplierManager';
 import { BatchTracker, createBatchTracker } from './batchTracker';
 import type {
-  InventoryItem,
   ReorderAlert,
   ExpirationAlert,
-  Supplier,
-  PurchaseOrder,
-  BatchInfo,
   InventoryAnalytics,
   StockTransfer,
-  TransferStatus,
-  Location,
-  InventoryCount
+  Location
 } from './types';
 
 export interface AdvancedInventoryStatus {

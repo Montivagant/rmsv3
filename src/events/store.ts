@@ -33,29 +33,34 @@ export class InMemoryEventStore implements IEventStore {
   append(type: string, payload: any, opts: AppendOptions): AppendResult {
     const paramsHash = stableHash(opts.params);
     
-    // Check for existing idempotency key
-    const existing = this.idempotencyIndex.get(opts.key);
-    
-    if (existing) {
-      const existingEvent = this.eventIndex.get(existing.eventId);
+    // Check for existing idempotency key (only if provided)
+    if (opts.key) {
+      const existing = this.idempotencyIndex.get(opts.key);
       
-      if (!existingEvent) {
-        throw new Error(`Event ${existing.eventId} not found in index`);
+      if (existing) {
+        const existingEvent = this.eventIndex.get(existing.eventId);
+        
+        if (!existingEvent) {
+          throw new Error(`Event ${existing.eventId} not found in index`);
+        }
+        
+        // Same params hash - return existing event (deduped)
+        if (existing.paramsHash === paramsHash) {
+          return {
+            event: existingEvent,
+            deduped: true,
+            isNew: false
+          };
+        }
+        
+        // Different params hash - conflict
+        throw new IdempotencyConflictError(
+          `Idempotency conflict for key '${opts.key}': params hash mismatch`
+        );
       }
-      
-      // Same params hash - return existing event (deduped)
-      if (existing.paramsHash === paramsHash) {
-        return {
-          event: existingEvent,
-          deduped: true,
-          isNew: false
-        };
-      }
-      
-      // Different params hash - conflict
-      throw new IdempotencyConflictError(
-        `Idempotency conflict for key '${opts.key}': params hash mismatch`
-      );
+    } else {
+      // Guard: if no idempotency key is provided, proceed without idempotency indexing
+      console.warn('append called without idempotency key; operation will not be idempotent');
     }
     
     // Create new event
@@ -72,11 +77,13 @@ export class InMemoryEventStore implements IEventStore {
     this.events.push(event);
     this.eventIndex.set(event.id, event);
     
-    // Index for idempotency
-    this.idempotencyIndex.set(opts.key, {
-      eventId: event.id,
-      paramsHash
-    });
+    // Index for idempotency only when key is provided
+    if (opts.key) {
+      this.idempotencyIndex.set(opts.key, {
+        eventId: event.id,
+        paramsHash
+      });
+    }
     
     // Persist to PouchDB if adapter is available
     if (this.pouchAdapter) {
@@ -126,7 +133,7 @@ export class InMemoryEventStore implements IEventStore {
     }
     
     return {
-      event,
+      eventId: event.id,
       paramsHash: existing.paramsHash
     };
   }
@@ -171,7 +178,7 @@ export class InMemoryEventStore implements IEventStore {
     
     // Update sequence counter to maintain ordering
     if (e.seq && e.seq >= this.sequenceCounter) {
-      this.sequenceCounter = e.seq + 1;
+      this.sequenceCounter = e.seq;
     }
   }
 
@@ -207,7 +214,8 @@ export class InMemoryEventStore implements IEventStore {
  * Generate a unique event ID
  */
 function generateEventId(): string {
-  return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const rand = Math.random().toString(36).slice(2, 11);
+  return `evt_${Date.now()}_${rand}`;
 }
 
 /**

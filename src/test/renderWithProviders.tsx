@@ -9,12 +9,10 @@ import { ToastProvider } from '../components/Toast'
 export function renderWithProviders(ui: ReactNode, { route = '/' } = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const memStore = createInMemoryEventStore()
-  // Provide a dummy "db" object to satisfy the provider shape
-  const fakeDb = {} as Record<string, unknown>
 
   return render(
     <ToastProvider>
-      <EventStoreProvider value={{ store: memStore, db: fakeDb }}>
+      <EventStoreProvider store={memStore}>
         <QueryClientProvider client={qc}>
           <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
         </QueryClientProvider>

@@ -4,7 +4,7 @@
  * Provides various loading states and skeleton screens for better UX
  */
 
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 export interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -25,11 +25,11 @@ export function LoadingSpinner({
   };
 
   const colorClasses = {
-    primary: 'text-blue-600',
-    secondary: 'text-gray-600',
-    success: 'text-green-600',
-    warning: 'text-yellow-600',
-    error: 'text-red-600'
+    primary: 'text-brand',
+    secondary: 'text-secondary',
+    success: 'text-success',
+    warning: 'text-warning',
+    error: 'text-error'
   };
 
   return (
@@ -116,7 +116,7 @@ export function Skeleton({
   return (
     <div 
       className={`${baseClasses} ${variantClasses[variant]} ${className}`}
-      style={style}
+      {...(style && { style })}
     />
   );
 }
@@ -127,11 +127,32 @@ export interface SkeletonTableProps {
   className?: string;
 }
 
+// Helper function to get grid column class
+const getGridColumnsClass = (columns: number): string => {
+  const gridMap: Record<number, string> = {
+    1: 'grid-cols-1',
+    2: 'grid-cols-2', 
+    3: 'grid-cols-3',
+    4: 'grid-cols-4',
+    5: 'grid-cols-5',
+    6: 'grid-cols-6',
+    7: 'grid-cols-7',
+    8: 'grid-cols-8',
+    9: 'grid-cols-9',
+    10: 'grid-cols-10',
+    11: 'grid-cols-11',
+    12: 'grid-cols-12'
+  };
+  return gridMap[Math.min(columns, 12)] || 'grid-cols-12';
+};
+
 export function SkeletonTable({ rows, columns, className = '' }: SkeletonTableProps) {
+  const gridClass = getGridColumnsClass(columns);
+  
   return (
     <div className={`space-y-3 ${className}`}>
       {/* Header */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+      <div className={`grid gap-4 ${gridClass}`}>
         {Array.from({ length: columns }).map((_, index) => (
           <Skeleton key={`header-${index}`} height="1.5rem" />
         ))}
@@ -141,8 +162,7 @@ export function SkeletonTable({ rows, columns, className = '' }: SkeletonTablePr
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div 
           key={`row-${rowIndex}`} 
-          className="grid gap-4" 
-          style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
+          className={`grid gap-4 ${gridClass}`}
         >
           {Array.from({ length: columns }).map((_, colIndex) => (
             <Skeleton 
@@ -213,7 +233,7 @@ export function ButtonLoading({
       type={type}
       onClick={onClick}
       disabled={disabled || isLoading}
-      className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       {...props}
     >
       {isLoading && (
@@ -242,25 +262,25 @@ export function ProgressBar({
   const percentage = Math.min(100, Math.max(0, (value / max) * 100));
   
   const variantClasses = {
-    primary: 'bg-blue-600',
-    success: 'bg-green-600',
-    warning: 'bg-yellow-600',
-    error: 'bg-red-600'
+    primary: 'bg-brand',
+    success: 'bg-success',
+    warning: 'bg-warning',
+    error: 'bg-error'
   };
 
   return (
     <div className={`w-full ${className}`}>
       <div className="flex justify-between items-center mb-1">
         {showValue && (
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-sm font-medium text-secondary">
             {Math.round(percentage)}%
           </span>
         )}
       </div>
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+      <div className="w-full bg-surface-secondary rounded-full h-2">
         <div
           className={`h-2 rounded-full transition-all duration-300 ease-out ${variantClasses[variant]}`}
-          style={{ width: `${percentage}%` }}
+          style={{ '--progress-width': `${percentage}%`, width: 'var(--progress-width)' } as React.CSSProperties}
         />
       </div>
     </div>

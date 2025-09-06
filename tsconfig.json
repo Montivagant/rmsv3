@@ -1,4 +1,13 @@
 {
+  "compilerOptions": {
+    "baseUrl": "src",
+    "paths": {
+      "@/*": ["*"]
+    },
+    "module": "es2020",
+    "preserveSymlinks": false,
+    "typeRoots": ["./node_modules/@types"]
+  },
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },

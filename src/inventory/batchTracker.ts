@@ -9,10 +9,7 @@ import type { EventStore } from '../events/types';
 import type {
   BatchInfo,
   ExpirationAlert,
-  InventoryItem,
-  UrgencyLevel,
-  AlertStatus,
-  ExpirationAlertCreatedEvent
+  UrgencyLevel
 } from './types';
 
 export type RotationMethod = 'FIFO' | 'LIFO' | 'FEFO'; // First In First Out, Last In First Out, First Expired First Out

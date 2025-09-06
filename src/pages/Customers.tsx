@@ -1,411 +1,387 @@
-import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, SmartForm, LoadingOverlay, SkeletonCard, useNotifications } from '../components';
-import type { FormField } from '../components';
-import { useApi, apiPatch, apiPost } from '../hooks/useApi';
-import { getBalance } from '../loyalty/state';
-import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
-import type { ValidationResult } from '../utils/validation';
-import { validateEmail, validatePhone, validateName } from '../utils/validation';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Button,
+  Input,
+  Label,
+  FormField,
+  Modal,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from '../components';
+import { apiPost, apiPatch } from '../hooks/useApi';
+import { CustomerFilters } from '../customers/CustomerFilters';
+import { CustomerTable } from '../customers/CustomerTable';
+import { CustomerProfileDrawer } from '../customers/CustomerProfileDrawer';
+import { BulkActionsBar } from '../customers/BulkActionsBar';
+import { useCustomerQueryState } from '../customers/useCustomerQueryState';
+import { fetchCustomers } from '../customers/api';
+import type { Customer, CustomersResponse, CustomerFilters as Filters } from '../customers/types';
 
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  points: number;
-  visits: number;
-  totalSpent: number;
-  lastVisit: string;
-}
+// Simple validation helpers
+const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const validatePhone = (phone: string) =>
+  /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/.test(phone.replace(/[\s\-\(\)]/g, ''));
 
-function Customers() {
-  const { data: customers, loading, error, refetch } = useApi<Customer[]>('/api/customers');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
-  const [updatingCustomer, setUpdatingCustomer] = useState<string | null>(null);
-  const [showFilterForm, setShowFilterForm] = useState(false);
-  const { showSuccess, showError, showLoading, removeNotification } = useNotifications();
-  const [filters, setFilters] = useState({
-    minPoints: '',
-    maxPoints: '',
-    minVisits: '',
-    maxVisits: '',
-    minSpent: '',
-    maxSpent: ''
+export default function Customers() {
+  const { state, setState, searchInput, setSearchInput } = useCustomerQueryState();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<CustomersResponse>({
+    data: [],
+    page: state.page,
+    pageSize: state.pageSize,
+    total: 0,
   });
-  
-  const updatePoints = async (customerId: string, pointsToAdd: number) => {
+
+  // Profile drawer state
+  const [openProfile, setOpenProfile] = useState(false);
+  const [selected, setSelected] = useState<Customer | null>(null);
+
+  // Add customer modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Bulk selection state
+  const [bulkSelected, setBulkSelected] = useState<Customer[]>([]);
+  const [clearSelectionSignal, setClearSelectionSignal] = useState(0);
+
+  // Bulk actions state
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [tagValue, setTagValue] = useState('');
+  const [confirmAction, setConfirmAction] = useState<null | 'activate' | 'deactivate'>(null);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setUpdatingCustomer(customerId);
-      const customer = customers?.find(c => c.id === customerId);
-      if (customer) {
-        await apiPatch(`/api/customers/${customerId}`, { 
-          points: customer.points + pointsToAdd 
-        });
-        refetch();
-      }
-    } catch (error) {
-      console.error('Failed to update points:', error);
+      const res = await fetchCustomers(state);
+      setData(res);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load customers');
     } finally {
-      setUpdatingCustomer(null);
+      setLoading(false);
     }
   };
 
-  // Get existing emails for validation
-  const existingEmails = customers?.map(customer => customer.email.toLowerCase()) || [];
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.page, state.pageSize, state.search, state.sort, JSON.stringify(state.filters)]);
 
-  // Enhanced add customer function
-  const addCustomer = async (values: Record<string, any>) => {
-    const loadingId = showLoading(
-      'Adding Customer',
-      `Creating customer account for "${values.name}"...`
-    );
-    
+  // Derived
+  const hasAnyFilter = useMemo(
+    () => state.search || (state.filters && Object.keys(state.filters).length > 0),
+    [state.search, state.filters]
+  );
+
+  // Add Customer
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    if (!formData.name.trim()) errors.name = 'Name is required';
+    if (!formData.email.trim()) errors.email = 'Email is required';
+    else if (!validateEmail(formData.email)) errors.email = 'Please enter a valid email address';
+    if (formData.phone && !validatePhone(formData.phone)) errors.phone = 'Please enter a valid phone number';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const addCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
     setIsAddingCustomer(true);
     try {
-      await apiPost('/api/customers', values);
-      setShowAddForm(false);
-      refetch();
-      
-      removeNotification(loadingId);
-      showSuccess(
-        'Customer Added Successfully',
-        `${values.name} has been added to the customer database and enrolled in the loyalty program`,
-        [
-          {
-            label: 'Add Another',
-            action: () => setShowAddForm(true),
-            style: 'secondary'
-          }
-        ]
-      );
-    } catch (error) {
-      removeNotification(loadingId);
-      showError(
-        'Failed to Add Customer',
-        `Could not add "${values.name}" to the customer database. Please check your connection and try again.`,
-        [
-          {
-            label: 'Try Again',
-            action: () => addCustomer(values),
-            style: 'primary'
-          }
-        ]
-      );
-      console.error('Error adding customer:', error);
-      throw error; // Let SmartForm handle the error display
+      await apiPost('/api/customers', formData);
+      setShowAddModal(false);
+      setFormData({ name: '', email: '', phone: '' });
+      setFormErrors({});
+      // Reset to first page to see the new entry
+      setState({ page: 1 });
+      await load();
+    } catch {
+      setFormErrors({ submit: 'Failed to add customer. Please try again.' });
     } finally {
       setIsAddingCustomer(false);
     }
   };
 
-  // Customer form fields configuration with enhanced validation
-  const customerFormFields: FormField[] = [
-    {
-      name: 'name',
-      label: 'Full Name',
-      type: 'text',
-      required: true,
-      placeholder: 'Enter customer name',
-      helpText: 'Customer\'s full name for account identification',
-      validation: (value: string) => validateName(value)
-    },
-    {
-      name: 'email',
-      label: 'Email Address',
-      type: 'email',
-      required: true,
-      placeholder: 'customer@example.com',
-      helpText: 'Email for receipts, promotions, and account recovery',
-      validation: (value: string) => {
-        const result = validateEmail(value);
-        if (!result.isValid) return result;
+  // Bulk helpers
+  const exportCSV = () => {
+    if (bulkSelected.length === 0) return;
+    const headers = [
+      'id','name','email','phone','orders','totalSpent','visits','points','lastVisit','status','tags'
+    ];
+    const rows = bulkSelected.map(c => ([
+      c.id,
+      `"${(c.name ?? '').replace(/"/g, '""')}"`,
+      `"${(c.email ?? '').replace(/"/g, '""')}"`,
+      `"${(c.phone ?? '').replace(/"/g, '""')}"`,
+      c.orders ?? 0,
+      c.totalSpent?.toFixed ? c.totalSpent.toFixed(2) : c.totalSpent ?? 0,
+      c.visits ?? 0,
+      c.points ?? 0,
+      c.lastVisit ? new Date(c.lastVisit).toISOString() : '',
+      c.status ?? '',
+      `"${(c.tags?.join('|') ?? '').replace(/"/g, '""')}"`,
+    ].join(',')));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `customers_${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
-        // Check for duplicate emails
-        if (existingEmails.includes(value.toLowerCase())) {
-          return {
-            isValid: false,
-            message: 'Email address already exists',
-            suggestions: ['Try a different email address']
-          };
-        }
-
-        return result;
-      }
-    },
-    {
-      name: 'phone',
-      label: 'Phone Number',
-      type: 'tel',
-      required: false,
-      placeholder: '(555) 123-4567',
-      helpText: 'Phone number for order notifications and contact (optional)',
-      validation: (value: string) => {
-        if (!value) return { isValid: true }; // Optional field
-        return validatePhone(value);
-      }
+  const applyTag = async () => {
+    const tag = tagValue.trim();
+    if (!tag || bulkSelected.length === 0) {
+      setShowTagModal(false);
+      return;
     }
-  ];
-  
-  const clearFilters = () => {
-    setFilters({
-      minPoints: '',
-      maxPoints: '',
-      minVisits: '',
-      maxVisits: '',
-      minSpent: '',
-      maxSpent: ''
-    });
+    setIsBulkProcessing(true);
+    try {
+      for (const c of bulkSelected) {
+        const current = Array.isArray((c as any).tags) ? (c as any).tags as string[] : [];
+        const nextTags = Array.from(new Set([...(current || []), tag]));
+        await apiPatch(`/api/customers/${c.id}`, { tags: nextTags });
+      }
+      setShowTagModal(false);
+      setTagValue('');
+      setBulkSelected([]);
+      setClearSelectionSignal((n) => n + 1);
+      await load();
+    } catch (err) {
+      console.error('Bulk tag failed', err);
+    } finally {
+      setIsBulkProcessing(false);
+    }
   };
 
-  const filteredCustomers = customers?.filter(customer => {
-    // Text search filter
-    const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.phone.includes(searchTerm) ||
-      customer.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (!matchesSearch) return false;
-
-    // Advanced filters
-    if (filters.minPoints && customer.points < parseInt(filters.minPoints)) return false;
-    if (filters.maxPoints && customer.points > parseInt(filters.maxPoints)) return false;
-    if (filters.minVisits && customer.visits < parseInt(filters.minVisits)) return false;
-    if (filters.maxVisits && customer.visits > parseInt(filters.maxVisits)) return false;
-    if (filters.minSpent && customer.totalSpent < parseFloat(filters.minSpent)) return false;
-    if (filters.maxSpent && customer.totalSpent > parseFloat(filters.maxSpent)) return false;
-
-    return true;
-  }) || [];
-  
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+  const bulkUpdateStatus = async (status: 'active' | 'inactive') => {
+    if (bulkSelected.length === 0) {
+      setConfirmAction(null);
+      return;
+    }
+    setIsBulkProcessing(true);
+    try {
+      for (const c of bulkSelected) {
+        await apiPatch(`/api/customers/${c.id}`, { status });
+      }
+      setConfirmAction(null);
+      setBulkSelected([]);
+      setClearSelectionSignal((n) => n + 1);
+      await load();
+    } catch (err) {
+      console.error('Bulk status update failed', err);
+    } finally {
+      setIsBulkProcessing(false);
+    }
   };
-  
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        {/* Loading header */}
-        <div className="flex justify-between items-center">
-          <div className="space-y-2">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse"></div>
-          </div>
-          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
-        </div>
-        
-        {/* Loading search and filters */}
-        <div className="flex gap-4">
-          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
-        </div>
-        
-        {/* Loading customer cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <SkeletonCard key={index} showAvatar={false} lines={4} />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="text-center py-8">
-        <p className="text-red-600 dark:text-red-400">Error loading customers: {error}</p>
-        <Button onClick={refetch} className="mt-4">Retry</Button>
-      </div>
-    );
-  }
-  
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Customer Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage customer profiles and loyalty points
-          </p>
+          <h1 className="text-h1">Customers</h1>
+          <p className="text-secondary">Manage customer profiles and loyalty (read-only in list)</p>
         </div>
-        <Button onClick={() => setShowAddForm(true)}>Add Customer</Button>
+        <Button onClick={() => setShowAddModal(true)}>Add Customer</Button>
       </div>
 
-      {/* Enhanced Add Customer Form */}
-      {showAddForm && (
-        <Card>
-          <CardContent className="p-6">
-            <SmartForm
-              fields={customerFormFields}
-              onSubmit={addCustomer}
-              onCancel={() => setShowAddForm(false)}
-              title="Add New Customer"
-              description="Create a new customer account with automatic loyalty program enrollment"
-              submitLabel="Add Customer"
-              cancelLabel="Cancel"
-              autoSave={true}
-              autoSaveKey="customer-add"
-              disabled={isAddingCustomer}
+      {/* Add Customer Modal */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Add New Customer"
+        description="Create a new customer account"
+      >
+        <form onSubmit={addCustomer} className="space-y-form">
+          <FormField error={formErrors.name} required>
+            <Label htmlFor="name" required>
+              Full Name
+            </Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Enter customer name"
+              error={formErrors.name}
             />
-          </CardContent>
-        </Card>
-      )}
-      
-      <div className="flex gap-4">
-        <Input 
-          placeholder="Search customers..." 
-          className="max-w-md" 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <Button variant="outline" onClick={() => setShowFilterForm(!showFilterForm)}>
-          {showFilterForm ? 'Hide Filters' : 'Filter'}
-        </Button>
-        {(filters.minPoints || filters.maxPoints || filters.minVisits || filters.maxVisits || filters.minSpent || filters.maxSpent) && (
-          <Button variant="outline" onClick={clearFilters}>
-            Clear Filters
-          </Button>
-        )}
-      </div>
+          </FormField>
 
-      {/* Advanced Filter Form */}
-      {showFilterForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Advanced Filters</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Loyalty Points</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.minPoints}
-                    onChange={(e) => setFilters({...filters, minPoints: e.target.value})}
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.maxPoints}
-                    onChange={(e) => setFilters({...filters, maxPoints: e.target.value})}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Number of Visits</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Min"
-                    value={filters.minVisits}
-                    onChange={(e) => setFilters({...filters, minVisits: e.target.value})}
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Max"
-                    value={filters.maxVisits}
-                    onChange={(e) => setFilters({...filters, maxVisits: e.target.value})}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Total Spent ($)</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="Min"
-                    value={filters.minSpent}
-                    onChange={(e) => setFilters({...filters, minSpent: e.target.value})}
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="Max"
-                    value={filters.maxSpent}
-                    onChange={(e) => setFilters({...filters, maxSpent: e.target.value})}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-              Showing {filteredCustomers.length} of {customers?.length || 0} customers
-            </div>
-          </CardContent>
-        </Card>
+          <FormField error={formErrors.email} required>
+            <Label htmlFor="email" required>
+              Email Address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="customer@example.com"
+              error={formErrors.email}
+            />
+          </FormField>
+
+          <FormField error={formErrors.phone}>
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="(555) 123-4567"
+              error={formErrors.phone}
+            />
+          </FormField>
+
+          {formErrors.submit && <div className="text-error text-body-sm">{formErrors.submit}</div>}
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} disabled={isAddingCustomer}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isAddingCustomer}>
+              {isAddingCustomer ? 'Adding…' : 'Add Customer'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Tag Modal */}
+      <Modal
+        isOpen={showTagModal}
+        onClose={() => {
+          if (!isBulkProcessing) {
+            setShowTagModal(false);
+            setTagValue('');
+          }
+        }}
+        title="Add Tag to Selected Customers"
+        description="Enter a tag to add to all selected customers"
+      >
+        <div className="space-y-form">
+          <FormField>
+            <Label htmlFor="bulk-tag">Tag</Label>
+            <Input
+              id="bulk-tag"
+              value={tagValue}
+              onChange={(e) => setTagValue(e.target.value)}
+              placeholder="e.g., vip"
+            />
+          </FormField>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowTagModal(false);
+                setTagValue('');
+              }}
+              disabled={isBulkProcessing}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={applyTag} disabled={isBulkProcessing || !tagValue.trim()}>
+              {isBulkProcessing ? 'Applying…' : 'Apply Tag'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Confirm Activate/Deactivate Modal */}
+      <Modal
+        isOpen={!!confirmAction}
+        onClose={() => (!isBulkProcessing ? setConfirmAction(null) : undefined)}
+        title={confirmAction === 'deactivate' ? 'Deactivate Customers' : 'Activate Customers'}
+        description={
+          confirmAction === 'deactivate'
+            ? 'Are you sure you want to mark the selected customers as inactive?'
+            : 'Are you sure you want to mark the selected customers as active?'
+        }
+      >
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={() => setConfirmAction(null)} disabled={isBulkProcessing}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => bulkUpdateStatus(confirmAction === 'deactivate' ? 'inactive' : 'active')}
+            disabled={isBulkProcessing}
+          >
+            {isBulkProcessing ? 'Updating…' : 'Confirm'}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Search &amp; Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CustomerFilters
+            searchInput={searchInput}
+            setSearchInput={setSearchInput}
+            filters={state.filters}
+            onChange={(next: Filters) => setState({ filters: next, page: 1 })}
+            onReset={() => setState({ filters: {}, search: '', page: 1 })}
+          />
+          {hasAnyFilter && (
+            <div className="text-xs text-text-secondary mt-2">Results update automatically (debounced 300ms)</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      {error ? (
+        <div className="text-center py-8">
+          <p className="text-error">Error loading customers: {error}</p>
+          <Button onClick={load} className="mt-4">
+            Retry
+          </Button>
+        </div>
+      ) : (
+        <CustomerTable
+          data={data.data}
+          total={data.total}
+          page={state.page}
+          pageSize={state.pageSize}
+          sort={state.sort}
+          onSortChange={(next) => setState({ sort: next, page: 1 })}
+          onPageChange={(next) => setState({ page: next })}
+          onPageSizeChange={(next) => setState({ pageSize: next, page: 1 })}
+          onRowClick={(c) => {
+            setSelected(c);
+            setOpenProfile(true);
+          }}
+          onSelectionChange={(sel) => setBulkSelected(sel)}
+          clearSelectionSignal={clearSelectionSignal}
+          loading={loading}
+        />
       )}
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCustomers.map(customer => (
-          <Card key={customer.id}>
-            <CardHeader>
-              <CardTitle className="flex justify-between items-start">
-                <span>{customer.name}</span>
-                <div className="text-right">
-                  <div className="text-sm font-normal text-blue-600 dark:text-blue-400">
-                    {getBalance(customer.id) || customer.points} pts
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    ≈ ${pointsToValue(getBalance(customer.id) || customer.points, DEFAULT_LOYALTY_CONFIG).toFixed(2)}
-                  </div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-1">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  📞 {customer.phone}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  ✉️ {customer.email}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  🏪 {customer.visits} visits • ${customer.totalSpent.toFixed(2)} spent
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  📅 Last visit: {formatDate(customer.lastVisit)}
-                </p>
-              </div>
-              
-              <div className="flex gap-2">
-                <div className="flex gap-1 flex-1">
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => updatePoints(customer.id, 10)}
-                    disabled={updatingCustomer === customer.id}
-                    className="flex-1"
-                  >
-                    {updatingCustomer === customer.id ? '...' : '+10'}
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => updatePoints(customer.id, 25)}
-                    disabled={updatingCustomer === customer.id}
-                    className="flex-1"
-                  >
-                    {updatingCustomer === customer.id ? '...' : '+25'}
-                  </Button>
-                </div>
-                <Button 
-                  size="sm" 
-                  className="flex-1"
-                  disabled={updatingCustomer === customer.id}
-                >
-                  Profile
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
+      {/* Bulk Actions Bar */}
+      <BulkActionsBar
+        count={bulkSelected.length}
+        onExportCSV={exportCSV}
+        onAddTag={() => setShowTagModal(true)}
+        onActivate={() => setConfirmAction('activate')}
+        onDeactivate={() => setConfirmAction('deactivate')}
+        onClear={() => {
+          setBulkSelected([]);
+          setClearSelectionSignal((n) => n + 1);
+        }}
+      />
+
+      {/* Profile Drawer */}
+      <CustomerProfileDrawer open={openProfile} onClose={() => setOpenProfile(false)} customer={selected} />
     </div>
   );
 }
-
-export default Customers;

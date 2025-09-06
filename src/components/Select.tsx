@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import type { SelectHTMLAttributes } from 'react';
-import { cn } from '../utils/cn';
+import { cn } from '../lib/utils';
 
 interface SelectOption {
   value: string;
@@ -8,57 +8,123 @@ interface SelectOption {
   disabled?: boolean;
 }
 
-interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange'> {
   label?: string;
   error?: string;
-  options: SelectOption[];
+  helpText?: string;
+  options?: SelectOption[];
   placeholder?: string;
+  onChange?: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  onValueChange?: (value: string) => void;
 }
 
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, error, options, placeholder, id, ...props }, ref) => {
-    const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
+  ({ 
+    className, 
+    label, 
+    error, 
+    helpText, 
+    options, 
+    placeholder, 
+    id, 
+    disabled,
+    required,
+    onChange,
+    onValueChange,
+    children,
+    ...props 
+  }, ref) => {
+    const selectId = id || `select-${Math.random().toString(36).slice(2, 11)}`;
+    const helpId = helpText ? `${selectId}-help` : undefined;
+    const errorId = error ? `${selectId}-error` : undefined;
+    const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+    const hasError = Boolean(error);
     
     return (
-      <div className="space-y-1">
+      <div className="space-y-field">
         {label && (
           <label
             htmlFor={selectId}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            className="field-label"
           >
             {label}
+            {required && (
+              <span className="text-error ml-1" aria-label="required">
+                *
+              </span>
+            )}
           </label>
         )}
-        <select
-          id={selectId}
-          className={cn(
-            'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-            'dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100',
-            error && 'border-red-500 focus:ring-red-500',
-            className
-          )}
-          ref={ref}
-          {...props}
-        >
-          {placeholder && (
-            <option value="" disabled>
-              {placeholder}
-            </option>
-          )}
-          {options.map((option) => (
-            <option
-              key={option.value}
-              value={option.value}
-              disabled={option.disabled}
+        
+        <div className="relative">
+          <select
+            id={selectId}
+            className={cn(
+              'input-base appearance-none pr-10',
+              hasError && 'input-error',
+              disabled && 'opacity-50 cursor-not-allowed bg-surface-secondary',
+              className
+            )}
+            ref={ref}
+            disabled={disabled}
+            required={required}
+            aria-invalid={hasError ? 'true' : 'false'}
+            aria-describedby={describedBy}
+            onChange={(e) => {
+              onChange?.(e);
+              onValueChange?.(e.target.value);
+            }}
+            {...props}
+          >
+            {placeholder && (
+              <option value="" disabled>
+                {placeholder}
+              </option>
+            )}
+            {options ? (
+              // Render from options prop
+              options.map((option) => (
+                <option
+                  key={option.value}
+                  value={option.value}
+                  disabled={option.disabled}
+                >
+                  {option.label}
+                </option>
+              ))
+            ) : (
+              // Render children
+              children
+            )}
+          </select>
+          
+          {/* Dropdown arrow */}
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <svg
+              className="w-4 h-4 text-text-tertiary"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
             >
-              {option.label}
-            </option>
-          ))}
-        </select>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </div>
+        </div>
+        
+        {helpText && !error && (
+          <p id={helpId} className="field-help">
+            {helpText}
+          </p>
+        )}
+        
         {error && (
-          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+          <p id={errorId} className="field-error" role="alert">
             {error}
           </p>
         )}
@@ -70,4 +136,4 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
 Select.displayName = 'Select';
 
 export { Select };
-export type { SelectOption };
+export type { SelectOption, SelectProps };

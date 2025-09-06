@@ -9,15 +9,17 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'default', ...props }, ref) => {
     const variants = {
-      default: 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700',
-      outlined: 'bg-transparent border-2 border-gray-300 dark:border-gray-600',
-      elevated: 'bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700',
+      // Tokenized surfaces and borders; avoid brand-colored borders for readability
+      default: 'bg-surface border border-secondary',
+      outlined: 'bg-transparent border-2 border-secondary',
+      elevated: 'bg-surface shadow-lg border border-secondary',
     };
     
     return (
       <div
         ref={ref}
         className={cn(
+          // Ensure readable default text color via index.css .card as well
           'rounded-lg p-4',
           variants[variant],
           className

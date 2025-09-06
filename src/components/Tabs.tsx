@@ -1,12 +1,32 @@
 import type { ReactNode } from 'react'
-import { useId, useState } from 'react'
+import { useId, useState, useEffect } from 'react'
 
 type Tab = { id: string; label: string; content: ReactNode }
-type Props = { tabs: Tab[]; initialId?: string; ariaLabel?: string }
+type Props = { 
+  tabs: Tab[]; 
+  initialId?: string; 
+  ariaLabel?: string;
+  onChange?: (tabId: string) => void;
+}
 
-export default function Tabs({ tabs, initialId, ariaLabel = 'Settings Sections' }: Props) {
+export default function Tabs({ tabs, initialId, ariaLabel = 'Settings Sections', onChange }: Props) {
   const [active, setActive] = useState(initialId ?? tabs[0]?.id)
   const tablistId = useId()
+  
+  // Update active tab when initialId changes
+  useEffect(() => {
+    if (initialId && initialId !== active) {
+      setActive(initialId);
+    }
+  }, [initialId]);
+
+  // Handle tab change
+  const handleTabChange = (tabId: string) => {
+    setActive(tabId);
+    if (onChange) {
+      onChange(tabId);
+    }
+  };
 
   return (
     <div>
@@ -21,7 +41,7 @@ export default function Tabs({ tabs, initialId, ariaLabel = 'Settings Sections' 
               aria-controls={`${t.id}-panel`}
               id={`${t.id}-tab`}
               className={`px-3 py-2 border-b-2 ${selected ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-600'}`}
-              onClick={() => setActive(t.id)}
+              onClick={() => handleTabChange(t.id)}
               type="button"
             >
               {t.label}

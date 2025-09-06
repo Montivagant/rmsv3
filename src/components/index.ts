@@ -1,44 +1,86 @@
+// Navigation components
+export { AppNav } from './navigation/AppNav';
+export { TopBar } from './navigation/TopBar';
+
+// Card components
+export { StatCard } from './cards/StatCard';
+export { ListCard } from './cards/ListCard';
+export { ChartCard } from './cards/ChartCard';
+
+// UI components
+export { ActionMenu } from './ui/ActionMenu';
+
+// Provider components
+export { ThemeProvider, useTheme } from './providers/ThemeProvider';
+
+// Layout components
+export { Layout } from './Layout';
+export { OfflineBanner } from './OfflineBanner';
+export { SyncStatusIndicator } from './SyncStatusIndicator';
+export { PerformanceMonitor } from './PerformanceMonitor';
+export { PersistenceDebugger } from './PersistenceDebugger';
+
+// Core UI Primitives (Design System)
 export { Button } from './Button';
 export { Input } from './Input';
-export { Select, type SelectOption } from './Select';
+export { Select } from './Select';
+export { Label } from './Label';
+export { Textarea } from './Textarea';
+export { Checkbox } from './Checkbox';
+export { FormField } from './FormField';
+export { Badge } from './Badge';
+export { Modal } from './Modal';
+export { Sheet } from './Sheet';
+export { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from './DropdownMenu';
+export { Toast, ToastContainer } from './ToastNew';
+export { EmptyState } from './EmptyState';
+export { Skeleton, SkeletonCard, SkeletonTable } from './Skeleton';
+export { Drawer } from './Drawer';
+export { PasswordInput } from './PasswordInput';
+export { Collapsible } from './Collapsible';
+export { PhoneInputEG } from './PhoneInputEG';
+
+// Card components
 export { Card, CardHeader, CardTitle, CardContent } from './Card';
-export { Layout } from './Layout';
-export { Breadcrumb } from './Breadcrumb';
 export { default as Tabs } from './Tabs';
-export { UpdateToast, UpdateManager } from './UpdateToast';
-export { OfflineBanner } from './OfflineBanner';
-export { PaymentModal } from './PaymentModal';
-export { MenuManagement } from './MenuManagement';
+
+// Business components
 export { CategoryManagement } from './CategoryManagement';
-export { default as RecipeManagement } from './RecipeManagement';
-export { SyncStatusIndicator, SyncStatusBadge, SyncStatusPanel } from './SyncStatusIndicator';
-export { PerformanceMonitor, PerformanceBadge } from './PerformanceMonitor';
+export { RecipeManagement } from './RecipeManagement';
+export { MenuManagement } from './MenuManagement';
 
-// Enhanced Form Components
-export { ValidatedInput } from './forms/ValidatedInput';
+// RBAC components
+export { RBACAdminPanel } from './rbac';
+
+// Form components (existing)
 export { SmartForm } from './forms/SmartForm';
-export type { ValidatedInputProps } from './forms/ValidatedInput';
-export type { SmartFormProps, FormField } from './forms/SmartForm';
+export type { FormField as SmartFormField } from './forms/SmartForm';
 
-// Enhanced Feedback Components
-export { 
-  LoadingSpinner, 
-  LoadingOverlay, 
-  Skeleton, 
-  SkeletonTable, 
-  SkeletonCard, 
-  ButtonLoading, 
-  ProgressBar 
-} from './feedback/LoadingSpinner';
-export { 
-  NotificationProvider, 
-  useNotifications 
-} from './feedback/NotificationSystem';
-export type { 
-  LoadingSpinnerProps, 
-  LoadingOverlayProps, 
-  SkeletonProps,
-  Notification, 
-  NotificationAction, 
-  NotificationType 
-} from './feedback/NotificationSystem';
+// Feedback components (existing)
+export { LoadingOverlay } from './feedback/LoadingSpinner';
+
+// Notification system - actual implementation
+export { useNotifications, NotificationProvider } from './feedback/NotificationSystem';
+
+// Provider components
+import type { ReactNode } from 'react';
+export const UpdateManager = ({ children }: { children: ReactNode }) => children;
+
+// Re-export default components
+export { default as AppNavDefault } from './navigation/AppNav';
+export { default as TopBarDefault } from './navigation/TopBar';
+export { default as StatCardDefault } from './cards/StatCard';
+export { default as ListCardDefault } from './cards/ListCard';
+export { default as ChartCardDefault } from './cards/ChartCard';
+export { default as ActionMenuDefault } from './ui/ActionMenu';
+export { default as ThemeProviderDefault } from './providers/ThemeProvider';
+export { default as LayoutDefault } from './Layout';
+
+// Type exports
+export type { InputProps } from './Input';
+export type { SelectProps, SelectOption } from './Select';
+export type { TextareaProps } from './Textarea';
+export type { CheckboxProps } from './Checkbox';
+export type { ModalProps } from './Modal';
+export type { SheetProps } from './Sheet';
+export type { DropdownMenuProps, DropdownMenuItemProps } from './DropdownMenu';

@@ -1,5 +1,5 @@
 import type { Event } from '../events/types';
-import type { ZReportData, ZReportRequest, CashReconciliation } from './types';
+import type { ZReportData, ZReportRequest } from './types';
 import { isSaleRecorded, isPaymentSucceeded } from '../events/guards';
 
 /**
@@ -76,7 +76,7 @@ export class ZReportEngine {
     let grossSales = 0;
     let totalDiscounts = 0;
     let totalTax = 0;
-    let transactionCount = saleEvents.length;
+    const transactionCount = saleEvents.length;
     let itemCount = 0;
     
     for (const event of saleEvents) {
@@ -212,7 +212,7 @@ export class ZReportEngine {
   private calculateDiscountSummary(saleEvents: Event[]) {
     let totalDiscounts = 0;
     let discountCount = 0;
-    let loyaltyDiscounts = 0;
+    const loyaltyDiscounts = 0;
     let manualDiscounts = 0;
     
     for (const event of saleEvents) {

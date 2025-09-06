@@ -19,13 +19,11 @@ import {
   Input, 
   Select, 
   SmartForm,
-  LoadingOverlay,
   SkeletonCard,
   useNotifications
 } from './index';
-import type { FormField } from './index';
+import type { FormField } from './forms/SmartForm';
 import { useApi, apiPost, apiPatch, apiDelete } from '../hooks/useApi';
-import type { ValidationResult } from '../utils/validation';
 import { 
   validateMenuItemName, 
   validateMenuItemDescription, 
@@ -95,7 +93,11 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       required: true,
       placeholder: 'Classic Burger, Fresh Coffee...',
       helpText: 'A clear, descriptive name for the menu item',
-      validation: (value: string) => validateMenuItemName(value)
+      validationRules: [{
+        id: 'menu-item-name',
+        message: 'Invalid menu item name',
+        validate: (value: string) => validateMenuItemName(value)
+      }]
     },
     {
       name: 'price',
@@ -104,7 +106,11 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       required: true,
       placeholder: '9.99',
       helpText: 'Price in dollars (e.g., 12.50)',
-      validation: (value: string) => validateMenuItemPrice(value)
+      validationRules: [{
+        id: 'menu-item-price',
+        message: 'Invalid price',
+        validate: (value: string) => validateMenuItemPrice(value)
+      }]
     },
     {
       name: 'category',
@@ -117,7 +123,11 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
         { value: '__new__', label: '+ Add New Category' }
       ] : undefined,
       placeholder: existingCategories.length === 0 ? 'Main, Sides, Drinks...' : undefined,
-      validation: (value: string) => validateMenuItemCategory(value, existingCategories)
+      validationRules: [{
+        id: 'menu-item-category',
+        message: 'Invalid category',
+        validate: (value: string) => validateMenuItemCategory(value, existingCategories)
+      }]
     },
     {
       name: 'newCategory',
@@ -127,12 +137,16 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       placeholder: 'Enter new category name',
       helpText: 'Create a new category for this item',
       visible: (allValues: Record<string, any>) => allValues.category === '__new__',
-      validation: (value: string, allValues: Record<string, any>) => {
-        if (allValues.category === '__new__') {
-          return validateMenuItemCategory(value, existingCategories);
+      validationRules: [{
+        id: 'new-category',
+        message: 'Invalid new category name',
+        validate: (value: string, formData?: Record<string, unknown>) => {
+          if (formData?.category === '__new__') {
+            return validateMenuItemCategory(value, existingCategories);
+          }
+          return { isValid: true };
         }
-        return { isValid: true };
-      }
+      }]
     },
     {
       name: 'description',
@@ -141,7 +155,11 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       required: false,
       placeholder: 'Brief description of the menu item...',
       helpText: 'Optional description (up to 200 characters)',
-      validation: (value: string) => validateMenuItemDescription(value)
+      validationRules: [{
+        id: 'menu-item-description',
+        message: 'Invalid description',
+        validate: (value: string) => validateMenuItemDescription(value)
+      }]
     }
   ];
 
@@ -266,15 +284,15 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       <div className={`space-y-6 ${className}`}>
         <div className="flex justify-between items-center">
           <div className="space-y-2">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse"></div>
+            <div className="h-8 bg-surface-secondary rounded w-64 animate-pulse"></div>
+            <div className="h-4 bg-surface-secondary rounded w-96 animate-pulse"></div>
           </div>
-          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+          <div className="h-10 bg-surface-secondary rounded w-32 animate-pulse"></div>
         </div>
         
         <div className="flex gap-4">
-          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded flex-1 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+          <div className="h-10 bg-surface-secondary rounded flex-1 animate-pulse"></div>
+          <div className="h-10 bg-surface-secondary rounded w-32 animate-pulse"></div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -316,7 +334,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
         />
         <Select
           value={selectedCategory}
-          onChange={(value) => setSelectedCategory(value)}
+          onChange={(e) => setSelectedCategory(e.target.value)}
           options={categories.map(cat => ({ value: cat, label: cat }))}
           className="w-48"
         />
@@ -388,7 +406,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
             <CardHeader className="pb-2">
               <CardTitle className="flex justify-between items-start">
                 <span className="text-lg">{item.name}</span>
-                <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                <span className="text-lg font-bold text-success">
                   ${item.price.toFixed(2)}
                 </span>
               </CardTitle>
@@ -431,7 +449,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       {filteredItems.length === 0 && !loading && (
         <div className="text-center py-12">
           <div className="text-6xl mb-4">🍽️</div>
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          <h3 className="text-xl font-semibold text-foreground mb-2">
             {searchTerm || selectedCategory !== 'All' ? 'No items found' : 'No menu items yet'}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">

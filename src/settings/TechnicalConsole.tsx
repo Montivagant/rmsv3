@@ -26,7 +26,7 @@ function ReplicationPanel() {
       unsubscribeSync()
       unsubscribeNetwork()
     }
-  }, [])
+  }, [networkStatus, syncStatus])
 
   async function onStart() {
     localStorage.setItem('rms.sync.url', baseUrl)
@@ -55,12 +55,12 @@ function ReplicationPanel() {
 
   const getStatusColor = (status: SyncState) => {
     switch (status) {
-      case 'active': return 'text-green-600'
-      case 'error': return 'text-red-600'
-      case 'offline': return 'text-orange-600'
-      case 'unavailable': return 'text-gray-500'
-      case 'paused': return 'text-yellow-600'
-      default: return 'text-gray-600'
+      case 'active': return 'text-success'
+      case 'error': return 'text-error'
+      case 'offline': return 'text-warning'
+      case 'unavailable': return 'text-tertiary'
+      case 'paused': return 'text-warning'
+      default: return 'text-secondary'
     }
   }
 
@@ -93,14 +93,14 @@ function ReplicationPanel() {
             className="border px-2 py-1 rounded w-72 dark:bg-gray-800 dark:border-gray-600" 
             value={baseUrl} 
             onChange={e => setBaseUrl(e.target.value)} 
-            placeholder="CouchDB URL (e.g., http://localhost:5984)"
+            placeholder="Database server URL (e.g., http://localhost:5984)"
             aria-label="CouchDB URL" 
           />
           <input 
             className="border px-2 py-1 rounded w-40 dark:bg-gray-800 dark:border-gray-600" 
             value={prefix} 
             onChange={e => setPrefix(e.target.value)} 
-            placeholder="DB prefix"
+            placeholder="Database prefix (optional)"
             aria-label="Database Prefix" 
           />
           <button 

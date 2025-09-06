@@ -431,7 +431,7 @@ export class TaxConfigurationManager {
       this.configurations.set(config.id, config);
       
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

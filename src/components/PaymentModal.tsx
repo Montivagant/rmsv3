@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from './index';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input } from './index';
 import { formatCurrency } from '../lib/format';
 import type { PlaceholderPaymentProvider, DirectPaymentParams } from '../payments/provider';
 
@@ -75,7 +75,7 @@ export function PaymentModal({
     setError(null);
 
     try {
-      if (selectedMethodConfig?.isDirect) {
+      if (selectedMethod === 'cash' || selectedMethod === 'loyalty') {
         // Handle direct payments (cash, loyalty)
         const params: DirectPaymentParams = {
           ticketId,
@@ -144,11 +144,11 @@ export function PaymentModal({
   const isValid = validatePayment();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="modal-backdrop">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Payment - {formatCurrency(amount, currency)}</span>
+            <span>Payment - {formatCurrency(amount)}</span>
             <Button
               variant="outline"
               size="sm"
@@ -169,8 +169,8 @@ export function PaymentModal({
                   key={method.id}
                   className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                     selectedMethod === method.id
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                      : 'border-gray-300 hover:border-gray-400'
+                      ? 'border-primary-600 bg-primary-100 dark:bg-primary-900/20'
+                      : 'border-secondary hover:border-primary'
                   }`}
                   onClick={() => setSelectedMethod(method.id)}
                 >
@@ -178,7 +178,7 @@ export function PaymentModal({
                     <span className="text-2xl">{method.icon}</span>
                     <div>
                       <div className="font-medium">{method.name}</div>
-                      <div className="text-sm text-gray-500">{method.description}</div>
+                      <div className="text-sm text-secondary">{method.description}</div>
                     </div>
                   </div>
                 </div>
@@ -199,13 +199,13 @@ export function PaymentModal({
                 step="0.01"
               />
               {parseFloat(cashAmount) < amount && (
-                <p className="text-sm text-red-600 mt-1">
-                  Cash amount must be at least {formatCurrency(amount, currency)}
+                <p className="text-sm text-error mt-1">
+                  Cash amount must be at least {formatCurrency(amount)}
                 </p>
               )}
               {parseFloat(cashAmount) > amount && (
-                <p className="text-sm text-green-600 mt-1">
-                  Change: {formatCurrency(parseFloat(cashAmount) - amount, currency)}
+                <p className="text-sm text-success mt-1">
+                  Change: {formatCurrency(parseFloat(cashAmount) - amount)}
                 </p>
               )}
             </div>
@@ -221,7 +221,7 @@ export function PaymentModal({
                 placeholder="Enter points to redeem"
                 min="1"
               />
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-secondary mt-1">
                 Redeem your loyalty points for this purchase
               </p>
             </div>
@@ -229,19 +229,19 @@ export function PaymentModal({
 
           {/* Error Display */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="p-3 bg-error-50 border border-error-100 rounded-lg">
+              <p className="text-sm text-error">{error}</p>
             </div>
           )}
 
           {/* Payment Summary */}
-          <div className="border-t pt-4">
+          <div className="border-t border-secondary pt-4">
             <div className="flex justify-between items-center text-lg font-semibold">
               <span>Total:</span>
-              <span>{formatCurrency(amount, currency)}</span>
+              <span>{formatCurrency(amount)}</span>
             </div>
             {selectedMethodConfig && (
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-secondary mt-1">
                 Payment via {selectedMethodConfig.name}
               </p>
             )}
@@ -270,7 +270,7 @@ export function PaymentModal({
           </div>
 
           {/* Dev Info */}
-          <div className="text-xs text-gray-400 text-center pt-2 border-t">
+          <div className="text-xs text-tertiary text-center pt-2 border-t border-secondary">
             🔧 Placeholder Payment Provider
           </div>
         </CardContent>

@@ -4,7 +4,7 @@
  * Safe bridge while PouchDB is unavailable
  */
 
-import type { Event, KnownEvent, EventStore, AppendOptions, AppendResult } from './types';
+import type { Event, EventStore, AppendOptions, AppendResult } from './types';
 import { InMemoryEventStore } from './store';
 import type { LocalStorageAdapter, DBEvent } from '../db/localStorage';
 
@@ -167,7 +167,6 @@ export class LocalStoragePersistedEventStore implements EventStore {
     
     // Only log auto-sync start once per session to avoid React StrictMode duplicate messages
     if (!globalThis.__RMS_AUTOSYNC_LOGGED) {
-      console.log(`🔄 Auto-sync started (${intervalMs}ms interval)`);
       globalThis.__RMS_AUTOSYNC_LOGGED = true;
     }
   }
@@ -196,7 +195,6 @@ export class LocalStoragePersistedEventStore implements EventStore {
       const eventsToSync = memoryEvents.filter(event => !dbEventIds.has(event.id));
       
       if (eventsToSync.length > 0) {
-        console.log(`🔄 Syncing ${eventsToSync.length} events to localStorage...`);
         const dbEvents = eventsToSync.map(event => this.eventToDBEvent(event));
         await this.db.bulkDocs(dbEvents);
         console.log(`✅ Synced ${eventsToSync.length} events`);

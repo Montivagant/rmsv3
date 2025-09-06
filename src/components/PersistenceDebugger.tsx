@@ -3,7 +3,7 @@
  * Helps verify that orders are actually being saved
  */
 
-import { useState, useContext } from 'react';
+import { useState } from 'react';
 import { useEventStore } from '../events/context';
 import { formatDateTime, formatCurrency } from '../lib/format';
 import { isSaleRecorded } from '../events/guards';
@@ -33,7 +33,7 @@ export function PersistenceDebugger() {
       <div className="fixed bottom-4 right-4 z-50">
         <Button 
           onClick={() => setIsOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+          className="bg-brand hover:bg-brand text-inverse"
         >
           🔍 Debug Persistence ({salesEvents.length} sales)
         </Button>
@@ -59,7 +59,7 @@ export function PersistenceDebugger() {
           <div className="border-b pb-2">
             <p className="font-semibold">📊 Storage Status:</p>
             <p>Environment: {environment.isElectron ? '🖥️ Electron' : '🌐 Browser'}</p>
-            <p>Database: {environment.isElectron ? 'PouchDB' : 'localStorage'}</p>
+            <p>Storage: {environment.isElectron ? 'Local database' : 'Browser storage'}</p>
             <p>Total Events: {events.length}</p>
             <p>Sales Events: {salesEvents.length}</p>
             {storageInfo && (
@@ -74,18 +74,18 @@ export function PersistenceDebugger() {
           <div>
             <p className="font-semibold">💰 Recent Sales:</p>
             {salesEvents.length === 0 ? (
-              <p className="text-gray-500 italic">No sales recorded yet</p>
+              <p className="text-tertiary italic">No sales recorded yet</p>
             ) : (
               <div className="space-y-1">
                 {salesEvents.slice(-3).reverse().map((event) => (
-                  <div key={event.id} className="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                  <div key={event.id} className="bg-surface-secondary p-2 rounded">
                     <p className="font-medium">
                       {formatCurrency(event.payload.totals.total)}
                     </p>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-secondary">
                       {event.payload.lines.length} items • {formatDateTime(event.at)}
                     </p>
-                    <p className="text-gray-500 text-xs">
+                    <p className="text-tertiary text-xs">
                       Ticket: {event.payload.ticketId}
                     </p>
                   </div>

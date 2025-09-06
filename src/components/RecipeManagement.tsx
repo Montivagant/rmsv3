@@ -5,28 +5,22 @@
  * and integration with inventory and menu systems.
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from './Card';
 import { Button } from './Button';
 import { Input } from './Input';
-import { Select } from './Select';
 import { SmartForm } from './forms/SmartForm';
 import type { FormField } from './forms/SmartForm';
-import { LoadingOverlay, SkeletonCard } from './feedback/LoadingSpinner';
+import { SkeletonCard } from './feedback/LoadingSpinner';
 import { useNotifications } from './feedback/NotificationSystem';
 import { useApi, apiPost, apiPatch, apiDelete } from '../hooks/useApi';
-import type { ValidationResult } from '../utils/validation';
-import { validateName, validateQuantity, validateCurrency } from '../utils/validation';
+import { validateName, validateQuantity } from '../utils/validation';
 import type {
   Recipe,
-  RecipeIngredient,
-  RecipeCategory,
-  RecipeType,
-  RecipeQuery,
-  RecipeScale,
-  RecipeAnalytics
+  RecipeScale
 } from '../recipes/types';
 import { RECIPE_CATEGORIES } from '../recipes/types';
+import { RECIPE_TEXT } from '../constants/ui-text';
 import { FaPlus, FaEdit, FaTrash, FaClock, FaDollarSign, FaUsers, FaUtensils, FaInfo, FaExclamationTriangle, FaTags, FaFlask } from 'react-icons/fa';
 import { MdRestaurant } from 'react-icons/md';
 
@@ -114,32 +108,32 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
   const recipeFormFields: FormField[] = [
     {
       name: 'name',
-      label: 'Recipe Name',
+      label: RECIPE_TEXT.RECIPE_NAME,
       type: 'text',
       required: true,
       placeholder: 'Classic Cheeseburger, House Marinara...',
-      helpText: 'A clear, descriptive name for the recipe',
+      helpText: RECIPE_TEXT.RECIPE_NAME_HELP,
       validation: validateName
     },
     {
       name: 'description',
-      label: 'Description',
+      label: RECIPE_TEXT.DESCRIPTION,
       type: 'textarea',
       required: false,
       placeholder: 'Brief description of the dish, its characteristics, and appeal...',
-      helpText: 'Description that will help staff and customers understand the dish'
+      helpText: RECIPE_TEXT.DESCRIPTION_HELP
     },
     {
       name: 'category',
-      label: 'Category',
+      label: RECIPE_TEXT.CATEGORY,
       type: 'select',
       required: true,
       options: categoryOptions.filter(opt => opt.value !== 'All'),
-      helpText: 'Primary category for organization and menu grouping'
+      helpText: RECIPE_TEXT.CATEGORY_HELP
     },
     {
       name: 'type',
-      label: 'Recipe Type',
+      label: RECIPE_TEXT.RECIPE_TYPE,
       type: 'select',
       required: true,
       options: [
@@ -152,11 +146,11 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
         { value: 'made_to_order', label: '⚡ Made to Order - Individual preparation' },
         { value: 'assembly', label: '🔧 Assembly - No cooking required' }
       ],
-      helpText: 'Type of recipe affects how it\'s used in the kitchen'
+      helpText: RECIPE_TEXT.TYPE_HELP
     },
     {
       name: 'difficulty',
-      label: 'Difficulty Level',
+      label: RECIPE_TEXT.DIFFICULTY_LEVEL,
       type: 'select',
       required: true,
       options: [
@@ -165,32 +159,32 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
         { value: 'hard', label: '⭐⭐⭐ Hard - Advanced skills' },
         { value: 'expert', label: '⭐⭐⭐⭐ Expert - Specialized techniques' }
       ],
-      helpText: 'Skill level required to execute this recipe'
+      helpText: RECIPE_TEXT.DIFFICULTY_HELP
     },
     {
       name: 'yieldQuantity',
-      label: 'Yield Quantity',
+      label: RECIPE_TEXT.YIELD_QUANTITY,
       type: 'number',
       required: true,
       placeholder: '1',
-      helpText: 'How much this recipe makes',
+      helpText: RECIPE_TEXT.YIELD_QUANTITY_HELP,
       validation: (value: string) => validateQuantity(value, { maxStock: 1000 })
     },
     {
       name: 'yieldUnit',
-      label: 'Yield Unit',
+      label: RECIPE_TEXT.YIELD_UNIT,
       type: 'text',
       required: true,
       placeholder: 'serving, cup, lb, piece...',
-      helpText: 'Unit of measurement for the yield'
+      helpText: RECIPE_TEXT.YIELD_UNIT_HELP
     },
     {
       name: 'servings',
-      label: 'Number of Servings',
+      label: RECIPE_TEXT.NUMBER_OF_SERVINGS,
       type: 'number',
       required: false,
       placeholder: '1',
-      helpText: 'How many servings this recipe provides (if different from yield)',
+      helpText: RECIPE_TEXT.SERVINGS_HELP,
       validation: (value: string) => {
         if (!value) return { isValid: true };
         return validateQuantity(value, { maxStock: 100 });
@@ -198,29 +192,29 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
     },
     {
       name: 'prepTime',
-      label: 'Prep Time (minutes)',
+      label: RECIPE_TEXT.PREP_TIME_MINUTES,
       type: 'number',
       required: true,
       placeholder: '15',
-      helpText: 'Time needed for preparation before cooking',
+      helpText: RECIPE_TEXT.PREP_TIME_HELP,
       validation: (value: string) => validateQuantity(value, { maxStock: 480 })
     },
     {
       name: 'cookTime',
-      label: 'Cook Time (minutes)',
+      label: RECIPE_TEXT.COOK_TIME_MINUTES,
       type: 'number',
       required: true,
       placeholder: '20',
-      helpText: 'Active cooking/baking time',
+      helpText: RECIPE_TEXT.COOK_TIME_HELP,
       validation: (value: string) => validateQuantity(value, { maxStock: 480 })
     },
     {
       name: 'shelfLife',
-      label: 'Shelf Life (hours)',
+      label: RECIPE_TEXT.SHELF_LIFE_HOURS,
       type: 'number',
       required: false,
       placeholder: '24',
-      helpText: 'How long the finished product stays fresh',
+      helpText: RECIPE_TEXT.SHELF_LIFE_HELP,
       validation: (value: string) => {
         if (!value) return { isValid: true };
         return validateQuantity(value, { maxStock: 168 }); // Max 1 week
@@ -228,19 +222,19 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
     },
     {
       name: 'tags',
-      label: 'Tags',
+      label: RECIPE_TEXT.TAGS,
       type: 'text',
       required: false,
       placeholder: 'signature, popular, seasonal, vegetarian...',
-      helpText: 'Comma-separated tags for easy searching and organization'
+      helpText: RECIPE_TEXT.TAGS_HELP
     },
     {
       name: 'notes',
-      label: 'Chef Notes',
+      label: RECIPE_TEXT.CHEF_NOTES,
       type: 'textarea',
       required: false,
       placeholder: 'Special instructions, variations, tips for kitchen staff...',
-      helpText: 'Internal notes for kitchen staff and management'
+      helpText: RECIPE_TEXT.NOTES_HELP
     }
   ];
 
@@ -410,10 +404,10 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="space-y-2">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse"></div>
+            <div className="h-8 bg-surface-secondary rounded w-64 animate-pulse"></div>
+            <div className="h-4 bg-surface-secondary rounded w-96 animate-pulse"></div>
           </div>
-          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+          <div className="h-10 bg-surface-secondary rounded w-32 animate-pulse"></div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -428,7 +422,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
   if (error) {
     return (
       <div className="text-center py-8">
-        <p className="text-red-600 dark:text-red-400">Error loading recipes: {error}</p>
+        <p className="text-destructive">Error loading recipes: {error}</p>
         <Button onClick={refetch} className="mt-4">Retry</Button>
       </div>
     );
@@ -439,14 +433,14 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <MdRestaurant className="text-orange-600" />
-            Recipe Management
+            {RECIPE_TEXT.RECIPE_MANAGEMENT}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">Create and manage recipes with cost analysis and ingredient tracking</p>
+          <p className="text-muted-foreground">{RECIPE_TEXT.CREATE_MANAGE_DESC}</p>
         </div>
         <Button onClick={() => setShowAddForm(true)} className="flex items-center gap-2">
-          <FaPlus /> Add Recipe
+          <FaPlus /> {RECIPE_TEXT.ADD_RECIPE}
         </Button>
       </div>
 
@@ -461,9 +455,9 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                 setShowAddForm(false);
                 setEditingRecipe(null);
               }}
-              title={editingRecipe ? `Edit Recipe: ${editingRecipe.name}` : 'Create New Recipe'}
-              description={editingRecipe ? 'Update the recipe details below' : 'Enter the basic recipe information. You can add ingredients and instructions after creation.'}
-              submitLabel={editingRecipe ? 'Update Recipe' : 'Create Recipe'}
+              title={editingRecipe ? `${RECIPE_TEXT.EDIT_RECIPE}: ${editingRecipe.name}` : RECIPE_TEXT.CREATE_NEW_RECIPE}
+              description={editingRecipe ? RECIPE_TEXT.UPDATE_RECIPE_DESC : RECIPE_TEXT.CREATE_RECIPE_DESC}
+              submitLabel={editingRecipe ? RECIPE_TEXT.UPDATE_RECIPE : RECIPE_TEXT.CREATE_RECIPE}
               cancelLabel="Cancel"
               autoSave={true}
               autoSaveKey={editingRecipe ? `edit-recipe-${editingRecipe.id}` : 'add-recipe'}
@@ -497,34 +491,34 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
 
       {/* Recipe Scaling Modal */}
       {scalingRecipe && (
-        <Card className="fixed inset-0 z-50 m-8 overflow-auto bg-white dark:bg-gray-800 border shadow-lg">
+        <Card className="fixed inset-0 z-50 m-8 overflow-auto bg-card border shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FaFlask className="text-blue-600" />
-              Scale Recipe: {scalingRecipe.name}
+              <FaFlask className="text-primary" />
+              {RECIPE_TEXT.SCALE_RECIPE}: {scalingRecipe.name}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Original Recipe Info */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Original Recipe</h3>
+                <h3 className="text-lg font-semibold mb-4">{RECIPE_TEXT.ORIGINAL_RECIPE}</h3>
                 <div className="space-y-2">
-                  <p><strong>Yield:</strong> {scalingRecipe.yield.quantity} {scalingRecipe.yield.unit}</p>
-                  <p><strong>Servings:</strong> {scalingRecipe.yield.servings || scalingRecipe.yield.quantity}</p>
-                  <p><strong>Prep Time:</strong> {scalingRecipe.timing.prepTime} minutes</p>
-                  <p><strong>Cook Time:</strong> {scalingRecipe.timing.cookTime} minutes</p>
-                  <p><strong>Total Cost:</strong> ${scalingRecipe.costing.totalIngredientCost.toFixed(2)}</p>
+                  <p><strong>{RECIPE_TEXT.YIELD}</strong> {scalingRecipe.yield.quantity} {scalingRecipe.yield.unit}</p>
+                  <p><strong>{RECIPE_TEXT.SERVINGS}</strong> {scalingRecipe.yield.servings || scalingRecipe.yield.quantity}</p>
+                  <p><strong>{RECIPE_TEXT.PREP_TIME}</strong> {scalingRecipe.timing.prepTime} minutes</p>
+                  <p><strong>{RECIPE_TEXT.COOK_TIME}</strong> {scalingRecipe.timing.cookTime} minutes</p>
+                  <p><strong>{RECIPE_TEXT.TOTAL_COST}</strong> ${scalingRecipe.costing.totalIngredientCost.toFixed(2)}</p>
                 </div>
               </div>
 
               {/* Scaling Controls */}
               <div>
-                <h3 className="text-lg font-semibold mb-4">Scale To</h3>
+                <h3 className="text-lg font-semibold mb-4">{RECIPE_TEXT.SCALE_TO}</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-2">
-                      Target Yield ({scalingRecipe.yield.unit})
+                      {RECIPE_TEXT.TARGET_YIELD} ({scalingRecipe.yield.unit})
                     </label>
                     <Input
                       type="number"
@@ -535,7 +529,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                     />
                   </div>
                   <div className="flex gap-2">
-                    <Button onClick={scaleRecipe}>Calculate Scale</Button>
+                    <Button onClick={scaleRecipe}>{RECIPE_TEXT.CALCULATE_SCALE}</Button>
                     <Button variant="outline" onClick={() => setScalingRecipe(null)}>Cancel</Button>
                   </div>
                 </div>
@@ -544,23 +538,23 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
 
             {/* Scaled Recipe Results */}
             {scaledRecipe && (
-              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <h4 className="text-lg font-semibold mb-4">Scaled Recipe Results</h4>
+              <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                <h4 className="text-lg font-semibold mb-4">{RECIPE_TEXT.SCALED_RESULTS}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p><strong>Scale Factor:</strong> {scaledRecipe.scaleFactor.toFixed(2)}x</p>
-                    <p><strong>New Yield:</strong> {scaledRecipe.targetYield} {scalingRecipe.yield.unit}</p>
-                    <p><strong>Estimated Prep Time:</strong> {scaledRecipe.scaledTiming?.prepTime} minutes</p>
-                    <p><strong>Cook Time:</strong> {scaledRecipe.scaledTiming?.cookTime} minutes</p>
+                    <p><strong>{RECIPE_TEXT.SCALE_FACTOR}</strong> {scaledRecipe.scaleFactor.toFixed(2)}x</p>
+                    <p><strong>{RECIPE_TEXT.NEW_YIELD}</strong> {scaledRecipe.targetYield} {scalingRecipe.yield.unit}</p>
+                    <p><strong>{RECIPE_TEXT.ESTIMATED_PREP}</strong> {scaledRecipe.scaledTiming?.prepTime} minutes</p>
+                    <p><strong>{RECIPE_TEXT.COOK_TIME}</strong> {scaledRecipe.scaledTiming?.cookTime} minutes</p>
                   </div>
                   <div>
                     {scaledRecipe.warnings.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-orange-600 font-medium flex items-center gap-2">
-                          <FaExclamationTriangle /> Warnings:
+                        <p className="text-warning font-medium flex items-center gap-2">
+                          <FaExclamationTriangle /> {RECIPE_TEXT.WARNINGS}
                         </p>
                         {scaledRecipe.warnings.map((warning, index) => (
-                          <p key={index} className="text-sm text-orange-600">• {warning}</p>
+                          <p key={index} className="text-sm text-warning">• {warning}</p>
                         ))}
                       </div>
                     )}
@@ -569,12 +563,12 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                 
                 {/* Scaled Ingredients */}
                 <div className="mt-4">
-                  <h5 className="font-semibold mb-2">Scaled Ingredients:</h5>
+                  <h5 className="font-semibold mb-2">{RECIPE_TEXT.SCALED_INGREDIENTS}</h5>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
                     {scaledRecipe.scaledIngredients.map((ingredient, index) => (
                       <div key={index} className="text-sm">
                         <span className="font-medium">{ingredient.scaledAmount.toFixed(2)} {ingredient.unit}</span>
-                        <span className="text-gray-600 ml-2">(was {ingredient.originalAmount} {ingredient.unit})</span>
+                        <span className="text-muted-foreground ml-2">(was {ingredient.originalAmount} {ingredient.unit})</span>
                       </div>
                     ))}
                   </div>
@@ -590,7 +584,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Input
-              placeholder="Search recipes..."
+              placeholder={RECIPE_TEXT.SEARCH_RECIPES}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="md:col-span-2"
@@ -598,7 +592,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-surface text-foreground"
             >
               {categoryOptions.map(option => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -607,9 +601,9 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-surface text-foreground"
             >
-              <option value="All">All Types</option>
+              <option value="All">{RECIPE_TEXT.ALL_TYPES}</option>
               <option value="finished_dish">🍽️ Finished Dishes</option>
               <option value="component">🧩 Components</option>
               <option value="sauce">🍯 Sauces</option>
@@ -619,9 +613,9 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
             <select
               value={selectedDifficulty}
               onChange={(e) => setSelectedDifficulty(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-surface text-foreground"
             >
-              <option value="All">All Difficulties</option>
+              <option value="All">{RECIPE_TEXT.ALL_DIFFICULTIES}</option>
               <option value="easy">⭐ Easy</option>
               <option value="medium">⭐⭐ Medium</option>
               <option value="hard">⭐⭐⭐ Hard</option>
@@ -640,17 +634,17 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                 <div className="flex-1 min-w-0">
                   <CardTitle className="text-lg font-semibold truncate">{recipe.name}</CardTitle>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-muted-foreground">
                       {RECIPE_CATEGORIES[recipe.category as keyof typeof RECIPE_CATEGORIES]?.icon || '🍽️'} {recipe.category.replace('_', ' ')}
                     </span>
-                    <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                    <span className="text-xs bg-surface-secondary text-muted-foreground px-2 py-1 rounded">
                       {recipe.type.replace('_', ' ')}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 ml-2">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <span key={i} className={`text-xs ${i < ['easy', 'medium', 'hard', 'expert'].indexOf(recipe.difficulty) + 1 ? 'text-yellow-400' : 'text-gray-300'}`}>
+                    <span key={i} className={`text-xs ${i < ['easy', 'medium', 'hard', 'expert'].indexOf(recipe.difficulty) + 1 ? 'text-warning' : 'text-muted'}`}>
                       ⭐
                     </span>
                   ))}
@@ -659,7 +653,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
             </CardHeader>
             <CardContent className="pt-0">
               {recipe.description && (
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                   {recipe.description}
                 </p>
               )}
@@ -667,15 +661,15 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
               {/* Recipe Stats */}
               <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <FaUsers className="text-blue-600" />
+                  <FaUsers className="text-primary" />
                   <span>{recipe.yield.servings || recipe.yield.quantity} servings</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <FaClock className="text-green-600" />
+                  <FaClock className="text-success" />
                   <span>{recipe.timing.totalTime}min</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <FaDollarSign className="text-orange-600" />
+                  <FaDollarSign className="text-warning" />
                   <span>${recipe.costing.costPerServing.toFixed(2)}/serving</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -688,12 +682,12 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
               {recipe.metadata.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-4">
                   {recipe.metadata.tags.slice(0, 3).map((tag) => (
-                    <span key={tag} className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                    <span key={tag} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
                       {tag}
                     </span>
                   ))}
                   {recipe.metadata.tags.length > 3 && (
-                    <span className="text-xs text-gray-500">+{recipe.metadata.tags.length - 3} more</span>
+                    <span className="text-xs text-muted-foreground">+{recipe.metadata.tags.length - 3} more</span>
                   )}
                 </div>
               )}
@@ -726,7 +720,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                   size="sm"
                   variant="outline"
                   onClick={() => deleteRecipe(recipe.id, recipe.name)}
-                  className="text-red-600 hover:text-red-700"
+                  className="text-error hover:text-error"
                 >
                   <FaTrash className="w-3 h-3" />
                 </Button>
@@ -739,13 +733,13 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       {filteredRecipes.length === 0 && (
         <div className="text-center py-8">
           <div className="text-4xl mb-4">🍽️</div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            No recipes found
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            {RECIPE_TEXT.NO_RECIPES_FOUND}
           </h3>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-muted-foreground">
             {searchTerm || selectedCategory !== 'All' || selectedType !== 'All' 
-              ? 'Try adjusting your search or filter criteria'
-              : 'Add your first recipe to get started with cost management and inventory integration'
+              ? RECIPE_TEXT.ADJUST_FILTERS_DESC
+              : RECIPE_TEXT.NO_RECIPES_DESC
             }
           </p>
         </div>
@@ -753,7 +747,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
 
       {/* Recipe Detail Modal */}
       {viewingRecipe && (
-        <Card className="fixed inset-0 z-50 m-8 overflow-auto bg-white dark:bg-gray-800 border shadow-lg">
+        <Card className="fixed inset-0 z-50 m-8 overflow-auto bg-card border shadow-lg">
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
@@ -761,7 +755,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                   {RECIPE_CATEGORIES[viewingRecipe.category as keyof typeof RECIPE_CATEGORIES]?.icon || '🍽️'}
                   {viewingRecipe.name}
                 </CardTitle>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">{viewingRecipe.description}</p>
+                <p className="text-muted-foreground mt-1">{viewingRecipe.description}</p>
               </div>
               <Button variant="outline" onClick={() => setViewingRecipe(null)}>
                 Close
@@ -771,42 +765,42 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
           <CardContent className="space-y-6">
             {/* Recipe Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <FaUsers className="text-2xl text-blue-600 mx-auto mb-2" />
+              <div className="text-center p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                <FaUsers className="text-2xl text-primary mx-auto mb-2" />
                 <div className="text-lg font-semibold">{viewingRecipe.yield.servings || viewingRecipe.yield.quantity}</div>
-                <div className="text-sm text-gray-600">Servings</div>
+                <div className="text-sm text-muted-foreground">{RECIPE_TEXT.SERVINGS}</div>
               </div>
-              <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <FaClock className="text-2xl text-green-600 mx-auto mb-2" />
+              <div className="text-center p-4 bg-success/10 border border-success/20 rounded-lg">
+                <FaClock className="text-2xl text-success mx-auto mb-2" />
                 <div className="text-lg font-semibold">{viewingRecipe.timing.totalTime}min</div>
-                <div className="text-sm text-gray-600">Total Time</div>
+                <div className="text-sm text-muted-foreground">{RECIPE_TEXT.TOTAL_TIME}</div>
               </div>
-              <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                <FaDollarSign className="text-2xl text-orange-600 mx-auto mb-2" />
+              <div className="text-center p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                <FaDollarSign className="text-2xl text-warning mx-auto mb-2" />
                 <div className="text-lg font-semibold">${viewingRecipe.costing.costPerServing.toFixed(2)}</div>
-                <div className="text-sm text-gray-600">Cost/Serving</div>
+                <div className="text-sm text-muted-foreground">{RECIPE_TEXT.COST_SERVING}</div>
               </div>
-              <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
                 <FaUtensils className="text-2xl text-purple-600 mx-auto mb-2" />
                 <div className="text-lg font-semibold">{viewingRecipe.ingredients.length}</div>
-                <div className="text-sm text-gray-600">Ingredients</div>
+                <div className="text-sm text-muted-foreground">{RECIPE_TEXT.INGREDIENTS}</div>
               </div>
             </div>
 
             {/* Ingredients List */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Ingredients</h3>
+              <h3 className="text-lg font-semibold mb-4">{RECIPE_TEXT.INGREDIENTS}</h3>
               <div className="space-y-2">
                 {viewingRecipe.ingredients.map((ingredient, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-3 bg-surface-secondary border border-border rounded-lg">
                     <div>
                       <span className="font-medium">{ingredient.quantity.amount} {ingredient.quantity.unit}</span>
                       <span className="ml-2">{ingredient.name}</span>
                       {ingredient.preparation?.method && (
-                        <span className="ml-2 text-sm text-gray-600">({ingredient.preparation.method})</span>
+                        <span className="ml-2 text-sm text-muted-foreground">({ingredient.preparation.method})</span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       ${ingredient.cost?.totalCost.toFixed(2) || '0.00'}
                     </div>
                   </div>
@@ -817,20 +811,20 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
             {/* Instructions */}
             {viewingRecipe.instructions.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold mb-4">Instructions</h3>
+                <h3 className="text-lg font-semibold mb-4">{RECIPE_TEXT.INSTRUCTIONS}</h3>
                 <div className="space-y-3">
                   {viewingRecipe.instructions.map((instruction, index) => (
-                    <div key={index} className="flex gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full flex items-center justify-center text-sm font-semibold">
+                    <div key={index} className="flex gap-4 p-3 bg-surface-secondary border border-border rounded-lg">
+                      <div className="flex-shrink-0 w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center text-sm font-semibold">
                         {instruction.step}
                       </div>
                       <div className="flex-1">
                         {instruction.title && (
                           <h4 className="font-medium mb-1">{instruction.title}</h4>
                         )}
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{instruction.instruction}</p>
+                        <p className="text-sm text-foreground">{instruction.instruction}</p>
                         {instruction.duration && (
-                          <p className="text-xs text-gray-500 mt-1">⏱️ {instruction.duration} minutes</p>
+                          <p className="text-xs text-muted-foreground mt-1">⏱️ {instruction.duration} minutes</p>
                         )}
                       </div>
                     </div>
@@ -841,11 +835,11 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
 
             {/* Cost Breakdown */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Cost Analysis</h3>
+              <h3 className="text-lg font-semibold mb-4">{RECIPE_TEXT.COST_ANALYSIS}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span>Ingredient Cost:</span>
+                    <span>{RECIPE_TEXT.INGREDIENT_COST}</span>
                     <span>${viewingRecipe.costing.totalIngredientCost.toFixed(2)}</span>
                   </div>
                   {viewingRecipe.costing.laborCostPerBatch && (
@@ -867,15 +861,15 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span>Cost per Serving:</span>
+                    <span>{RECIPE_TEXT.COST_PER_SERVING}</span>
                     <span>${viewingRecipe.costing.costPerServing.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Cost per Unit:</span>
+                    <span>{RECIPE_TEXT.COST_PER_UNIT}</span>
                     <span>${viewingRecipe.costing.costPerUnit.toFixed(2)}</span>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Last calculated: {new Date(viewingRecipe.costing.lastCalculated).toLocaleDateString()}
+                  <div className="text-sm text-muted-foreground">
+                    {RECIPE_TEXT.LAST_CALCULATED} {new Date(viewingRecipe.costing.lastCalculated).toLocaleDateString()}
                   </div>
                 </div>
               </div>
@@ -887,12 +881,12 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                 {viewingRecipe.metadata.tags.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <FaTags className="text-blue-600" />
+                      <FaTags className="text-primary" />
                       Tags
                     </h4>
                     <div className="flex flex-wrap gap-2">
                       {viewingRecipe.metadata.tags.map((tag) => (
-                        <span key={tag} className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full">
+                        <span key={tag} className="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full">
                           {tag}
                         </span>
                       ))}
@@ -902,7 +896,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                 {viewingRecipe.metadata.notes && (
                   <div>
                     <h4 className="font-semibold mb-2">Chef Notes</h4>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+                    <p className="text-sm text-foreground bg-warning/10 border border-warning/20 p-3 rounded-lg">
                       {viewingRecipe.metadata.notes}
                     </p>
                   </div>

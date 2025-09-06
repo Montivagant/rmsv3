@@ -10,10 +10,7 @@ import type {
   Supplier,
   PurchaseOrder,
   PurchaseOrderStatus,
-  PaymentTerms,
-  DayOfWeek,
-  LocationAddress,
-  InventoryItem
+  DayOfWeek
 } from './types';
 
 export class SupplierManager {

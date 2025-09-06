@@ -370,8 +370,8 @@ export const WizardStep: React.FC<WizardStepProps> = ({
         <div className="flex-1 mx-4">
           <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
             <div
-              className="h-2 bg-blue-600 rounded-full transition-all duration-300"
-              style={{ width: `${((stepIndex + 1) / totalSteps) * 100}%` }}
+              className="h-2 bg-brand rounded-full transition-all duration-300"
+              style={{ '--progress-width': `${((stepIndex + 1) / totalSteps) * 100}%`, width: 'var(--progress-width)' } as React.CSSProperties}
             />
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">

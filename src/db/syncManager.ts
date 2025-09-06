@@ -1,5 +1,4 @@
 // Enhanced sync manager with network detection and graceful fallbacks
-import type { DBEvent } from './pouch';
 
 export type SyncState = 'idle' | 'active' | 'paused' | 'error' | 'offline' | 'unavailable';
 export type SyncConfig = { 

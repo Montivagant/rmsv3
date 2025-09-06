@@ -24,6 +24,25 @@ export {
 // React Components
 export { InventoryDashboard } from './components/InventoryDashboard';
 
+// Inventory Count System
+export {
+  InventoryCountService,
+  createInventoryCountService, 
+  getInventoryCountService,
+  initializeInventoryCountService,
+  inventoryCountApiHandlers,
+  countApiService,
+  CountStatusBadge,
+  VarianceIndicator,
+  CountsList,
+  NewCountWizard,
+  CountsPage,
+  CountSessionPage,
+  CountUtils,
+  COUNT_CONFIG,
+  InventoryCountUtils
+} from './counts';
+
 // Legacy Components (maintain compatibility)
 export { inventoryEngine } from './engine';
 export { getOversellPolicy, setOversellPolicy } from './policy';
@@ -61,6 +80,20 @@ export type {
   LocationAddress,
   OperatingHours,
   TimeRange,
+  
+  // Inventory Count Types (from counts module)
+  InventoryCount as CountSession,
+  CountItem,
+  CountStatus,
+  CountScope,
+  CountQuery,
+  CountsResponse,
+  CreateCountRequest,
+  UpdateCountItemRequest,
+  SubmitCountRequest,
+  SubmitCountResponse,
+  CancelCountRequest,
+  VarianceAnalysis,
   
   // Supplier Management
   Supplier,

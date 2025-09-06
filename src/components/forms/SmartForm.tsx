@@ -11,9 +11,10 @@
  */
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
-import { useFormValidation, type ValidationRule, type FormValidationState } from './validation';
+import { useFormValidation, type ValidationRule } from './validation';
 import { ValidatedInput } from './ValidatedInput';
 import { inputMasks, valueFormatters } from './businessRules';
+import { FORM_LABELS, MESSAGES, FORM_PLACEHOLDERS } from '../../constants/ui-text';
 
 export interface FormField {
   name: string;
@@ -106,7 +107,6 @@ export function SmartForm({
     autoSaveTimeoutRef.current = setTimeout(() => {
       try {
         localStorage.setItem(`form-draft-${autoSaveKey}`, JSON.stringify(values));
-        console.log('💾 Form auto-saved');
       } catch (error) {
         console.warn('Auto-save failed:', error);
       }
@@ -218,7 +218,7 @@ export function SmartForm({
   // Handle cancel
   const handleCancel = () => {
     if (hasBeenModified) {
-      const shouldDiscard = window.confirm('Are you sure you want to discard your changes?');
+      const shouldDiscard = window.confirm(MESSAGES.DISCARD_CHANGES);
       if (!shouldDiscard) return;
     }
     
@@ -305,12 +305,12 @@ export function SmartForm({
       disabled: disabled || isSubmitting,
       'aria-describedby': field.helpText ? `${field.name}-help` : undefined,
       'aria-invalid': hasError,
-      className: `w-full px-3 py-2 border rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+      className: `w-full px-3 py-2 border rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary bg-surface text-foreground ${
         hasError 
-          ? 'border-red-500 bg-red-50 dark:bg-red-900/20' 
+          ? 'border-error bg-error-50' 
           : hasWarning
-          ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
-          : 'border-gray-300 dark:border-gray-600'
+          ? 'border-warning bg-warning-50'
+          : 'border-border'
       }`
     };
 
@@ -327,7 +327,7 @@ export function SmartForm({
       case 'select':
         return (
           <select {...commonProps} value={fieldValue as string}>
-            <option value="">Select {field.label}</option>
+            <option value="">{FORM_PLACEHOLDERS.SELECT_ITEM?.replace('an item', field.label.toLowerCase()) || `Select ${field.label}`}</option>
             {field.options?.map(option => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -353,12 +353,12 @@ export function SmartForm({
       {(title || description) && (
         <div className="mb-6">
           {title && (
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+            <h2 className="text-lg font-semibold text-foreground mb-2">
               {title}
             </h2>
           )}
           {description && (
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground">
               {description}
             </p>
           )}
@@ -367,11 +367,11 @@ export function SmartForm({
 
       {/* Auto-save indicator */}
       {autoSave && hasBeenModified && (
-        <div className="flex items-center text-sm text-blue-600 dark:text-blue-400 mb-4">
+        <div className="flex items-center text-sm text-primary mb-4">
           <svg className="w-4 h-4 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
           </svg>
-          Draft auto-saved
+          {MESSAGES.DRAFT_AUTO_SAVED}
         </div>
       )}
 
@@ -380,9 +380,9 @@ export function SmartForm({
         {fields.map(field => (
           <div key={field.name} className={field.type === 'textarea' ? 'md:col-span-2' : ''}>
             {/* Field Label */}
-            <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor={field.name} className="field-label">
               {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
+              {field.required && <span className="text-error ml-1">*</span>}
             </label>
 
             {/* Field Input */}
@@ -390,7 +390,7 @@ export function SmartForm({
 
             {/* Help Text */}
             {field.helpText && (
-              <p id={`${field.name}-help`} className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              <p id={`${field.name}-help`} className="mt-1 text-sm text-muted-foreground">
                 {field.helpText}
               </p>
             )}
@@ -403,7 +403,7 @@ export function SmartForm({
               
               if (hasFieldError) {
                 return (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                  <p className="mt-1 text-sm text-error flex items-center">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
@@ -414,7 +414,7 @@ export function SmartForm({
               
               if (hasFieldWarning) {
                 return (
-                  <p className="mt-1 text-sm text-yellow-600 dark:text-yellow-400 flex items-center">
+                  <p className="mt-1 text-sm text-warning flex items-center">
                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
@@ -433,13 +433,13 @@ export function SmartForm({
       {children}
 
       {/* Form Actions */}
-      <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex justify-end space-x-3 pt-6 border-t border-border">
         {onCancel && (
           <button
             type="button"
             onClick={handleCancel}
             disabled={isSubmitting}
-            className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 text-foreground bg-surface border border-border rounded-md hover:bg-surface-secondary focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {cancelLabel}
           </button>
@@ -448,7 +448,7 @@ export function SmartForm({
         <button
           type="submit"
           disabled={isSubmitting || disabled}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
         >
           {isSubmitting && (
             <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
@@ -456,13 +456,13 @@ export function SmartForm({
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           )}
-          {isSubmitting ? 'Submitting...' : submitLabel}
+          {isSubmitting ? FORM_LABELS.SUBMITTING : submitLabel}
         </button>
       </div>
 
       {/* Keyboard shortcuts help */}
-      <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-        💡 Shortcuts: Ctrl+S to submit, Ctrl+Shift+Enter for quick submit
+      <div className="text-xs text-muted-foreground mt-2">
+        {MESSAGES.KEYBOARD_SHORTCUTS}
       </div>
     </form>
   );

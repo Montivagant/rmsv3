@@ -5,7 +5,6 @@
  * for common business operations
  */
 
-import type { Event } from './types';
 import type { OptimizedEventStore } from './optimizedStore';
 import type { LoyaltyAccruedEvent, LoyaltyRedeemedEvent, PaymentSucceededEvent, SaleRecordedEvent } from './types';
 import { isSaleRecorded, isPaymentSucceeded, isLoyaltyAccrued, isLoyaltyRedeemed } from './guards';

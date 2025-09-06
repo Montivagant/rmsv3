@@ -1,0 +1,93 @@
+export const AUTH_STRINGS = {
+  routes: {
+    signup: '/signup',
+    signupSuccess: '/signup/success',
+    login: '/login',
+  },
+  signup: {
+    title: 'Create your DashUp account',
+    description: 'Sign up to get started with DashUp.',
+    fields: {
+      name: {
+        label: 'Your Name',
+        placeholder: 'e.g. Ahmed Mohamed',
+        required: 'Name is required',
+      },
+      phone: {
+        label: 'Phone Number',
+        help: 'Egypt (+20) only. Enter local number (digits only).',
+        placeholder: 'e.g. 10 1234 5678',
+        required: 'Phone number is required',
+        invalid: 'Enter a valid Egypt local number (9–10 digits).',
+      },
+      email: {
+        label: 'Email',
+        placeholder: 'you@example.com',
+        required: 'Email is required',
+        invalid: 'Please enter a valid email address',
+      },
+      password: {
+        label: 'Password',
+        placeholder: 'Enter a secure password',
+        help: 'Minimum 8 characters, at least 1 letter and 1 number.',
+        required: 'Password is required',
+        weak: 'Password must be at least 8 characters and include at least 1 letter and 1 number',
+        show: 'Show password',
+        hide: 'Hide password',
+      },
+      businessName: {
+        label: 'Business Name',
+        placeholder: 'e.g. Cairo Bistro',
+        required: 'Business name is required',
+      },
+      businessType: {
+        label: 'Business Type',
+        placeholder: 'Select a business type',
+        required: 'Business type is required',
+        options: [
+          'Quick Service',
+          'Fine Dining',
+          'Coffee Shop',
+          'Pizzeria',
+          'Bakery',
+          'Caterer',
+          'Food Truck',
+          'Grocery',
+          'Retail',
+          'Other',
+        ],
+      },
+      terms: {
+        label: 'I accept the Terms and Conditions',
+        required: 'You must accept the Terms and Conditions to continue',
+        detailsTitle: 'Terms and Conditions',
+        detailsText: 'Terms and Conditions placeholder. Replace with final copy.',
+      },
+    },
+    actions: {
+      submit: 'Create account',
+      loginLink: 'Already have an account? Log in',
+    },
+  },
+  success: {
+    title: 'Thank you for signing up!',
+    body: 'You’ll receive an email with your account details within a few minutes.',
+    gotoLogin: 'Go to Login',
+  },
+  email: {
+    subject: 'Welcome to DashUp — Your account details',
+    greeting: (name: string) => `Hello ${name},`,
+    created: 'Your account has been created successfully.',
+    accountId: 'Account ID:',
+    loginEmail: 'Login Email:',
+    nextSteps: 'Next steps: Open the app and log in with these credentials.',
+    support: 'If you need help, contact our support team at support@example.com',
+    signoff: '— DashUp Team',
+  },
+  errors: {
+    serverValidation: 'There were validation errors. Please review the form.',
+    rateLimited: 'Too many requests. Please try again in a minute.',
+    unknown: 'Something went wrong. Please try again.',
+    idempotencyConflict: 'A signup already exists for this email with different details.',
+  },
+};

@@ -1,0 +1,233 @@
+import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { cn } from '../lib/utils';
+import { useDismissableLayer } from '../hooks/useDismissableLayer';
+
+interface DropdownMenuProps {
+  trigger: ReactNode;
+  children: ReactNode;
+  align?: 'start' | 'center' | 'end';
+  side?: 'top' | 'bottom' | 'left' | 'right';
+  className?: string;
+  disabled?: boolean;
+}
+
+interface DropdownMenuItemProps {
+  children: ReactNode;
+  onClick?: () => void;
+  disabled?: boolean;
+  destructive?: boolean;
+  className?: string;
+}
+
+interface DropdownMenuSeparatorProps {
+  className?: string;
+}
+
+const DropdownMenu = ({ 
+  trigger, 
+  children, 
+  align = 'start', 
+  side = 'bottom',
+  className,
+  disabled = false 
+}: DropdownMenuProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { layerRef } = useDismissableLayer({
+    isOpen,
+    onDismiss: () => setIsOpen(false),
+    closeOnOutside: true,
+    closeOnEscape: true,
+    closeOnRouteChange: true,
+    triggerRef
+  });
+
+  // Calculate position
+  const updatePosition = () => {
+    if (!triggerRef.current) return;
+    
+    const triggerRect = triggerRef.current.getBoundingClientRect();
+    const scrollX = window.pageXOffset;
+    const scrollY = window.pageYOffset;
+    
+    let top = 0;
+    let left = 0;
+    
+    // Calculate vertical position
+    switch (side) {
+      case 'top':
+        top = triggerRect.top + scrollY - 8;
+        break;
+      case 'bottom':
+        top = triggerRect.bottom + scrollY + 8;
+        break;
+      case 'left':
+      case 'right':
+        top = triggerRect.top + scrollY;
+        break;
+    }
+    
+    // Calculate horizontal position
+    switch (side) {
+      case 'left':
+        left = triggerRect.left + scrollX - 8;
+        break;
+      case 'right':
+        left = triggerRect.right + scrollX + 8;
+        break;
+      case 'top':
+      case 'bottom':
+        switch (align) {
+          case 'start':
+            left = triggerRect.left + scrollX;
+            break;
+          case 'center':
+            left = triggerRect.left + scrollX + triggerRect.width / 2;
+            break;
+          case 'end':
+            left = triggerRect.right + scrollX;
+            break;
+        }
+        break;
+    }
+    
+    setPosition({ top, left });
+  };
+
+  // Dismiss behavior handled by useDismissableLayer
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    if (!isOpen || !menuRef.current) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const menuItems = menuRef.current?.querySelectorAll('[role="menuitem"]:not([disabled])');
+      if (!menuItems || menuItems.length === 0) return;
+
+      const currentIndex = Array.from(menuItems).findIndex(
+        item => item === document.activeElement
+      );
+
+      switch (event.key) {
+        case 'ArrowDown':
+          event.preventDefault();
+          const nextIndex = currentIndex < menuItems.length - 1 ? currentIndex + 1 : 0;
+          (menuItems[nextIndex] as HTMLElement).focus();
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          const prevIndex = currentIndex > 0 ? currentIndex - 1 : menuItems.length - 1;
+          (menuItems[prevIndex] as HTMLElement).focus();
+          break;
+        case 'Home':
+          event.preventDefault();
+          (menuItems[0] as HTMLElement).focus();
+          break;
+        case 'End':
+          event.preventDefault();
+          (menuItems[menuItems.length - 1] as HTMLElement).focus();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  // Focus first item when opened
+  useEffect(() => {
+    if (isOpen && menuRef.current) {
+      const firstItem = menuRef.current.querySelector('[role="menuitem"]:not([disabled])') as HTMLElement;
+      if (firstItem) {
+        firstItem.focus();
+      }
+    }
+  }, [isOpen]);
+
+  const handleTriggerClick = () => {
+    if (disabled) return;
+    
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen(!isOpen);
+  };
+
+  const menu = isOpen ? (
+    <div
+      ref={(node) => { menuRef.current = node; (layerRef as any).current = node; }}
+      className={cn(
+        'fixed z-dropdown min-w-[12rem] rounded-lg border border-border-primary bg-surface shadow-lg',
+        'py-2 animate-fade-in',
+        align === 'center' && 'transform -translate-x-1/2',
+        align === 'end' && 'transform -translate-x-full',
+        className
+      )}
+      style={{
+        top: position.top,
+        left: position.left,
+      }}
+      role="menu"
+      aria-orientation="vertical"
+    >
+      {children}
+    </div>
+  ) : null;
+
+  return (
+    <>
+      <div
+        ref={triggerRef}
+        onClick={handleTriggerClick}
+        className={cn(disabled && 'opacity-50 cursor-not-allowed')}
+      >
+        {trigger}
+      </div>
+      {menu && createPortal(menu, document.body)}
+    </>
+  );
+};
+
+const DropdownMenuItem = ({ 
+  children, 
+  onClick, 
+  disabled = false, 
+  destructive = false,
+  className 
+}: DropdownMenuItemProps) => {
+  const handleClick = () => {
+    if (disabled) return;
+    onClick?.();
+  };
+
+  return (
+    <button
+      role="menuitem"
+      disabled={disabled}
+      onClick={handleClick}
+      className={cn(
+        'w-full px-3 py-2 text-left text-body',
+        'hover:bg-surface-secondary focus:bg-surface-secondary',
+        'focus:outline-none transition-colors',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
+        destructive ? 'text-error hover:bg-error/10 focus:bg-error/10' : 'text-text-primary',
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+};
+
+const DropdownMenuSeparator = ({ className }: DropdownMenuSeparatorProps) => (
+  <div
+    role="separator"
+    className={cn('my-1 h-px bg-border-secondary', className)}
+  />
+);
+
+export { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator };
+export type { DropdownMenuProps, DropdownMenuItemProps };

@@ -9,7 +9,7 @@
  * - Category statistics and analytics
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   Card, 
   CardHeader, 
@@ -18,14 +18,13 @@ import {
   Button, 
   Input, 
   SmartForm,
-  LoadingOverlay,
   SkeletonCard,
   useNotifications
 } from './index';
-import type { FormField } from './index';
+import type { FormField } from './forms/SmartForm';
 import { useApi, apiPost, apiPatch, apiDelete } from '../hooks/useApi';
-import type { ValidationResult } from '../utils/validation';
 import { validateName } from '../utils/validation';
+import { FORM_LABELS, MESSAGES } from '../constants/ui-text';
 
 // Category types (simplified for UI)
 interface Category {
@@ -111,7 +110,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
       required: true,
       placeholder: 'Proteins, Vegetables, Beverages...',
       helpText: 'A clear, descriptive name for the category',
-      validation: (value: string) => validateName(value)
+      validationRules: [{id: 'categoryName', message: 'Invalid category name', validate: (value: string) => validateName(value)}]
     },
     {
       name: 'description',
@@ -120,17 +119,21 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
       required: false,
       placeholder: 'Brief description of this category...',
       helpText: 'Optional description (up to 200 characters)',
-      validation: (value: string) => {
-        if (!value) return { isValid: true };
-        if (value.length > 200) {
-          return { 
-            isValid: false, 
-            message: 'Description must be 200 characters or less',
-            suggestions: [`Current: ${value.length} characters. Try shortening the description.`]
-          };
+      validationRules: [{
+        id: 'description',
+        message: 'Invalid description',
+        validate: (value: string) => {
+          if (!value) return { isValid: true };
+          if (value.length > 200) {
+            return { 
+              isValid: false, 
+              message: 'Description must be 200 characters or less',
+              suggestions: [`Current: ${value.length} characters. Try shortening the description.`]
+            };
+          }
+          return { isValid: true };
         }
-        return { isValid: true };
-      }
+      }]
     },
     {
       name: 'parentId',
@@ -167,25 +170,29 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
       required: false,
       placeholder: '7',
       helpText: 'Default shelf life for items in this category',
-      validation: (value: string) => {
-        if (!value) return { isValid: true };
-        const days = parseInt(value);
-        if (isNaN(days) || days < 1) {
-          return { 
-            isValid: false, 
-            message: 'Shelf life must be a positive number',
-            suggestions: ['Enter a number of days (e.g., 7, 30, 365)']
-          };
+      validationRules: [{
+        id: 'shelfLife',
+        message: 'Invalid shelf life',
+        validate: (value: string) => {
+          if (!value) return { isValid: true };
+          const days = parseInt(value);
+          if (isNaN(days) || days < 1) {
+            return { 
+              isValid: false, 
+              message: 'Shelf life must be a positive number',
+              suggestions: ['Enter a number of days (e.g., 7, 30, 365)']
+            };
+          }
+          if (days > 3650) { // 10 years
+            return { 
+              isValid: false, 
+              message: 'Shelf life seems unusually long',
+              suggestions: ['Consider if this is correct for food items']
+            };
+          }
+          return { isValid: true };
         }
-        if (days > 3650) { // 10 years
-          return { 
-            isValid: false, 
-            message: 'Shelf life seems unusually long',
-            suggestions: ['Consider if this is correct for food items']
-          };
-        }
-        return { isValid: true };
-      }
+      }]
     },
     {
       name: 'defaultStorage',
@@ -304,7 +311,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
     const loadingId = showLoading('Archiving Category', `Archiving "${category.name}"...`);
     
     try {
-      await apiDelete(`/api/categories/${category.id}`, reason ? { reason } : undefined);
+      await apiDelete(`/api/categories/${category.id}`);
       setCategoryToDelete(null);
       refreshData();
       
@@ -335,6 +342,18 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
     setExpandedCategories(newExpanded);
   };
 
+  // Helper function to get indent class based on nesting level
+  const getIndentClass = (indent: number): string => {
+    const indentMap: Record<number, string> = {
+      0: 'pl-2',
+      1: 'pl-6', 
+      2: 'pl-10',
+      3: 'pl-14',
+      4: 'pl-18'
+    };
+    return indentMap[Math.min(indent, 4)] || 'pl-18';
+  };
+
   // Render category tree node
   const renderTreeNode = (node: CategoryHierarchy, depth = 0) => {
     const category = node.category;
@@ -347,10 +366,9 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
         <div 
           className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
             selectedCategory?.id === category.id 
-              ? 'bg-blue-100 dark:bg-blue-900 border border-blue-300 dark:border-blue-700' 
-              : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-          }`}
-          style={{ paddingLeft: `${16 + indent}px` }}
+              ? 'bg-brand/10 border border-brand' 
+              : 'hover:bg-surface-secondary'
+          } ${getIndentClass(indent)}`}
           onClick={() => setSelectedCategory(category)}
         >
           {hasChildren && (
@@ -359,7 +377,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                 e.stopPropagation();
                 toggleExpanded(category.id);
               }}
-              className="mr-2 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+              className="mr-2 p-1 rounded hover:bg-surface-tertiary"
             >
               <span className={`transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
                 ▶
@@ -370,22 +388,22 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
+              <span className="font-medium text-primary truncate">
                 {category.name}
               </span>
               {category.metadata.itemCount !== undefined && category.metadata.itemCount > 0 && (
-                <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">
+                <span className="px-2 py-1 text-xs bg-brand/10 text-brand rounded-full">
                   {category.metadata.itemCount} items
                 </span>
               )}
               {!category.isActive && (
-                <span className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full">
+                <span className="px-2 py-1 text-xs bg-error/10 text-error rounded-full">
                   Archived
                 </span>
               )}
             </div>
             {category.description && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+              <p className="text-sm text-secondary truncate">
                 {category.description}
               </p>
             )}
@@ -410,7 +428,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                 e.stopPropagation();
                 setCategoryToDelete(category);
               }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-red-600 hover:text-red-700"
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-error hover:text-error"
             >
               Archive
             </Button>
@@ -431,10 +449,10 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
       <div className={`space-y-6 ${className}`}>
         <div className="flex justify-between items-center">
           <div className="space-y-2">
-            <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse"></div>
+            <div className="h-8 bg-surface-secondary rounded w-64 animate-pulse"></div>
+            <div className="h-4 bg-surface-secondary rounded w-96 animate-pulse"></div>
           </div>
-          <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+          <div className="h-10 bg-surface-secondary rounded w-32 animate-pulse"></div>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -445,7 +463,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
         
         <div className="space-y-4">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="h-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div key={index} className="h-16 bg-surface-secondary rounded animate-pulse"></div>
           ))}
         </div>
       </div>
@@ -455,7 +473,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
   if (error) {
     return (
       <div className={`text-center py-8 ${className}`}>
-        <p className="text-red-600 dark:text-red-400">Error loading categories: {error}</p>
+        <p className="text-error">Error loading categories: {error}</p>
         <Button onClick={refetch} className="mt-4">Retry</Button>
       </div>
     );
@@ -466,8 +484,8 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Category Management</h2>
-          <p className="text-gray-600 dark:text-gray-400">Organize your inventory with hierarchical categories</p>
+          <h2 className="text-2xl font-bold text-primary">Category Management</h2>
+          <p className="text-secondary">Organize your inventory with hierarchical categories</p>
         </div>
         <Button onClick={() => setShowAddForm(true)}>Add Category</Button>
       </div>
@@ -477,38 +495,38 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalCategories}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Total Categories</div>
+              <div className="text-2xl font-bold text-brand">{stats.totalCategories}</div>
+              <div className="text-sm text-secondary">Total Categories</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.activeCategories}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Active</div>
+              <div className="text-2xl font-bold text-success">{stats.activeCategories}</div>
+              <div className="text-sm text-secondary">Active</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.maxDepth}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Max Depth</div>
+              <div className="text-2xl font-bold text-brand">{stats.maxDepth}</div>
+              <div className="text-sm text-secondary">Max Depth</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.topLevelCategories}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Top Level</div>
+              <div className="text-2xl font-bold text-warning">{stats.topLevelCategories}</div>
+              <div className="text-sm text-secondary">Top Level</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.categoriesWithItems}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">With Items</div>
+              <div className="text-2xl font-bold text-brand">{stats.categoriesWithItems}</div>
+              <div className="text-sm text-secondary">With Items</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{stats.categoriesWithoutItems}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Empty</div>
+              <div className="text-2xl font-bold text-tertiary">{stats.categoriesWithoutItems}</div>
+              <div className="text-sm text-secondary">Empty</div>
             </CardContent>
           </Card>
         </div>
@@ -548,7 +566,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
               onCancel={() => setShowAddForm(false)}
               title="Add New Category"
               description="Create a new category to organize your inventory items"
-              submitLabel="Create Category"
+              submitLabel={FORM_LABELS.CREATE_CATEGORY}
               cancelLabel="Cancel"
               autoSave={true}
               autoSaveKey="category-add"
@@ -595,13 +613,13 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
               {hierarchy.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-4xl mb-4">📁</div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
                     No categories yet
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="text-muted-foreground mb-4">
                     Create your first category to start organizing your inventory
                   </p>
-                  <Button onClick={() => setShowAddForm(true)}>Create First Category</Button>
+                  <Button onClick={() => setShowAddForm(true)}>{FORM_LABELS.CREATE_FIRST_CATEGORY}</Button>
                 </div>
               ) : (
                 hierarchy.map(node => renderTreeNode(node))
@@ -612,10 +630,10 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
               {filteredCategories.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-4xl mb-4">🔍</div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
                     No categories found
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400">
+                  <p className="text-muted-foreground">
                     Try adjusting your search criteria
                   </p>
                 </div>
@@ -625,31 +643,31 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                     key={category.id}
                     className={`p-4 rounded-lg border cursor-pointer transition-colors ${
                       selectedCategory?.id === category.id 
-                        ? 'bg-blue-50 dark:bg-blue-900 border-blue-300 dark:border-blue-700' 
-                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        ? 'bg-primary/10 border-primary' 
+                        : 'bg-surface-secondary border-border hover:bg-surface-tertiary'
                     }`}
                     onClick={() => setSelectedCategory(category)}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                          <h4 className="font-medium text-foreground">
                             {category.name}
                           </h4>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                          <span className="text-sm text-muted-foreground">
                             Level {category.level}
                           </span>
                           {!category.isActive && (
-                            <span className="px-2 py-1 text-xs bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full">
+                            <span className="px-2 py-1 text-xs bg-error-100 text-error rounded-full">
                               Archived
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <p className="text-sm text-muted-foreground mb-2">
                           {category.path}
                         </p>
                         {category.description && (
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                          <p className="text-sm text-foreground">
                             {category.description}
                           </p>
                         )}
@@ -663,7 +681,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                             setEditingCategory(category);
                           }}
                         >
-                          Edit
+                          {FORM_LABELS.EDIT}
                         </Button>
                         <Button
                           size="sm"
@@ -672,9 +690,9 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                             e.stopPropagation();
                             setCategoryToDelete(category);
                           }}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-error hover:text-error/80"
                         >
-                          Archive
+                          {FORM_LABELS.ARCHIVE}
                         </Button>
                       </div>
                     </div>
@@ -695,37 +713,37 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Basic Information</h4>
+                <h4 className="font-medium text-foreground mb-2">Basic Information</h4>
                 <dl className="space-y-2">
                   <div>
-                    <dt className="text-sm text-gray-600 dark:text-gray-400">Path</dt>
-                    <dd className="text-sm font-mono text-gray-900 dark:text-gray-100">{selectedCategory.path}</dd>
+                    <dt className="text-sm text-muted-foreground">Path</dt>
+                    <dd className="text-sm font-mono text-foreground">{selectedCategory.path}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600 dark:text-gray-400">Level</dt>
-                    <dd className="text-sm text-gray-900 dark:text-gray-100">{selectedCategory.level}</dd>
+                    <dt className="text-sm text-muted-foreground">Level</dt>
+                    <dd className="text-sm text-foreground">{selectedCategory.level}</dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600 dark:text-gray-400">Status</dt>
+                    <dt className="text-sm text-muted-foreground">Status</dt>
                     <dd className="text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs ${
                         selectedCategory.isActive 
-                          ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
-                          : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+                          ? 'bg-success-100 text-success'
+                          : 'bg-error-100 text-error'
                       }`}>
                         {selectedCategory.isActive ? 'Active' : 'Archived'}
                       </span>
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600 dark:text-gray-400">Items</dt>
-                    <dd className="text-sm text-gray-900 dark:text-gray-100">
+                    <dt className="text-sm text-muted-foreground">Items</dt>
+                    <dd className="text-sm text-foreground">
                       {selectedCategory.metadata.itemCount || 0} items
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600 dark:text-gray-400">Subcategories</dt>
-                    <dd className="text-sm text-gray-900 dark:text-gray-100">
+                    <dt className="text-sm text-muted-foreground">Subcategories</dt>
+                    <dd className="text-sm text-foreground">
                       {selectedCategory.metadata.childCount || 0} subcategories
                     </dd>
                   </div>
@@ -733,11 +751,11 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
               </div>
               
               <div>
-                <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Business Rules</h4>
+                <h4 className="font-medium text-foreground mb-2">Business Rules</h4>
                 <dl className="space-y-2">
                   <div>
-                    <dt className="text-sm text-gray-600 dark:text-gray-400">Expiry Tracking</dt>
-                    <dd className="text-sm text-gray-900 dark:text-gray-100">
+                    <dt className="text-sm text-muted-foreground">Expiry Tracking</dt>
+                    <dd className="text-sm text-foreground">
                       {selectedCategory.rules?.requiresExpiryTracking !== undefined 
                         ? selectedCategory.rules.requiresExpiryTracking ? 'Required' : 'Not Required'
                         : 'Inherited'
@@ -745,8 +763,8 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600 dark:text-gray-400">Default Shelf Life</dt>
-                    <dd className="text-sm text-gray-900 dark:text-gray-100">
+                    <dt className="text-sm text-muted-foreground">Default Shelf Life</dt>
+                    <dd className="text-sm text-foreground">
                       {selectedCategory.rules?.defaultShelfLifeDays 
                         ? `${selectedCategory.rules.defaultShelfLifeDays} days`
                         : 'Not Set'
@@ -754,8 +772,8 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-gray-600 dark:text-gray-400">Storage Location</dt>
-                    <dd className="text-sm text-gray-900 dark:text-gray-100">
+                    <dt className="text-sm text-muted-foreground">Storage Location</dt>
+                    <dd className="text-sm text-foreground">
                       {selectedCategory.rules?.defaultStorage?.location || 'Not Set'}
                     </dd>
                   </div>
@@ -771,7 +789,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="max-w-md mx-4">
             <CardHeader>
-              <CardTitle className="text-red-600 dark:text-red-400">Archive Category</CardTitle>
+              <CardTitle className="text-error">Archive Category</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="mb-4">
@@ -799,7 +817,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                 </Button>
                 <Button
                   onClick={() => deleteCategory(categoryToDelete)}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  className="bg-error hover:bg-error text-inverse"
                   disabled={
                     (categoryToDelete.metadata.childCount && categoryToDelete.metadata.childCount > 0) ||
                     (categoryToDelete.metadata.itemCount && categoryToDelete.metadata.itemCount > 0)

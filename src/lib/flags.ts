@@ -7,7 +7,7 @@ const DEFAULTS_KEY = 'rms.flags.defaults.v1'
 const BUILTIN_DEFAULTS: Flags = {
   kds: true,
   loyalty: false,
-  payments: false,
+  payments: true, // Enable payments for testing
 }
 
 export function loadDefaults(): Flags {

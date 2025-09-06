@@ -11,7 +11,6 @@ import type {
   TaxCalculationResult,
   TaxConfiguration,
   TaxRate,
-  TaxExemption,
   TaxEvent,
   TaxReportType
 } from './types';

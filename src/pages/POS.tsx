@@ -1,23 +1,28 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select, MenuManagement } from '../components';
-import { useApi, apiPost } from '../hooks/useApi';
+import { useApi } from '../hooks/useApi';
 import { computeTotals, type Line } from '../money/totals';
 import { useEventStore } from '../events/context';
 import { getRole, RANK, Role } from '../rbac/roles';
-import { IdempotencyConflictError } from '../events/types';
 import { inventoryEngine } from '../inventory/engine';
 import { getOversellPolicy } from '../inventory/policy';
 import { OversellError } from '../inventory/types';
 import { useToast } from '../components/Toast';
-import { getBalance } from '../loyalty/state';
 import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
 import { useFlags } from '../store/flags';
-import { defaultProvider, createPaymentProvider, type PlaceholderPaymentProvider } from '../payments/provider';
+import { createPaymentProvider, type PlaceholderPaymentProvider } from '../payments/provider';
 import { generatePaymentKeys, handleWebhook } from '../payments/webhook';
 import { derivePaymentStatus } from '../payments/status';
-import { isPaymentInitiated } from '../events/guards';
 import { PaymentModal } from '../components/PaymentModal';
 import { createTaxService, type TaxCalculationResult, type TaxableItem } from '../tax';
+import { printReceipt, type ReceiptData } from '../utils/receipt';
+
+// Import new POS components
+import { PageHeader } from '../components/pos/PageHeader';
+import { FilterTabs } from '../components/pos/FilterTabs';
+import { SearchInput } from '../components/pos/SearchInput';
+import { MenuCard } from '../components/pos/MenuCard';
+import { CartPanel } from '../components/pos/CartPanel';
+import { cn } from '../lib/utils';
 
 interface MenuItem {
   id: string;
@@ -30,14 +35,6 @@ interface MenuItem {
 
 interface CartItem extends MenuItem {
   quantity: number;
-}
-
-interface Order {
-  id?: string;
-  items: { id: string; quantity: number }[];
-  total: number;
-  status?: string;
-  timestamp?: string;
 }
 
 interface Customer {
@@ -60,18 +57,17 @@ function POS() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   const [discount, setDiscount] = useState(0);
-  const [isFinalizingLocal, setIsFinalizingLocal] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string>('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<'none' | 'pending' | 'paid' | 'failed'>('none');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentProvider, setPaymentProvider] = useState<PlaceholderPaymentProvider>(
+  const [paymentProvider] = useState<PlaceholderPaymentProvider>(
     createPaymentProvider({ mode: 'placeholder' }) as PlaceholderPaymentProvider
   );
   const [taxCalculation, setTaxCalculation] = useState<TaxCalculationResult | null>(null);
-  const [showMenuManagement, setShowMenuManagement] = useState(false);
+  const [showMobileCart, setShowMobileCart] = useState(false);
+  
   const searchInputRef = useRef<HTMLInputElement>(null);
   const currentTicketIdRef = useRef<string | null>(null);
   const toast = useToast();
@@ -97,13 +93,8 @@ function POS() {
   }, [store]);
   
   const currentRole = getRole();
-  const canFinalize = RANK[currentRole] >= RANK[Role.ADMIN];
+  const canManageMenu = RANK[currentRole] >= RANK[Role.BUSINESS_OWNER];
 
-  // Handle menu updates
-  const handleMenuUpdated = () => {
-    refetchMenu();
-  };
-  
   // Update payment status when events change
   useEffect(() => {
     const ticketId = currentTicketIdRef.current;
@@ -172,19 +163,24 @@ function POS() {
           e.preventDefault();
           handleNewTicket();
           break;
+        case 'Escape':
+          if (showMobileCart) {
+            setShowMobileCart(false);
+          }
+          break;
       }
     };
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showMobileCart]);
   
   function getTicketId() {
     if (!currentTicketIdRef.current) currentTicketIdRef.current = 'T-' + Date.now();
     return currentTicketIdRef.current;
   }
 
-  function newTicket() {
+  function handleNewTicket() {
     currentTicketIdRef.current = null;
     setCart([]);
     setSearchTerm('');
@@ -198,8 +194,6 @@ function POS() {
     // Focus search after clearing
     setTimeout(() => searchInputRef.current?.focus(), 100);
   }
-
-  const handleNewTicket = newTicket;
   
   const filteredItems = (menuItems || []).filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -221,6 +215,12 @@ function POS() {
       }
       return [...prev, { ...item, quantity: 1 }];
     });
+    
+    // Show mobile cart briefly when adding items on mobile
+    if (window.innerWidth < 1024 && !showMobileCart) {
+      setShowMobileCart(true);
+      setTimeout(() => setShowMobileCart(false), 2000);
+    }
   };
   
   const removeFromCart = (itemId: string) => {
@@ -241,7 +241,7 @@ function POS() {
   const cartLines: Line[] = cart.map(item => ({
     price: item.price,
     qty: item.quantity,
-    taxRate: 0.14 // Default 14% tax rate - could be item-specific in future
+    taxRate: 0.14 // Default 14% tax rate
   }));
   
   // Calculate loyalty discount
@@ -249,74 +249,33 @@ function POS() {
   const totalDiscount = discount + loyaltyDiscount;
   const baseTotals = computeTotals(cartLines, totalDiscount);
   
-  // Calculate taxes
-  const taxableItems: TaxableItem[] = cart.map(item => ({
-    id: item.id,
-    name: item.name,
-    price: item.price,
-    quantity: item.quantity,
-    category: item.category,
-    isTaxIncluded: false // Assume tax is additional
-  }));
-  
   const totals = {
     ...baseTotals,
     tax: taxCalculation?.totalTax || 0,
     total: baseTotals.total + (taxCalculation?.totalTax || 0)
   };
   
+  const handleProceedToPayment = () => {
+    if (cart.length === 0 || !paymentsEnabled) return;
+    setShowPaymentModal(true);
+  };
+
   const placeOrder = async () => {
     if (cart.length === 0) return;
     
+    // If payments are enabled, show payment modal instead of directly placing order
+    if (paymentsEnabled) {
+      handleProceedToPayment();
+      return;
+    }
+    
+    // Direct order placement for when payments are disabled
     setIsProcessingOrder(true);
     try {
-      const order: Order = {
-        items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
-        total: totals.total
-      };
-      
-      await apiPost('/api/orders', order);
-      setCart([]);
-      alert('Order placed successfully!');
-    } catch (error) {
-      alert('Failed to place order. Please try again.');
-    } finally {
-      setIsProcessingOrder(false);
-    }
-  };
-  
-  const finalizeLocal = async () => {
-    if (cart.length === 0) return;
-    
-    setIsFinalizingLocal(true);
-    setToastMessage('');
-    
-    try {
-      // Get stable ticket ID
+      // Finalize the sale locally
       const ticketId = getTicketId();
-      
-      // Build idempotency key
       const idempotencyKey = `ticket:${ticketId}:finalize`;
       
-      // Build params from current cart and totals
-      const params = {
-        cart: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity
-        })),
-        totals: {
-          subtotal: totals.subtotal,
-          discount: totals.discount,
-          tax: totals.tax,
-          total: totals.total
-        },
-        customerId: selectedCustomer?.id || null,
-        loyaltyPoints
-      };
-      
-      // Build event payload
       const payload = {
         ticketId,
         lines: cartLines.map((line, index) => ({
@@ -335,93 +294,141 @@ function POS() {
         customerId: selectedCustomer?.id || null
       };
       
-      // Append to event store
       const result = store.append('sale.recorded', payload, {
         key: idempotencyKey,
-        params,
+        params: payload,
         aggregate: {
           id: ticketId,
           type: 'ticket'
         }
       });
       
-      // Create loyalty events if customer is selected and loyalty is enabled
-      if (loyaltyEnabled && selectedCustomer) {
-        // Create loyalty.redeemed event if points were used
-        if (loyaltyPoints > 0) {
-          const redemptionPayload = {
-            customerId: selectedCustomer.id,
-            ticketId,
-            points: loyaltyPoints,
-            value: pointsToValue(loyaltyPoints, DEFAULT_LOYALTY_CONFIG)
-          };
-          
-          store.append('loyalty.redeemed', redemptionPayload, {
-            key: `loyalty:redeem:${ticketId}:${selectedCustomer.id}`,
-            params: redemptionPayload
-          });
-        }
-        
-        // Create loyalty.accrued event for points earned from purchase
-        const earnedPoints = Math.floor(totals.total / DEFAULT_LOYALTY_CONFIG.ACCRUAL_UNIT) * DEFAULT_LOYALTY_CONFIG.POINTS_PER_UNIT;
-        if (earnedPoints > 0) {
-          const accrualPayload = {
-            customerId: selectedCustomer.id,
-            ticketId,
-            points: earnedPoints
-          };
-          
-          store.append('loyalty.accrued', accrualPayload, {
-            key: `loyalty:accrue:${ticketId}:${selectedCustomer.id}`,
-            params: accrualPayload
-          });
-        }
-      }
-      
-      if (result.deduped) {
-        const msg = 'Sale finalized successfully (deduped).';
-        toast.show(msg);
-      } else {
-        
-        // Apply inventory adjustments after successful sale recording
+      if (!result.deduped) {
+        // Apply inventory adjustments
         try {
           const policy = getOversellPolicy();
-          const inventoryReport = inventoryEngine.applySale(payload, policy);
-          
-          const msg = 'Sale finalized successfully.';
-          const alertMsg = inventoryReport.alerts?.length ? ` Alerts: ${inventoryReport.alerts.join(' | ')}` : '';
-          toast.show(msg + alertMsg);
-          
-          // Clear cart after successful finalization
-          newTicket();
+          inventoryEngine.applySale(payload, policy);
         } catch (error) {
           if (error instanceof OversellError) {
             toast.show(`Oversell blocked for ${error.sku}`);
-            return; // Don't clear cart if oversell blocked
-          } else {
-            toast.show('Inventory adjustment failed');
-            console.error('Inventory error:', error);
+            return;
           }
         }
       }
       
+      toast.show('Order placed successfully!');
+      handleNewTicket();
     } catch (error) {
-      if (error instanceof IdempotencyConflictError) {
-        toast.show('Conflict: parameter mismatch');
-      } else {
-        toast.show('Error finalizing sale');
-      }
-      console.error('Local finalization error:', error);
+      toast.show('Failed to place order. Please try again.');
+      console.error('Order placement error:', error);
     } finally {
-      setIsFinalizingLocal(false);
+      setIsProcessingOrder(false);
+    }
+  };
+
+  const processOrderAfterPayment = async () => {
+    if (cart.length === 0) return;
+    
+    setIsProcessingOrder(true);
+    try {
+      // Finalize the sale locally
+      const ticketId = getTicketId();
+      const idempotencyKey = `ticket:${ticketId}:finalize`;
+      
+      const payload = {
+        ticketId,
+        lines: cartLines.map((line, index) => ({
+          sku: cart[index]?.id,
+          name: cart[index]?.name || 'Unknown Item',
+          qty: line.qty,
+          price: line.price,
+          taxRate: line.taxRate
+        })),
+        totals: {
+          subtotal: totals.subtotal,
+          discount: totals.discount,
+          tax: totals.tax,
+          total: totals.total
+        },
+        customerId: selectedCustomer?.id || null
+      };
+      
+      const result = store.append('sale.recorded', payload, {
+        key: idempotencyKey,
+        params: payload,
+        aggregate: {
+          id: ticketId,
+          type: 'ticket'
+        }
+      });
+      
+      if (!result.deduped) {
+        // Apply inventory adjustments
+        try {
+          const policy = getOversellPolicy();
+          inventoryEngine.applySale(payload, policy);
+        } catch (error) {
+          if (error instanceof OversellError) {
+            toast.show(`Oversell blocked for ${error.sku}`);
+            return;
+          }
+        }
+      }
+      
+      // Generate and display receipt
+      const receiptData: ReceiptData = {
+        ticketId,
+        timestamp: new Date().toISOString(),
+        cashier: 'Current User', // TODO: Get from auth context
+        customer: selectedCustomer ? {
+          name: selectedCustomer.name,
+          email: selectedCustomer.email,
+          phone: selectedCustomer.phone
+        } : undefined,
+        items: cartLines.map((line, index) => ({
+          name: cart[index]?.name || 'Unknown Item',
+          quantity: line.qty,
+          price: line.price,
+          total: line.qty * line.price,
+          taxRate: line.taxRate
+        })),
+        totals: {
+          subtotal: totals.subtotal,
+          discount: totals.discount,
+          tax: totals.tax,
+          total: totals.total
+        },
+        payment: {
+          method: 'processed', // This will be updated from payment result
+          amount: totals.total
+        },
+        store: {
+          name: 'RMS v3 Restaurant',
+          address: '123 Main Street, City, State',
+          phone: '(555) 123-4567',
+          email: 'info@rmsv3.com'
+        }
+      };
+      
+      // For now, just generate and print the receipt
+      // In a real application, you might want to show a receipt modal first
+      try {
+        printReceipt(receiptData);
+        toast.show('Order completed! Receipt printed.');
+      } catch (error) {
+        console.error('Receipt printing failed:', error);
+        toast.show('Order completed! (Receipt printing failed)');
+      }
+      
+      handleNewTicket();
+    } catch (error) {
+      toast.show('Failed to place order. Please try again.');
+      console.error('Order placement error:', error);
+    } finally {
+      setIsProcessingOrder(false);
     }
   };
   
-  const takePayment = () => {
-    if (cart.length === 0 || !paymentsEnabled) return;
-    setShowPaymentModal(true);
-  };
-
   const handlePaymentComplete = async (result: any) => {
     setShowPaymentModal(false);
     setIsProcessingPayment(true);
@@ -431,10 +438,8 @@ function POS() {
       const provider = 'placeholder';
       
       if (result.success) {
-        // Generate idempotency key for payment initiation
         const keys = generatePaymentKeys(provider, result.sessionId);
         
-        // Append PaymentInitiated event
         const initiatedResult = store.append('payment.initiated', {
           ticketId,
           provider,
@@ -453,7 +458,6 @@ function POS() {
           return;
         }
 
-        // For direct payments (cash, loyalty), immediately simulate success
         if (result.paymentMethod === 'cash' || result.paymentMethod === 'loyalty') {
           setTimeout(async () => {
             const webhookResult = handleWebhook(store, {
@@ -467,12 +471,16 @@ function POS() {
             
             if (webhookResult.success) {
               toast.show(`${result.paymentMethod === 'cash' ? 'Cash' : 'Loyalty'} payment completed!`);
+              // Process the order after successful payment
+              await processOrderAfterPayment();
             }
-          }, 500); // Small delay for realism
+          }, 500);
         } else {
-          // For card payments, show redirect message
           toast.show('Payment initiated. In real app, would redirect to: ' + result.redirectUrl);
-          console.log('Redirect URL:', result.redirectUrl);
+          // For card payments, we would normally wait for webhook, but for demo purposes, process immediately
+          setTimeout(async () => {
+            await processOrderAfterPayment();
+          }, 1000);
         }
       }
     } catch (error) {
@@ -482,76 +490,13 @@ function POS() {
       setIsProcessingPayment(false);
     }
   };
-  
-  const simulatePaymentSuccess = async () => {
-    const ticketId = getTicketId();
-    const events = store.getByAggregate(ticketId);
-    const initiatedEvent = events.find(isPaymentInitiated);
-    
-    if (!initiatedEvent) {
-      toast.show('No payment initiated for this ticket');
-      return;
-    }
-    
-    try {
-      const result = handleWebhook(store, {
-        provider: initiatedEvent.payload.provider,
-        sessionId: initiatedEvent.payload.sessionId,
-        eventType: 'succeeded',
-        ticketId,
-        amount: initiatedEvent.payload.amount,
-        currency: initiatedEvent.payload.currency
-      });
-      
-      if (result.success) {
-        toast.show(result.deduped ? 'Payment success (deduped)' : 'Payment succeeded!');
-      } else {
-        toast.show(`Payment simulation failed: ${result.error}`);
-      }
-    } catch (error) {
-      toast.show('Failed to simulate payment success');
-      console.error('Payment simulation error:', error);
-    }
-  };
-  
-  const simulatePaymentFailure = async () => {
-    const ticketId = getTicketId();
-    const events = store.getByAggregate(ticketId);
-    const initiatedEvent = events.find(isPaymentInitiated);
-    
-    if (!initiatedEvent) {
-      toast.show('No payment initiated for this ticket');
-      return;
-    }
-    
-    try {
-      const result = handleWebhook(store, {
-        provider: initiatedEvent.payload.provider,
-        sessionId: initiatedEvent.payload.sessionId,
-        eventType: 'failed',
-        ticketId,
-        amount: initiatedEvent.payload.amount,
-        currency: initiatedEvent.payload.currency,
-        reason: 'Insufficient funds'
-      });
-      
-      if (result.success) {
-        toast.show(result.deduped ? 'Payment failure (deduped)' : 'Payment failed!');
-      } else {
-        toast.show(`Payment simulation failed: ${result.error}`);
-      }
-    } catch (error) {
-      toast.show('Failed to simulate payment failure');
-      console.error('Payment simulation error:', error);
-    }
-  };
-  
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading menu...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading menu...</p>
         </div>
       </div>
     );
@@ -559,374 +504,230 @@ function POS() {
 
   if (error) {
     return (
-      <div className="text-center py-8">
-        <p className="text-red-600 dark:text-red-400">Error loading menu: {error}</p>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-destructive mb-2">Error loading menu</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-      {/* Menu Section */}
-      <div className="lg:col-span-2 space-y-4">
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {showMenuManagement ? 'Menu Management' : 'Point of Sale'}
-            </h1>
-            {canFinalize && (
-              <Button
-                variant="outline"
-                onClick={() => setShowMenuManagement(!showMenuManagement)}
+      <div className="h-screen flex flex-col bg-background">
+        {/* Page Header */}
+        <PageHeader
+          title="Point of Sale"
+          breadcrumb={[
+            { label: 'Home', href: '/' },
+            { label: 'POS' }
+          ]}
+          actions={
+            <>
+              {canManageMenu && (
+                <button
+                  onClick={() => {/* TODO: Implement menu management */}}
+                  className={cn(
+                    "px-4 py-2 rounded-lg",
+                    "border border-border",
+                    "bg-background text-foreground",
+                    "hover:bg-accent hover:text-accent-foreground",
+                    "focus:outline-none focus:ring-2 focus:ring-primary",
+                    "transition-all duration-200"
+                  )}
+                >
+                  Manage Menu
+                </button>
+              )}
+              <button
+                onClick={handleNewTicket}
+                disabled={cart.length === 0}
+                className={cn(
+                  "px-4 py-2 rounded-lg font-medium",
+                  "bg-primary text-primary-foreground",
+                  "hover:bg-primary/90",
+                  "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
+                  "transition-all duration-200"
+                )}
               >
-                {showMenuManagement ? 'Back to POS' : 'Manage Menu'}
-              </Button>
-            )}
-          </div>
-          {!showMenuManagement && (
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              <div className="relative max-w-md">
-                <Input
-                  ref={searchInputRef}
-                  placeholder="Search menu items..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full"
-                />
-                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-400 pointer-events-none">
-                  Press / to focus
+                New Order (N)
+              </button>
+            </>
+          }
+        />
+
+        {/* Main Content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Menu Section */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Search and Filters */}
+            <div className="px-4 sm:px-6 lg:px-8 py-4 space-y-4 border-b border-border bg-surface">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 max-w-md">
+                  <SearchInput
+                    ref={searchInputRef}
+                    placeholder="Search menu items..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onClear={() => setSearchTerm('')}
+                    showShortcut
+                  />
                 </div>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {categories.map(category => (
-                  <Button
-                    key={category}
-                    variant={selectedCategory === category ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    {category}
-                  </Button>
-                ))}
+                <FilterTabs
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                  className="flex-1"
+                />
               </div>
             </div>
-          )}
-        </div>
-        
-        {showMenuManagement ? (
-          <MenuManagement onItemUpdated={handleMenuUpdated} />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredItems.map(item => (
-            <Card key={item.id} className="cursor-pointer hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                {item.image && (
-                  <img 
-                    src={item.image} 
-                    alt={item.name}
-                    className="w-full h-32 object-cover rounded-md mb-3"
-                  />
-                )}
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold">{item.name}</h3>
-                  <span className="text-sm text-gray-500">{item.category}</span>
+
+            {/* Menu Grid */}
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
+              {filteredItems.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No items found</p>
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="mt-2 text-primary hover:underline"
+                    >
+                      Clear search
+                    </button>
+                  )}
                 </div>
-                {item.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{item.description}</p>
-                )}
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                    ${item.price.toFixed(2)}
-                  </span>
-                  <Button size="sm" onClick={() => addToCart(item)}>
-                    Add to Cart
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          </div>
-        )}
-      </div>
-      
-      {/* Cart Section - only show when not in menu management mode */}
-      {!showMenuManagement && (
-        <div>
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle>Current Order {cart.length > 0 && `(Items: ${cart.reduce((sum, item) => sum + item.quantity, 0)})`}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {cart.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">No items in cart</p>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  {cart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-sm text-gray-500">${item.price.toFixed(2)} each</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-8 h-8 p-0"
-                        >
-                          -
-                        </Button>
-                        <span className="w-8 text-center font-medium">{item.quantity}</span>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 p-0"
-                        >
-                          +
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => removeFromCart(item.id)}
-                          className="w-8 h-8 p-0 text-red-600 hover:text-red-700"
-                        >
-                          ×
-                        </Button>
-                      </div>
-                      <div className="w-20 text-right font-semibold">
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </div>
-                    </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr">
+                  {filteredItems.map(item => (
+                    <MenuCard
+                      key={item.id}
+                      {...item}
+                      onAddToCart={() => addToCart(item)}
+                    />
                   ))}
                 </div>
-                
-                {/* Customer Selection */}
-                <div className="border-t pt-4 space-y-3">
-                  <div className="space-y-2">
-                    <Select
-                      label="Customer"
-                      placeholder="No customer selected"
-                      value={selectedCustomer?.id || ''}
-                      onChange={(e) => {
-                        const customer = customers?.find(c => c.id === e.target.value) || null;
-                        setSelectedCustomer(customer);
-                        setLoyaltyPoints(0); // Reset loyalty points when customer changes
-                      }}
-                      options={(customers || []).map(customer => ({
-                        value: customer.id,
-                        label: `${customer.name} (${customer.points} pts)`
-                      }))}
-                    />
-                  </div>
-                  
-                  {/* Loyalty Points */}
-                  {loyaltyEnabled && selectedCustomer && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        Redeem Points (Available: {getBalance(selectedCustomer.id) || selectedCustomer.points})
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          value={loyaltyPoints}
-                          onChange={(e) => {
-                            const points = Math.max(0, parseInt(e.target.value) || 0);
-                            const maxPoints = getBalance(selectedCustomer.id) || selectedCustomer.points;
-                            const finalPoints = Math.min(points, maxPoints);
-                            setLoyaltyPoints(finalPoints);
-                          }}
-                          placeholder="0"
-                          className="flex-1 h-8 text-sm"
-                          min="0"
-                          max={getBalance(selectedCustomer.id) || selectedCustomer.points}
-                        />
-                        <span className="text-sm text-gray-500">
-                          = ${loyaltyDiscount.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="border-t pt-4 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span>Subtotal:</span>
-                    <span>${totals.subtotal.toFixed(2)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center gap-2">
-                    <span>Discount:</span>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        value={discount}
-                        onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                        placeholder="0.00"
-                        className="w-20 h-8 text-sm text-right"
-                        step="0.01"
-                        min="0"
-                      />
-                      <span className="text-red-600 dark:text-red-400">
-                        -${totals.discount.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {loyaltyEnabled && selectedCustomer && loyaltyPoints > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span>Loyalty Discount:</span>
-                      <span className="text-red-600 dark:text-red-400">
-                        -${loyaltyDiscount.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* Tax breakdown */}
-                  {taxCalculation && taxCalculation.totalTax > 0 ? (
-                    <div className="space-y-1">
-                      {taxCalculation.taxBreakdown.map((tax, index) => (
-                        <div key={index} className="flex justify-between items-center text-sm">
-                          <span>{tax.taxRate.displayName} ({(tax.taxRate.rate * 100).toFixed(2)}%):</span>
-                          <span>${tax.taxAmount.toFixed(2)}</span>
-                        </div>
-                      ))}
-                      {taxCalculation.taxBreakdown.length > 1 && (
-                        <div className="flex justify-between items-center font-medium border-t pt-1">
-                          <span>Total Tax:</span>
-                          <span>${taxCalculation.totalTax.toFixed(2)}</span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex justify-between items-center">
-                      <span>Tax:</span>
-                      <span>$0.00</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
-                    <span>Total:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-green-600 dark:text-green-400">
-                        ${totals.total.toFixed(2)}
-                      </span>
-                      {paymentsEnabled && paymentStatus !== 'none' && (
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                          paymentStatus === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                          'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                        }`}>
-                          {paymentStatus === 'pending' ? 'Pending' :
-                           paymentStatus === 'paid' ? 'Paid' : 'Failed'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Button 
-                    className="w-full" 
-                    size="lg"
-                    onClick={placeOrder}
-                    disabled={isProcessingOrder || cart.length === 0}
-                  >
-                    {isProcessingOrder ? 'Processing...' : 'Place Order'}
-                  </Button>
-                  
-                  {paymentsEnabled && (
-                    <Button 
-                      className="w-full" 
-                      size="lg"
-                      variant="outline"
-                      onClick={takePayment}
-                      disabled={isProcessingPayment || cart.length === 0 || paymentStatus === 'paid'}
-                    >
-                      {isProcessingPayment ? 'Processing...' : 'Take Payment'}
-                    </Button>
-                  )}
-                  
-                  {canFinalize && (
-                    <Button 
-                      className="w-full" 
-                      size="lg"
-                      variant="outline"
-                      onClick={finalizeLocal}
-                      disabled={isFinalizingLocal || cart.length === 0}
-                    >
-                      {isFinalizingLocal ? 'Finalizing...' : 'Finalize (local)'}
-                    </Button>
-                  )}
-                  
-                  {/* Dev simulation buttons - only show when payments enabled and payment initiated */}
-                  {paymentsEnabled && paymentStatus === 'pending' && (
-                    <div className="border-t pt-2 space-y-1">
-                      <div className="text-xs text-gray-500 text-center mb-2">Dev Simulation</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          onClick={simulatePaymentSuccess}
-                          className="text-green-600 border-green-300 hover:bg-green-50"
-                        >
-                          Simulate Success
-                        </Button>
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          onClick={simulatePaymentFailure}
-                          className="text-red-600 border-red-300 hover:bg-red-50"
-                        >
-                          Simulate Fail
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={handleNewTicket}
-                    disabled={cart.length === 0}
-                  >
-                    New Ticket (N)
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => setCart([])}
-                    disabled={cart.length === 0}
-                  >
-                    Clear Cart
-                  </Button>
-                  {toastMessage && (
-                    <div className="p-2 text-sm text-center rounded bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
-                      {toastMessage}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-        </div>
-      )}
-    </div>
+              )}
+            </div>
+          </div>
 
-    {/* Payment Modal */}
-    <PaymentModal
-      isOpen={showPaymentModal}
-      onClose={() => setShowPaymentModal(false)}
-      onPaymentComplete={handlePaymentComplete}
-      amount={totals.total}
-      currency="USD"
-      ticketId={getTicketId()}
-      provider={paymentProvider}
-      availableMethods={['card', 'cash', 'loyalty']}
-    />
+          {/* Cart Panel - Desktop */}
+          <div className="hidden lg:block w-96 border-l border-border">
+            <CartPanel
+              items={cart}
+              totals={totals}
+              onUpdateQuantity={updateQuantity}
+              onRemoveItem={removeFromCart}
+              onPlaceOrder={placeOrder}
+              onClearCart={() => setCart([])}
+              isProcessing={isProcessingOrder}
+              discount={discount}
+              onDiscountChange={setDiscount}
+              className="h-full rounded-none border-0"
+            />
+          </div>
+        </div>
+
+        {/* Mobile Cart Toggle */}
+        <button
+          onClick={() => setShowMobileCart(!showMobileCart)}
+          className={cn(
+            "lg:hidden fixed bottom-6 right-6 z-40",
+            "w-16 h-16 rounded-full shadow-lg",
+            "bg-primary text-primary-foreground",
+            "flex items-center justify-center",
+            "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+            "transition-all duration-200"
+          )}
+          aria-label="Toggle cart"
+        >
+          <div className="relative">
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+              />
+            </svg>
+            {cart.length > 0 && (
+              <span className="absolute -top-2 -right-2 w-5 h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center">
+                {cart.reduce((sum, item) => sum + item.quantity, 0)}
+              </span>
+            )}
+          </div>
+        </button>
+
+        {/* Mobile Cart Drawer */}
+        {showMobileCart && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="lg:hidden fixed inset-0 bg-black/50 z-40"
+              onClick={() => setShowMobileCart(false)}
+            />
+            
+            {/* Cart Panel */}
+            <div className="lg:hidden fixed right-0 top-0 bottom-0 w-full max-w-md bg-background z-50 shadow-xl">
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h2 className="text-lg font-semibold">Cart</h2>
+                <button
+                  onClick={() => setShowMobileCart(false)}
+                  className="p-2 rounded-lg hover:bg-accent"
+                  aria-label="Close cart"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <CartPanel
+                items={cart}
+                totals={totals}
+                onUpdateQuantity={updateQuantity}
+                onRemoveItem={removeFromCart}
+                onPlaceOrder={() => {
+                  placeOrder();
+                  setShowMobileCart(false);
+                }}
+                onClearCart={() => setCart([])}
+                isProcessing={isProcessingOrder}
+                discount={discount}
+                onDiscountChange={setDiscount}
+                className="h-[calc(100%-73px)] rounded-none border-0"
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Payment Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onPaymentComplete={handlePaymentComplete}
+        amount={totals.total}
+        currency="USD"
+        ticketId={getTicketId()}
+        provider={paymentProvider}
+        availableMethods={['card', 'cash', 'loyalty']}
+      />
     </>
   );
 }

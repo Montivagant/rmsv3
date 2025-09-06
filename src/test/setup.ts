@@ -5,9 +5,9 @@ import { vi } from 'vitest';
 // Try to import MSW server, but gracefully handle failure
 let server: any = null;
 try {
-  const mswModule = require('../mocks/node');
-  server = mswModule.server;
-} catch (error) {
+  // MSW is initialized in vitest.setup.ts to avoid double initialization
+  // Leaving server as null here ensures these hooks are no-ops below
+} catch {
   console.log('MSW server not available, running tests without mocking');
 }
 

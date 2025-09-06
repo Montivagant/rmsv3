@@ -7,8 +7,7 @@
 
 import { http, HttpResponse } from 'msw';
 import type { 
-  InventoryItem, 
-  InventoryItemQuery,
+  InventoryItem,
   InventoryMovement,
   ReorderAlert,
   InventoryAnalytics,
@@ -25,7 +24,7 @@ const mockUnits = new Map<string, UnitOfMeasure>();
 const mockLocations = new Map<string, StorageLocation>();
 let nextItemId = 1;
 let nextMovementId = 1;
-let nextAlertId = 1;
+const nextAlertId = 1;
 
 // Initialize default data
 function initializeMockData() {
@@ -771,16 +770,8 @@ export const inventoryItemApiHandlers = [
     return HttpResponse.json(units);
   }),
 
-  // GET /api/inventory/locations - Get storage locations
-  http.get('/api/inventory/locations', async () => {
-    if (mockLocations.size === 0) {
-      initializeMockData();
-    }
-
-    const locations = Array.from(mockLocations.values());
-    console.log('📍 MSW: Storage locations API called, returning', locations.length, 'locations');
-    return HttpResponse.json(locations);
-  })
+  // NOTE: /api/inventory/locations endpoint is now handled by inventory/transfers/api.ts
+  // to provide proper branch locations for transfers instead of internal storage areas
 ];
 
 // Helper functions

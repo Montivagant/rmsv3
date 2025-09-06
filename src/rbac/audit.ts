@@ -19,13 +19,13 @@ export interface AuditEventPayload extends AuditEvent {
 }
 
 /**
- * Audit logger for admin and technical admin actions
+ * Audit logger for business owner actions
  * Creates audit.logged events for compliance and security tracking
  */
 export class AuditLogger {
   
   /**
-   * Log an admin action for audit purposes
+   * Log a business owner action for audit purposes
    */
   log(auditEvent: AuditEvent): void {
     const user = getCurrentUser();

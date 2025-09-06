@@ -10,11 +10,8 @@ import type {
   InventoryItem,
   ReorderAlert,
   UrgencyLevel,
-  AlertStatus,
   PurchaseOrder,
-  ReorderAlertCreatedEvent,
-  PurchaseOrderCreatedEvent,
-  Supplier
+  ReorderAlertCreatedEvent
 } from './types';
 
 export class ReorderManager {

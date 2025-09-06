@@ -28,7 +28,7 @@ async function tryPouchDBAdapter(dbName: string) {
   try {
     const { createPouchDBAdapter } = await import('../db/pouch')
     return await createPouchDBAdapter({ name: dbName })
-  } catch (_error) {
+  } catch {
     // PouchDB unavailable - will use localStorage fallback
     return null
   }
@@ -51,7 +51,7 @@ export async function bootstrapEventStore() {
   bootstrapPromise = (async () => {
     // Only log once per session to avoid React StrictMode duplicate messages
     if (!globalThis.__RMS_BOOTSTRAP_LOGGED) {
-      console.log('🚀 Initializing optimized event store...')
+      // Development info: Initializing optimized event store...
       globalThis.__RMS_BOOTSTRAP_LOGGED = true
     }
     
@@ -87,7 +87,7 @@ export async function bootstrapEventStore() {
         
         const duration = performance.now() - startTime
         if (!globalThis.__RMS_READY_LOGGED) {
-          console.log(`🎉 Optimized PouchDB persistence ready! (${events.length} events loaded in ${duration.toFixed(2)}ms)`)
+          // Development info: Optimized PouchDB persistence ready
           globalThis.__RMS_READY_LOGGED = true
         }
         
@@ -99,7 +99,7 @@ export async function bootstrapEventStore() {
         
         return result
       }
-    } catch (_error) {
+    } catch {
       // Silently fall back to localStorage
     }
   }
@@ -108,7 +108,6 @@ export async function bootstrapEventStore() {
     try {
     // Only log once per session to avoid React StrictMode duplicate messages
     if (!globalThis.__RMS_PERSISTENCE_LOGGED) {
-      console.log('💾 Initializing localStorage persistence...')
       globalThis.__RMS_PERSISTENCE_LOGGED = true
     }
     
@@ -125,7 +124,7 @@ export async function bootstrapEventStore() {
     
     const duration = performance.now() - startTime
     if (!globalThis.__RMS_READY_LOGGED) {
-      console.log(`🎉 Optimized event store with localStorage persistence ready! (${duration.toFixed(2)}ms)`)
+      // Development info: Optimized event store with localStorage persistence ready
       globalThis.__RMS_READY_LOGGED = true
     }
     
@@ -139,7 +138,7 @@ export async function bootstrapEventStore() {
     } catch (error) {
       console.warn('Failed to initialize localStorage persistence, using optimized in-memory store:', error)
       const duration = performance.now() - startTime
-      console.log(`🎉 Optimized in-memory event store ready! (${duration.toFixed(2)}ms)`)
+      // Development info: Optimized in-memory event store ready
       
       const result = { store: optimizedStore, db: null }
       
@@ -170,7 +169,6 @@ async function migrateToOptimizedStore(legacyStore: EventStore): Promise<void> {
 
     // Only log once per session to avoid React StrictMode duplicate messages
     if (!globalThis.__RMS_MIGRATION_LOGGED) {
-      console.log(`📦 Migrating ${events.length} events to optimized store...`)
       globalThis.__RMS_MIGRATION_LOGGED = true
     }
     
@@ -192,11 +190,11 @@ async function migrateToOptimizedStore(legacyStore: EventStore): Promise<void> {
 
     const duration = performance.now() - startTime
     if (!globalThis.__RMS_MIGRATION_LOGGED) {
-      console.log(`✅ Migration completed in ${duration.toFixed(2)}ms`)
+      // Development info: Migration completed
       
-      // Log initial performance metrics
-      const _metrics = optimizedStore!.getMetrics()
-      console.log(`📊 Initial store metrics: ${optimizedStore!.getAll().length} events indexed`)
+      // Calculate initial performance metrics
+      const metrics = optimizedStore!.getMetrics()
+      // Development info: Initial store metrics calculated
     }
   }
 }

@@ -16,12 +16,10 @@ import type {
   TaxableItem,
   TaxRate,
   TaxRule,
-  TaxExemption,
   AppliedExemption,
   TaxWarning,
   TaxRoundingRule,
-  TaxJurisdiction,
-  TaxCustomer
+  TaxJurisdiction
 } from './types';
 
 export class TaxCalculationEngine {
@@ -98,7 +96,6 @@ export class TaxCalculationEngine {
     });
 
     const total = subtotal + totalTax;
-    const calculationTime = performance.now() - startTime;
 
     return {
       subtotal,
@@ -273,7 +270,7 @@ export class TaxCalculationEngine {
   private calculateItemTaxes(
     item: TaxableItem, 
     applicableRates: TaxRate[], 
-    input: TaxCalculationInput
+    _input: TaxCalculationInput
   ): Array<{ taxRateId: string, taxRate: TaxRate, taxableAmount: number, taxAmount: number }> {
     const itemTaxes = [];
     const itemAmount = item.price * item.quantity;
@@ -385,7 +382,7 @@ export class TaxCalculationEngine {
   /**
    * Apply rule actions to modify tax rates
    */
-  private applyRuleActions(rule: TaxRule, rates: TaxRate[], input: TaxCalculationInput): TaxRate[] {
+  private applyRuleActions(rule: TaxRule, rates: TaxRate[], _input: TaxCalculationInput): TaxRate[] {
     let modifiedRates = [...rates];
 
     for (const action of rule.actions) {
@@ -447,11 +444,11 @@ export class TaxCalculationEngine {
   /**
    * Get IDs of rules that were applied
    */
-  private getAppliedRuleIds(input: TaxCalculationInput): string[] {
-    const jurisdiction = this.determineJurisdiction(input);
+  private getAppliedRuleIds(_input: TaxCalculationInput): string[] {
+    const jurisdiction = this.determineJurisdiction(_input);
     
     return this.configuration.rules
-      .filter(rule => rule.isActive && this.evaluateRuleConditions(rule, input, jurisdiction))
+      .filter(rule => rule.isActive && this.evaluateRuleConditions(rule, _input, jurisdiction))
       .map(rule => rule.id);
   }
 

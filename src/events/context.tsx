@@ -1,5 +1,7 @@
+/* @refresh reset */
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { eventStore as defaultEventStore, type EventStore } from './store';
+import { eventStore as defaultEventStore } from './store';
+import type { EventStore } from './store';
 import { getPersistedEventStore } from './persistedStore';
 
 interface EventStoreContextValue {
@@ -19,32 +21,45 @@ export function EventStoreProvider({ children, store }: EventStoreProviderProps)
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     // Initialize the store (hydrate from persistence if needed)
     const initStore = async () => {
       try {
-        let storeToUse = store;
-        
-        // If no store provided, create a persisted one
-        if (!storeToUse) {
-          console.log('🔄 Initializing persisted event store...');
-          storeToUse = await getPersistedEventStore();
-        } else if ('hydrate' in storeToUse && typeof storeToUse.hydrate === 'function') {
-          // If a store was provided with hydrate method, call it
-          await storeToUse.hydrate();
+        // If a store is provided, set it synchronously to avoid initial loading state in tests,
+        // then hydrate in the background without blocking readiness.
+        if (store) {
+          setEventStore(store);
+          setIsReady(true);
+          // Best-effort background hydrate
+          if ('hydrate' in store && typeof (store as any).hydrate === 'function') {
+            (store as any).hydrate().catch((e: any) =>
+              console.error('Background hydrate failed:', e)
+            );
+          }
+          return;
         }
-        
-        setEventStore(storeToUse);
-        setIsReady(true);
-        console.log('✅ Event store ready');
+
+        // Otherwise, create a persisted store (async)
+        const storeToUse = await getPersistedEventStore();
+        if (!cancelled) {
+          setEventStore(storeToUse);
+          setIsReady(true);
+        }
       } catch (error) {
         console.error('Failed to initialize event store:', error);
-        // Fallback to default store
-        setEventStore(defaultEventStore);
-        setIsReady(true);
+        if (!cancelled) {
+          // Fallback to default store
+          setEventStore(defaultEventStore);
+          setIsReady(true);
+        }
       }
     };
 
     initStore();
+    return () => {
+      cancelled = true;
+    };
   }, [store]);
 
   if (!eventStore) {

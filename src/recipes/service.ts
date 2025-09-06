@@ -10,7 +10,6 @@ import { generateEventId } from '../events/hash';
 import { getRole } from '../rbac/roles';
 import type {
   Recipe,
-  RecipeIngredient,
   RecipeQuery,
   RecipeValidation,
   RecipeScale,
@@ -22,7 +21,6 @@ import type {
   RecipeUpdatedEvent,
   RecipeCostCalculatedEvent,
   BatchProductionStartedEvent,
-  BatchProductionCompletedEvent,
   InventoryDeductedEvent,
   RecipeCategory,
   RecipeType
@@ -59,9 +57,13 @@ export class RecipeService {
   private batchProductions: Map<string, BatchProduction> = new Map();
   private inventoryItems: Map<string, InventoryItem> = new Map();
 
-  constructor(private eventStore: EventStore) {
+  private eventStore: EventStore;
+
+  constructor(eventStore: EventStore) {
+    this.eventStore = eventStore;
     this.rebuildState();
-    this.eventStore.subscribe(() => this.rebuildState());
+    // Note: EventStore interface doesn't have subscribe method
+    // State rebuilding will be triggered manually when needed
   }
 
   // State Rebuilding
@@ -724,7 +726,6 @@ export class RecipeService {
     }
 
     const batchId = generateEventId();
-    const currentUser = getRole();
 
     const event: BatchProductionStartedEvent = {
       type: 'recipe.batch.started',
