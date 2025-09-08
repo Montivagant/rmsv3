@@ -1,4 +1,10 @@
-# RMS v3 Development Roadmap
+﻿## ?? UPCOMING PHASES
+
+### P0 Follow-up TODOs (Tracking)
+- [ ] Security: Harden input sanitization (XSS/SQL)
+  - See `docs/issues/SECURITY-SANITIZER-FOLLOWUP.md`
+- [ ] Inventory: Align item mapping/validation with tests
+  - See `docs/issues/INVENTORY-MAP-FORM-FIXES.md`
 
 ## 🎯 Project Overview
 Restaurant Management System v3 - A comprehensive, offline-first, event-sourced POS and business management platform with advanced analytics, tax management, and inventory tracking.
