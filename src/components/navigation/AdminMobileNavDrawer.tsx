@@ -213,7 +213,7 @@ export const AdminMobileNavDrawer: React.FC<AdminMobileNavDrawerProps> = ({
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-modal-backdrop lg:hidden"
+        className="drawer-backdrop z-modal-backdrop lg:hidden"
         aria-hidden="true"
       />
 
@@ -230,7 +230,7 @@ export const AdminMobileNavDrawer: React.FC<AdminMobileNavDrawerProps> = ({
           <div className="flex items-center justify-between px-4 py-4 border-b border-border-secondary">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">D</span>
+                <span className="text-inverse font-bold text-lg">D</span>
               </div>
               <span className="text-lg font-semibold text-text-primary">DashUp</span>
             </div>

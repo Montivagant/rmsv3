@@ -74,7 +74,7 @@ export const SkipLinks: React.FC<{
 }> = ({ links, className = '' }) => {
   return (
     <nav aria-label="Skip links" className={`sr-only focus-within:not-sr-only ${className}`}>
-      <ul className="flex space-x-2 bg-blue-600 text-white p-2">
+      <ul className="flex space-x-2 bg-brand-600 text-inverse p-2">
         {links.map((link, index) => (
           <li key={index}>
             <a
@@ -338,8 +338,8 @@ export const AccessibleTable: React.FC<AccessibleTableProps> = ({
                   ? sortDirection === 'asc' ? 'ascending' : 'descending'
                   : sortable ? 'none' : undefined
               }
-              className={`p-3 text-left border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 ${
-                sortable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700' : ''
+              className={`p-3 text-left border-b border-border bg-surface-secondary ${
+                sortable ? 'cursor-pointer hover:bg-surface-secondary' : ''
               }`}
               onClick={sortable ? () => handleSort(header.id) : undefined}
               onKeyDown={sortable ? (e) => {
@@ -374,8 +374,8 @@ export const AccessibleTable: React.FC<AccessibleTableProps> = ({
                   key={cell.headerId}
                   role="gridcell"
                   headers={cell.headerId}
-                  className="p-3 border-b border-gray-200 dark:border-gray-700"
-                >
+                  className="p-3 border-b border-border"
+              >
                   {cell.content}
                 </td>
               )
@@ -459,7 +459,7 @@ export const AccessibleModal: React.FC<AccessibleModalProps> = ({
       <div className="flex min-h-screen items-center justify-center p-4">
         {/* Overlay */}
         <div
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          className="modal-backdrop"
           onClick={closeOnOverlayClick ? onClose : undefined}
           aria-hidden="true"
         />
@@ -467,16 +467,16 @@ export const AccessibleModal: React.FC<AccessibleModalProps> = ({
         {/* Modal */}
         <div
           ref={modalRef}
-          className={`relative bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full ${sizeClasses[size]} ${className}`}
+          className={`relative bg-surface rounded-lg shadow-xl w-full ${sizeClasses[size]} ${className}`}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-            <h2 id="modal-title" className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 id="modal-title" className="text-lg font-semibold text-text-primary">
               {title}
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                className="text-text-tertiary hover:text-text-secondary focus:outline-none focus:ring-2 focus:ring-brand rounded"
               aria-label="Close dialog"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -487,9 +487,9 @@ export const AccessibleModal: React.FC<AccessibleModalProps> = ({
 
           {/* Description */}
           {description && (
-            <div id="modal-description" className="px-6 pt-4 text-sm text-gray-600 dark:text-gray-400">
-              {description}
-            </div>
+          <div id="modal-description" className="px-6 pt-4 text-sm text-text-secondary">
+            {description}
+          </div>
           )}
 
           {/* Content */}

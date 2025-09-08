@@ -10,22 +10,22 @@ interface RoleBadgeProps {
 export function RoleBadge({ className, size = 'md' }: RoleBadgeProps) {
   // Get the authenticated user's role from live auth/session state
   const currentRole = getRole();
-  
+
   // Display Business Owner for all users since that's our only role
   const displayRole = 'Business Owner';
-  
+
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs',
     md: 'px-3 py-1.5 text-sm',
     lg: 'px-4 py-2 text-base',
-  };
-  
+  } as const;
+
   const roleColors: Record<string, string> = {
-    [Role.BUSINESS_OWNER]: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-    'Business Owner': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-    '—': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700',
+    [Role.BUSINESS_OWNER]: 'bg-warning/20 text-warning border-warning/20',
+    'Business Owner': 'bg-warning/20 text-warning border-warning/20',
+    Unknown: 'bg-surface-secondary text-text-secondary border-border',
   };
-  
+
   return (
     <div
       className={cn(

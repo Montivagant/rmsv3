@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
 import { Input } from '../../components/Input';
+import { Modal } from '../../components/Modal';
 import { Select } from '../../components/Select';
 import { DataTable } from '../../components/inventory/DataTable';
 import { DataToolbar } from '../../components/inventory/DataToolbar';
@@ -70,6 +71,8 @@ export default function Items() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<InventoryItem | null>(null);
   
   // API calls
   const { data: itemsResponse, loading, error, refetch } = useApi<{ items: InventoryItem[], total: number }>('/api/inventory/items', { items: [], total: 0 });
@@ -128,31 +131,8 @@ export default function Items() {
 
   // Handle delete item
   const handleDeleteItem = async (item: InventoryItem) => {
-    if (confirm(`Are you sure you want to delete "${item.name}"?`)) {
-      try {
-        const response = await fetch(`/api/inventory/items/${item.id}`, {
-          method: 'DELETE'
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete item');
-        }
-
-        showToast({
-          title: 'Item Deleted',
-          description: `${item.name} has been deleted successfully.`,
-          variant: 'success'
-        });
-        
-        refetch();
-      } catch (error) {
-        showToast({
-          title: 'Error',
-          description: 'Failed to delete item',
-          variant: 'error'
-        });
-      }
-    }
+    setPendingDelete(item);
+    setShowDeleteConfirm(true);
   };
 
   // Table columns
@@ -196,7 +176,7 @@ export default function Items() {
           <div>
             <p className="font-medium">{quantity} {unit}</p>
             {quantity <= reorderPoint && reorderPoint > 0 && (
-              <p className="text-xs text-amber-600">Below reorder point</p>
+              <p className="text-xs text-warning">Below reorder point</p>
             )}
           </div>
         );
@@ -373,6 +353,57 @@ export default function Items() {
         existingSKUs={existingSKUs}
         isLoading={loading}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setPendingDelete(null);
+        }}
+        title="Delete Item"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-text-secondary">
+            Are you sure you want to delete <strong>{pendingDelete?.name}</strong>?
+            This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setPendingDelete(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!pendingDelete) return;
+                try {
+                  const response = await fetch(`/api/inventory/items/${pendingDelete.id}`, { method: 'DELETE' });
+                  if (!response.ok) throw new Error('Failed to delete item');
+                  showToast({
+                    title: 'Item Deleted',
+                    description: `${pendingDelete.name} has been deleted successfully.`,
+                    variant: 'success'
+                  });
+                  setShowDeleteConfirm(false);
+                  setPendingDelete(null);
+                  refetch();
+                } catch (error) {
+                  showToast({ title: 'Error', description: 'Failed to delete item', variant: 'error' });
+                }
+              }}
+            >
+              Delete Item
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

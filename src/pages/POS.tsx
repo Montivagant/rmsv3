@@ -527,8 +527,9 @@ function POS() {
             <>
               {canManageMenu && (
                 <button
-                  onClick={() => {/* TODO: Implement menu management */}}
+                  onClick={() => { /* Hidden until implemented */ }}
                   className={cn(
+                    'hidden',
                     "px-4 py-2 rounded-lg",
                     "border border-border",
                     "bg-background text-foreground",
@@ -669,7 +670,7 @@ function POS() {
           <>
             {/* Backdrop */}
             <div
-              className="lg:hidden fixed inset-0 bg-black/50 z-40"
+              className="lg:hidden drawer-backdrop z-40"
               onClick={() => setShowMobileCart(false)}
             />
             

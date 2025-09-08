@@ -89,7 +89,7 @@ const Toast = forwardRef<HTMLDivElement, ToastProps>(
           isVisible && !isExiting && 'animate-fade-in animate-slide-up',
           isExiting && 'animate-fade-out',
         )}
-        role="alert"
+        role="status"
         aria-live="polite"
         {...props}
       >

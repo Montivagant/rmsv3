@@ -188,7 +188,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
     if (isValidating) {
       return (
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-          <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+          <div className="animate-spin h-4 w-4 border-2 border-brand-600 border-t-transparent rounded-full" />
         </div>
       )
     }
@@ -215,7 +215,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
 
     if (finalErrors.length === 0 && internalValue && hasBeenTouched) {
       return (
-        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" aria-hidden="true">
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-success" aria-hidden="true">
           <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
           </svg>
@@ -233,7 +233,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
         htmlFor={inputId}
         className={cn(
           'block text-sm font-medium',
-          hasError ? 'text-red-700' : hasWarning ? 'text-yellow-700' : 'text-gray-700',
+          hasError ? 'text-error' : hasWarning ? 'text-warning' : 'text-text-secondary',
           labelClassName
         )}
       >
@@ -260,14 +260,14 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
           aria-describedby={ariaDescribedBy}
           aria-required={required}
           className={cn(
-            'block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6',
+            'block w-full rounded-md border-0 py-1.5 text-text-primary shadow-sm ring-1 ring-inset placeholder:text-text-tertiary focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6',
             hasError
-              ? 'ring-red-300 focus:ring-red-500'
+              ? 'ring-error/30 focus:ring-error'
               : hasWarning
-              ? 'ring-yellow-300 focus:ring-yellow-500'
-              : 'ring-gray-300 focus:ring-blue-600',
+              ? 'ring-warning/30 focus:ring-warning'
+              : 'ring-border focus:ring-brand',
             showValidationIcon && hasBeenTouched ? 'pr-10' : 'pr-3',
-            disabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'bg-white',
+            disabled ? 'bg-surface-secondary text-text-secondary cursor-not-allowed' : 'bg-surface',
             className
           )}
           {...inputProps}
@@ -277,7 +277,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
 
       {/* Help Text */}
       {helpText && (
-        <p id={helpId} className="text-sm text-gray-600">
+        <p id={helpId} className="text-sm text-text-secondary">
           {helpText}
         </p>
       )}
@@ -286,7 +286,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
       {hasError && (
         <div id={errorId} className="space-y-1" role="alert" aria-live="polite">
           {finalErrors.map((error, index) => (
-            <p key={index} className={cn('text-sm text-red-600', errorClassName)}>
+            <p key={index} className={cn('text-sm text-error', errorClassName)}>
               {error}
             </p>
           ))}
@@ -297,7 +297,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
       {hasWarning && !hasError && (
         <div id={warningId} className="space-y-1" role="alert" aria-live="polite">
           {finalWarnings.map((warning, index) => (
-            <p key={index} className={cn('text-sm text-yellow-600', warningClassName)}>
+            <p key={index} className={cn('text-sm text-warning', warningClassName)}>
               {warning}
             </p>
           ))}
@@ -308,7 +308,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
       {hasInfo && !hasError && !hasWarning && (
         <div id={infoId} className="space-y-1">
           {finalInfo.map((info, index) => (
-            <p key={index} className={cn('text-sm text-blue-600', infoClassName)}>
+            <p key={index} className={cn('text-sm text-brand', infoClassName)}>
               {info}
             </p>
           ))}

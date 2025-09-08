@@ -334,7 +334,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
       {/* Search Modal */}
       {showSearch && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-modal-backdrop flex items-start justify-center pt-20">
+        <div className="modal-backdrop z-modal-backdrop flex items-start justify-center pt-20">
           <div
             ref={(node) => { searchPanelRef.current = node!; (searchLayerRef as any).current = node; }}
             role="dialog"

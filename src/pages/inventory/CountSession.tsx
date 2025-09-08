@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -17,6 +17,7 @@ import type {
   SubmitCountRequest 
 } from '../../inventory/counts/types';
 import { CountUtils } from '../../inventory/counts/types';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 export default function CountSession() {
   const { countId } = useParams<{ countId: string }>();
@@ -62,6 +63,17 @@ export default function CountSession() {
       (item.categoryName && item.categoryName.toLowerCase().includes(search))
     );
   }, [items, searchTerm]);
+
+  // Virtualization for items list
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const virtualizer = useVirtualizer({
+    count: filteredItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 96,
+    overscan: 8,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
 
   // Handle quantity changes
   const handleQuantityChange = useCallback((itemId: string, value: string) => {
@@ -309,9 +321,9 @@ export default function CountSession() {
 
         <CardContent className="p-0">
           {/* Items List */}
-          <div className="max-h-96 overflow-auto">
-            <div className="divide-y divide-border">
-              {filteredItems.map((item) => {
+          <div className="max-h-[480px] overflow-auto">
+            <div className="relative divide-y divide-border" style={{ height: `${totalSize}px` }}>
+              {virtualItems.map((vi) => { const item = filteredItems[vi.index];
                 const pendingUpdate = unsavedChanges.get(item.itemId);
                 const currentCountedQty = pendingUpdate?.countedQty ?? item.countedQty;
                 const hasChanges = pendingUpdate !== undefined;
@@ -326,7 +338,7 @@ export default function CountSession() {
 
                 return (
                   <div
-                    key={`count-item-${item.id}-${item.itemId}`}
+                    key={`count-item-${item.id}-${item.itemId}` }
                     className={
                       hasChanges 
                         ? 'p-4 bg-warning/5 border-l-4 border-warning'
@@ -340,7 +352,7 @@ export default function CountSession() {
                           {item.name}
                         </div>
                         <div className="text-sm text-text-secondary">
-                          SKU: {item.sku} â€¢ {item.unit}
+                          SKU: {item.sku} • {item.unit}
                         </div>
                         {item.categoryName && (
                           <Badge variant="outline" className="text-xs mt-1">
@@ -398,7 +410,7 @@ export default function CountSession() {
                             size="sm"
                           />
                         ) : (
-                          <span className="text-text-muted">â€”</span>
+                          <span className="text-text-muted">—</span>
                         )}
                       </div>
 
@@ -414,7 +426,7 @@ export default function CountSession() {
                             {CountUtils.formatVarianceValue(variance.varianceValue)}
                           </div>
                         ) : (
-                          <span className="text-text-muted">â€”</span>
+                          <span className="text-text-muted">—</span>
                         )}
                       </div>
                     </div>

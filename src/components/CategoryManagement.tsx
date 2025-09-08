@@ -786,7 +786,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
 
       {/* Delete Confirmation Modal */}
       {categoryToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="modal-backdrop z-50 flex items-center justify-center">
           <Card className="max-w-md mx-4">
             <CardHeader>
               <CardTitle className="text-error">Archive Category</CardTitle>

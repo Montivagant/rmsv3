@@ -318,8 +318,8 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Menu Management</h2>
-          <p className="text-gray-600 dark:text-gray-400">Add, edit, and organize your menu items</p>
+          <h2 className="text-2xl font-bold text-text-primary">Menu Management</h2>
+          <p className="text-text-secondary">Add, edit, and organize your menu items</p>
         </div>
         <Button onClick={() => setShowAddForm(true)}>Add Menu Item</Button>
       </div>
@@ -392,7 +392,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredItems.map(item => (
           <Card key={item.id} className="overflow-hidden">
-            <div className="aspect-video bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+            <div className="aspect-video bg-surface-secondary flex items-center justify-center">
               {item.image ? (
                 <img 
                   src={item.image} 
@@ -400,7 +400,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="text-gray-400 text-4xl">🍽️</div>
+                <div className="text-text-tertiary text-4xl">🍽️</div>
               )}
             </div>
             <CardHeader className="pb-2">
@@ -413,11 +413,11 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
             </CardHeader>
             <CardContent className="pt-0">
               <div className="space-y-2">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-text-secondary">
                   Category: <span className="font-medium">{item.category}</span>
                 </p>
                 {item.description && (
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <p className="text-sm text-text-secondary">
                     {item.description}
                   </p>
                 )}
@@ -434,7 +434,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
                     size="sm"
                     variant="outline"
                     onClick={() => confirmDelete(item)}
-                    className="text-red-600 hover:text-red-700 hover:border-red-300"
+                    className="text-error-600 hover:text-error-700 hover:border-error-300"
                   >
                     Delete
                   </Button>
@@ -452,7 +452,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
           <h3 className="text-xl font-semibold text-foreground mb-2">
             {searchTerm || selectedCategory !== 'All' ? 'No items found' : 'No menu items yet'}
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-text-secondary mb-4">
             {searchTerm || selectedCategory !== 'All' 
               ? 'Try adjusting your search or filter criteria'
               : 'Get started by adding your first menu item'
@@ -466,10 +466,10 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
 
       {/* Delete Confirmation Modal */}
       {itemToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="modal-backdrop z-50 flex items-center justify-center">
           <Card className="max-w-md mx-4">
             <CardHeader>
-              <CardTitle className="text-red-600 dark:text-red-400">Delete Menu Item</CardTitle>
+              <CardTitle className="text-error-600">Delete Menu Item</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="mb-4">
@@ -485,7 +485,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
                 </Button>
                 <Button
                   onClick={() => deleteMenuItem(itemToDelete)}
-                  className="bg-red-600 hover:bg-red-700 text-white"
+                  className="bg-error-600 hover:bg-error-700 text-inverse"
                 >
                   Delete Item
                 </Button>
@@ -497,7 +497,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
 
       {/* Results Summary */}
       {filteredItems.length > 0 && (
-        <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
+        <div className="text-sm text-text-secondary text-center">
           Showing {filteredItems.length} of {menuItems?.length || 0} menu items
           {selectedCategory !== 'All' && ` in ${selectedCategory}`}
         </div>

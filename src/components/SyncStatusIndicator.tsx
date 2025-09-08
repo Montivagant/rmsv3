@@ -29,16 +29,7 @@ export function SyncStatusIndicator({ className = '', showDetails = false }: Syn
   }, []);
 
   const getStatusIcon = () => {
-    if (!isOnline) return '📴';
-    
-    switch (syncStatus) {
-      case 'active': return '🔄';
-      case 'error': return '❌';
-      case 'offline': return '📴';
-      case 'unavailable': return '⚪';
-      case 'paused': return '⏸️';
-      default: return '⚪';
-    }
+    return '�';
   };
 
   const getStatusColor = () => {
@@ -78,7 +69,7 @@ export function SyncStatusIndicator({ className = '', showDetails = false }: Syn
           <span className={`text-xs ${getStatusColor()}`}>
             {isOnline ? 'Online' : 'Offline'}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-text-secondary">
             Sync: {syncStatus}
           </span>
         </div>

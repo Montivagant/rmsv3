@@ -339,6 +339,9 @@ export default function NewTransferModal({
                 <Input
                   type="text"
                   placeholder="Search items by name or SKU..."
+                  aria-label="Search items by name or SKU"
+                  aria-expanded={showSearchResults}
+                  aria-controls="transfer-item-results"
                   value={itemSearch}
                   onChange={(e) => setItemSearch(e.target.value)}
                   onFocus={() => itemSearch.length >= 2 && setShowSearchResults(true)}
@@ -348,12 +351,13 @@ export default function NewTransferModal({
 
               {/* Search Results Dropdown */}
               {showSearchResults && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-lg shadow-lg z-10 max-h-60 overflow-auto">
+                <div id="transfer-item-results" role="listbox" aria-label="Item search results" className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border rounded-lg shadow-lg z-10 max-h-60 overflow-auto">
                   {searchResults.map(item => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => handleAddItem(item)}
+                      role="option"
                       className="w-full px-4 py-3 text-left hover:bg-surface-secondary transition-colors border-b border-border last:border-0"
                     >
                       <div className="flex justify-between items-start">
@@ -396,10 +400,12 @@ export default function NewTransferModal({
                         onChange={(e) => handleQuantityChange(index, e.target.value)}
                         min={0}
                         step={line.isFractional ? 0.01 : 1}
+                        aria-invalid={!!errors[`line_${index}_qty`]}
+                        aria-describedby={errors[`line_${index}_qty`] ? `line_${index}_qty_error` : undefined}
                         className={errors[`line_${index}_qty`] ? 'border-error' : ''}
                       />
                       {errors[`line_${index}_qty`] && (
-                        <p className="text-xs text-error mt-1">{errors[`line_${index}_qty`]}</p>
+                        <p id={`line_${index}_qty_error`} className="text-xs text-error mt-1">{errors[`line_${index}_qty`]}</p>
                       )}
                     </div>
                     <Button

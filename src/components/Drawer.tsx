@@ -120,7 +120,7 @@ const Drawer = forwardRef<HTMLDivElement, DrawerProps>(
     if (!isOpen) return null;
 
     const drawerContent = (
-      <div className="drawer-backdrop" style={{ zIndex: 'var(--z-modal-backdrop)' }}>
+      <div className="drawer-backdrop z-modal-backdrop">
         <div className="drawer-overlay">
           <div
             ref={(node) => { drawerRef.current = node!; (layerRef as any).current = node; }}

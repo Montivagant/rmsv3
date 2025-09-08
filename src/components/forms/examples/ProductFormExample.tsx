@@ -186,12 +186,12 @@ export const ProductFormExample: React.FC = () => {
   ]
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-900 rounded-lg shadow-lg">
+    <div className="max-w-4xl mx-auto p-6 bg-surface rounded-lg shadow-lg">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+        <h1 className="text-2xl font-bold text-text-primary mb-2">
           Add New Product
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+        <p className="text-text-secondary">
           This form demonstrates the enhanced validation framework with real-time validation, 
           cross-field validation, business rules, and input masks.
         </p>
@@ -209,11 +209,11 @@ export const ProductFormExample: React.FC = () => {
         description="Fill in the details for the new product. All fields with * are required."
       >
         {/* Additional custom content can go here */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md">
-          <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+        <div className="bg-brand-50 p-4 rounded-md">
+          <h3 className="text-sm font-medium text-brand-800 mb-2">
             💡 Validation Features Demo
           </h3>
-          <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+          <ul className="text-xs text-brand-700 space-y-1">
             <li>• Real-time validation with debouncing</li>
             <li>• Cross-field validation (e.g., selling price vs cost price)</li>
             <li>• Business rules (e.g., SKU uniqueness, prep time by category)</li>

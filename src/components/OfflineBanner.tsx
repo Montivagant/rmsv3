@@ -31,8 +31,8 @@ export function OfflineBanner() {
     <div 
       className={`fixed top-0 left-0 right-0 z-50 px-4 py-2 text-center text-sm font-medium transition-colors ${
         isOnline 
-          ? 'bg-green-600 text-white' 
-          : 'bg-yellow-600 text-white'
+          ? 'bg-success text-primary-foreground' 
+          : 'bg-warning text-primary-foreground'
       }`}
       role="alert"
       aria-live="polite"

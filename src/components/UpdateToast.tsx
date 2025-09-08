@@ -8,15 +8,15 @@ interface UpdateToastProps {
 
 export function UpdateToast({ onUpdate, onDismiss }: UpdateToastProps) {
   return (
-    <div className="fixed bottom-4 right-4 bg-blue-600 text-white p-4 rounded-lg shadow-lg z-50 max-w-sm">
+    <div className="fixed bottom-4 right-4 bg-brand-600 text-text-inverse p-4 rounded-lg shadow-lg z-50 max-w-sm" role="status" aria-live="polite">
       <div className="flex items-center justify-between">
         <div>
           <h4 className="font-semibold">Update Available</h4>
-          <p className="text-sm text-blue-100">A new version of the app is ready.</p>
+          <p className="text-sm opacity-80">A new version of the app is ready.</p>
         </div>
         <button
           onClick={onDismiss}
-          className="ml-4 text-blue-200 hover:text-white"
+          className="ml-4 opacity-80 hover:opacity-100"
           aria-label="Dismiss"
         >
           ×
@@ -25,13 +25,15 @@ export function UpdateToast({ onUpdate, onDismiss }: UpdateToastProps) {
       <div className="mt-3 flex gap-2">
         <Button
           onClick={onUpdate}
-          className="bg-white text-blue-600 hover:bg-blue-50 px-3 py-1 text-sm"
+          className="bg-surface text-brand-600 hover:bg-surface-secondary px-3 py-1 text-sm"
+          aria-label="Update application now"
         >
           Update Now
         </Button>
         <Button
           onClick={onDismiss}
-          className="bg-blue-700 hover:bg-blue-800 px-3 py-1 text-sm"
+          className="bg-brand-700 hover:bg-brand-800 px-3 py-1 text-sm text-text-inverse"
+          aria-label="Remind me later"
         >
           Later
         </Button>

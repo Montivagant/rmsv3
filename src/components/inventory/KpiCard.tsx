@@ -30,19 +30,19 @@ export function KpiCard({
 }: KpiCardProps) {
   const variantStyles = {
     default: 'border-border',
-    success: 'border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20',
-    warning: 'border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20',
-    danger: 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20',
-    info: 'border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20',
-  };
+    success: 'border-success/20 bg-success/10',
+    warning: 'border-warning/20 bg-warning/10',
+    danger: 'border-error/20 bg-error/10',
+    info: 'border-brand/20 bg-brand/10',
+  } as const;
 
   const iconColors = {
     default: 'text-muted-foreground',
-    success: 'text-green-600 dark:text-green-400',
-    warning: 'text-amber-600 dark:text-amber-400',
-    danger: 'text-red-600 dark:text-red-400',
-    info: 'text-blue-600 dark:text-blue-400',
-  };
+    success: 'text-success',
+    warning: 'text-warning',
+    danger: 'text-error',
+    info: 'text-brand',
+  } as const;
 
   const content = (
     <>
@@ -56,10 +56,7 @@ export function KpiCard({
           {trend && (
             <div className="flex items-center gap-1 mt-2">
               <svg
-                className={cn(
-                  'w-4 h-4',
-                  trend.isPositive ? 'text-green-600' : 'text-red-600'
-                )}
+                className={cn('w-4 h-4', trend.isPositive ? 'text-success' : 'text-error')}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -71,12 +68,7 @@ export function KpiCard({
                   d={trend.isPositive ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'}
                 />
               </svg>
-              <span
-                className={cn(
-                  'text-xs font-medium',
-                  trend.isPositive ? 'text-green-600' : 'text-red-600'
-                )}
-              >
+              <span className={cn('text-xs font-medium', trend.isPositive ? 'text-success' : 'text-error')}>
                 {Math.abs(trend.value)}%
               </span>
             </div>

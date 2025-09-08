@@ -368,7 +368,7 @@ export const AccessibleMenu: React.FC<AccessibleMenuProps> = ({
           id="menu"
           role="menu"
           className={cn(
-            'absolute z-50 mt-1 min-w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1',
+            'absolute z-50 mt-1 min-w-48 bg-surface border border-border rounded-md shadow-lg py-1',
             placementClasses[placement],
             className
           )}
@@ -385,8 +385,8 @@ export const AccessibleMenu: React.FC<AccessibleMenuProps> = ({
               className={cn(
                 'flex items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors',
                 option.disabled
-                  ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                  : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none'
+                  ? 'text-text-tertiary cursor-not-allowed'
+                  : 'text-text-primary hover:bg-surface-secondary focus:bg-surface-secondary focus:outline-none'
               )}
               onClick={option.disabled ? undefined : () => {
                 option.onSelect?.()
@@ -411,7 +411,7 @@ export const AccessibleMenu: React.FC<AccessibleMenuProps> = ({
               </div>
               
               {option.shortcut && (
-                <span className="text-xs text-gray-500 dark:text-gray-400" aria-label={`Keyboard shortcut: ${option.shortcut}`}>
+                <span className="text-xs text-text-muted" aria-label={`Keyboard shortcut: ${option.shortcut}`}>
                   {option.shortcut}
                 </span>
               )}
@@ -522,7 +522,7 @@ export const AccessibleTabs: React.FC<AccessibleTabsProps> = ({
                 orientation === 'vertical' && 'border-b-0 border-r-2 justify-start',
                 isActive
                   ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600',
+                  : 'border-transparent text-text-muted hover:text-text-secondary hover:border-border',
                 tab.disabled && 'opacity-50 cursor-not-allowed'
               )}
               onClick={() => !tab.disabled && handleTabClick(tab.id)}

@@ -107,7 +107,7 @@ export const FieldDescription: React.FC<{
   return (
     <div
       id={id}
-      className={cn('text-sm text-gray-600 dark:text-gray-400 mt-1', className)}
+      className={cn('text-sm text-text-secondary mt-1', className)}
     >
       {children}
     </div>
@@ -195,7 +195,7 @@ export const StatusUpdates: React.FC<{
           success: 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200',
           error: 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200',
           warning: 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200',
-          info: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-200'
+        info: 'bg-brand-50 border-brand-200 text-brand-800'
         }
 
         return (
@@ -326,19 +326,19 @@ export const AccessibleDataTable: React.FC<AccessibleDataTableProps> = ({
         role="table"
         aria-label={caption}
         aria-describedby={`${tableId}-summary`}
-        className="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
+        className="min-w-full divide-y divide-border"
       >
         <caption className="sr-only">{caption}</caption>
         
-        <thead className="bg-gray-50 dark:bg-gray-800">
+        <thead className="bg-surface-secondary">
           <tr>
             {headers.map((header) => (
               <th
                 key={header.id}
                 scope="col"
                 className={cn(
-                  'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider',
-                  header.sortable && 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 focus:bg-gray-100 dark:focus:bg-gray-700 focus:outline-none'
+                  'px-6 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wider',
+                  header.sortable && 'cursor-pointer hover:bg-surface-secondary focus:bg-surface-secondary focus:outline-none'
                 )}
                 onClick={header.sortable ? () => handleSort(header.id) : undefined}
                 onKeyDown={header.sortable ? (e) => {
@@ -358,7 +358,7 @@ export const AccessibleDataTable: React.FC<AccessibleDataTableProps> = ({
                 <div className="flex items-center space-x-1">
                   <span>{header.label}</span>
                   {header.sortable && (
-                    <span aria-hidden="true" className="text-gray-400">
+                    <span aria-hidden="true" className="text-text-tertiary">
                       {sortColumn === header.id ? (
                         sortDirection === 'asc' ? '↑' : '↓'
                       ) : '↕'}
@@ -376,7 +376,7 @@ export const AccessibleDataTable: React.FC<AccessibleDataTableProps> = ({
           </tr>
         </thead>
 
-        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+        <tbody className="bg-surface divide-y divide-border">
           {loading ? (
             <tr>
               <td colSpan={headers.length} className="px-6 py-4 text-center">
@@ -387,19 +387,19 @@ export const AccessibleDataTable: React.FC<AccessibleDataTableProps> = ({
             </tr>
           ) : rows.length === 0 ? (
             <tr>
-              <td colSpan={headers.length} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+              <td colSpan={headers.length} className="px-6 py-4 text-center text-text-muted">
                 {emptyMessage}
               </td>
             </tr>
           ) : (
             rows.map((row, rowIndex) => (
-              <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+              <tr key={row.id} className="hover:bg-surface-secondary">
                 {row.cells.map((cell) => {
                   const header = headers.find(h => h.id === cell.headerId)
                   return (
                     <td
                       key={cell.headerId}
-                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100"
+                      className="px-6 py-4 whitespace-nowrap text-sm text-text-primary"
                       headers={cell.headerId}
                       aria-describedby={cell.description ? `${row.id}-${cell.headerId}-desc` : undefined}
                     >
@@ -462,11 +462,11 @@ export const ScreenReaderOptimizedForm: React.FC<{
       noValidate
     >
       <div>
-        <h2 id={`${formId}-title`} className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <h2 id={`${formId}-title`} className="text-lg font-semibold text-text-primary">
           {title}
         </h2>
         {description && (
-          <p id={`${formId}-description`} className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          <p id={`${formId}-description`} className="mt-1 text-sm text-text-secondary">
             {description}
           </p>
         )}
@@ -490,11 +490,11 @@ export const ScreenReaderOptimizedForm: React.FC<{
         <button
           type="submit"
           disabled={isSubmitting}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-inverse bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:opacity-50 disabled:cursor-not-allowed"
           aria-describedby={isSubmitting ? `${formId}-submitting` : undefined}
         >
           {isSubmitting && (
-            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-inverse" fill="none" viewBox="0 0 24 24" aria-hidden="true">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>

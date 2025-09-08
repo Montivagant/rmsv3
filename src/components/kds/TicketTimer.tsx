@@ -45,9 +45,9 @@ export function TicketTimer({
 
   const urgencyClasses = {
     normal: 'text-muted-foreground bg-surface',
-    warning: 'text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/30',
-    danger: 'text-red-700 bg-red-50 dark:text-red-400 dark:bg-red-950/30',
-  };
+    warning: 'text-warning bg-warning/10',
+    danger: 'text-error bg-error/10',
+  } as const;
 
   const pulseClasses = {
     normal: '',

@@ -77,16 +77,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const filteredNavItems = filterNavItemsByRole(navigationConfig, userRole);
   const filteredQuickActions = filterQuickActionsByRole(quickActionsConfig, userRole);
 
-  // Apply feature flags
-  const finalNavItems = filteredNavItems.map(item => ({
-    ...item,
-    children: item.children?.filter(child => {
-      if (child.featureFlag === 'kds') {
-        return kdsEnabled;
-      }
-      return true;
-    }),
-  }));
+  // Apply feature flags and hide stubs
+  const finalNavItems = filteredNavItems
+    .map(item => {
+      const children = item.children?.filter(child => {
+        if (child.stub) return false;
+        if (child.featureFlag === 'kds') return kdsEnabled;
+        return true;
+      });
+      return { ...item, children };
+    })
+    .filter(item => !item.stub);
 
   // Toggle section expansion
   const handleToggleSection = useCallback((sectionId: string) => {
@@ -165,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       `}>
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-lg">R</span>
+            <span className="text-inverse font-bold text-lg">R</span>
           </div>
           {!collapsed && (
             <span className="text-lg font-semibold text-text-primary">RMS v3</span>

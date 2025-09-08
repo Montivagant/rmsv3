@@ -319,6 +319,7 @@ export default function Counts() {
         suppliers={suppliers}
         storageAreas={storageAreas}
         loading={loading}
+        simpleMode={true}
       />
     </div>
   );

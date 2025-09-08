@@ -259,7 +259,7 @@ export const FormSectionComponent: React.FC<FormSectionProps> = ({
     <div className={cn('border border-gray-200 dark:border-gray-700 rounded-lg', className)}>
       <div
         className={cn(
-          'flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors',
+          'flex items-center justify-between p-4 cursor-pointer hover:bg-surface-secondary transition-colors',
           section.collapsible && 'cursor-pointer'
         )}
         onClick={section.collapsible ? onToggle : undefined}
@@ -271,11 +271,11 @@ export const FormSectionComponent: React.FC<FormSectionProps> = ({
             </div>
           )}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h3 className="text-lg font-medium text-text-primary">
               {section.title}
             </h3>
             {section.description && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary mt-1">
                 {section.description}
               </p>
             )}
@@ -285,7 +285,7 @@ export const FormSectionComponent: React.FC<FormSectionProps> = ({
         {section.collapsible && (
           <svg
             className={cn(
-              'w-5 h-5 text-gray-400 transition-transform duration-200',
+              'w-5 h-5 text-text-tertiary transition-transform duration-200',
               isExpanded ? 'transform rotate-180' : ''
             )}
             fill="none"
@@ -339,10 +339,10 @@ export const WizardStep: React.FC<WizardStepProps> = ({
             className={cn(
               'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium',
               isCompleted
-                ? 'bg-green-600 text-white'
+                ? 'bg-success-600 text-text-inverse'
                 : isActive
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                ? 'bg-brand-600 text-text-inverse'
+                : 'bg-surface-secondary text-text-secondary'
             )}
           >
             {isCompleted ? (
@@ -355,11 +355,11 @@ export const WizardStep: React.FC<WizardStepProps> = ({
           </div>
           
           <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <h3 className="text-lg font-medium text-text-primary">
               {step.title}
             </h3>
             {step.description && (
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-text-secondary">
                 {step.description}
               </p>
             )}
@@ -368,13 +368,13 @@ export const WizardStep: React.FC<WizardStepProps> = ({
         
         {/* Progress indicator */}
         <div className="flex-1 mx-4">
-          <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full">
+      <div className="h-2 bg-surface-secondary rounded-full">
             <div
               className="h-2 bg-brand rounded-full transition-all duration-300"
               style={{ '--progress-width': `${((stepIndex + 1) / totalSteps) * 100}%`, width: 'var(--progress-width)' } as React.CSSProperties}
             />
           </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
+          <div className="text-xs text-text-muted mt-1 text-center">
             Step {stepIndex + 1} of {totalSteps}
           </div>
         </div>
@@ -382,7 +382,7 @@ export const WizardStep: React.FC<WizardStepProps> = ({
       
       {/* Step Content */}
       {isActive && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-surface rounded-lg border border-border p-6">
           {children}
         </div>
       )}

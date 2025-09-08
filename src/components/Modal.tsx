@@ -117,9 +117,7 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
     if (!isOpen) return null;
 
     const modalContent = (
-      <div 
-        className="fixed inset-0 z-modal-backdrop bg-black/50 flex items-center justify-center p-4"
-      >
+      <div className="modal-backdrop">
         <div
           ref={(node) => { modalRef.current = node!; (layerRef as any).current = node; }}
           className={cn(

@@ -28,10 +28,10 @@ export function StatusColumn({
             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      color: 'text-amber-600 dark:text-amber-400',
-      bgColor: 'bg-amber-50 dark:bg-amber-950/20',
-      borderColor: 'border-amber-200 dark:border-amber-800',
-      countBg: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
+      color: 'text-warning',
+      bgColor: 'bg-warning/10',
+      borderColor: 'border-warning/20',
+      countBg: 'bg-warning/20 text-warning',
     },
     ready: {
       icon: (
@@ -40,10 +40,10 @@ export function StatusColumn({
             d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-      color: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-50 dark:bg-green-950/20',
-      borderColor: 'border-green-200 dark:border-green-800',
-      countBg: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
+      color: 'text-success',
+      bgColor: 'bg-success/10',
+      borderColor: 'border-success/20',
+      countBg: 'bg-success/20 text-success',
     },
     served: {
       icon: (
@@ -52,10 +52,10 @@ export function StatusColumn({
             d="M5 13l4 4L19 7" />
         </svg>
       ),
-      color: 'text-gray-600 dark:text-gray-400',
-      bgColor: 'bg-gray-50 dark:bg-gray-950/20',
-      borderColor: 'border-gray-200 dark:border-gray-700',
-      countBg: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+      color: 'text-text-secondary',
+      bgColor: 'bg-surface-secondary',
+      borderColor: 'border-border',
+      countBg: 'bg-surface-secondary text-text-secondary',
     },
   };
 

@@ -136,7 +136,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
       message: 'text-yellow-700 dark:text-yellow-300'
     },
     info: {
-      container: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',
+      container: 'bg-brand-50 border-brand-200',
       icon: 'text-blue-400',
       title: 'text-blue-800 dark:text-blue-200',
       message: 'text-blue-700 dark:text-blue-300'
@@ -190,8 +190,8 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
               </button>
               
               {detailsOpen && (
-                <div className="mt-2 p-3 bg-white/50 dark:bg-gray-800/50 rounded border">
-                  <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap font-mono">
+                <div className="mt-2 p-3 bg-surface-secondary rounded border border-border">
+                  <pre className="text-xs text-text-secondary whitespace-pre-wrap font-mono">
                     {error}
                   </pre>
                 </div>

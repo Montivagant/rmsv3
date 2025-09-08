@@ -61,6 +61,9 @@ const MenuCombos = lazy(() => import('./pages/menu/Combos'));
 const MenuAllergens = lazy(() => import('./pages/menu/settings/Allergens'));
 
 // Inventory pages
+const PurchaseOrders = lazy(() => import('./pages/inventory/PurchaseOrders'));
+const PurchaseOrdersNew = lazy(() => import('./pages/inventory/PurchaseOrdersNew'));
+const CostAdjustments = lazy(() => import('./pages/inventory/CostAdjustments'));
 const InventoryItems = lazy(() => import('./pages/inventory/Items'));
 const InventoryCounts = lazy(() => import('./pages/inventory/Counts'));
 const InventoryTransfers = lazy(() => import('./pages/inventory/Transfers'));
@@ -172,7 +175,7 @@ function AppContent() {
             <Route path="orders/history" element={<OrderHistory />} />
             
             {/* Inventory Routes */}
-            <Route path="inventory" element={<Inventory />} />
+            <Route path="inventory" element={<Navigate to="/inventory/items" replace />} />
             <Route path="inventory/items" element={
               <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
                 <InventoryItems />
@@ -218,7 +221,21 @@ function AppContent() {
                 <CountSheets />
               </RoleGuard>
             } />
-            <Route path="inventory/counts/new" element={
+            <Route path="inventory/purchase-orders" element={
+              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+                <PurchaseOrders />
+              </RoleGuard>
+            } />
+            <Route path="inventory/purchase-orders/new" element={
+              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+                <PurchaseOrdersNew />
+              </RoleGuard>
+            } />
+            <Route path="inventory/cost-adjustments" element={
+              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+                <CostAdjustments />
+              </RoleGuard>
+            } />            <Route path="inventory/counts/new" element={
               <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
                 <NewCountFromSheet />
               </RoleGuard>

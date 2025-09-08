@@ -149,7 +149,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
               <Input
                 value={currentUser}
                 disabled
-                className="bg-gray-50 dark:bg-gray-700"
+                className="bg-surface-secondary"
               />
             </div>
             <div className="flex items-end">
@@ -200,10 +200,10 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
                   disabled
                   className={`${
                     cashReconciliation.variance === 0 
-                      ? 'bg-green-50 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      ? 'bg-success/10 text-success'
                       : cashReconciliation.variance > 0
-                      ? 'bg-blue-50 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                      : 'bg-red-50 text-red-800 dark:bg-red-900 dark:text-red-200'
+                      ? 'bg-brand/10 text-brand'
+                      : 'bg-error/10 text-error'
                   }`}
                 />
               </div>
@@ -228,15 +228,15 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle>Z-Report #{currentReport.reportId}</CardTitle>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-text-secondary">
                   {formatDateTime(currentReport.startTime)} - {formatDateTime(currentReport.endTime)}
                 </p>
               </div>
               <div className="flex gap-2">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   currentReport.status === 'finalized' 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                    ? 'bg-success/10 text-success'
+                    : 'bg-warning/10 text-warning'
                 }`}>
                   {currentReport.status === 'finalized' ? 'Finalized' : 'Draft'}
                 </span>
@@ -257,28 +257,28 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  <div className="text-2xl font-bold text-success">
                     {formatCurrency(currentReport.salesSummary.finalTotal)}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Total Sales</div>
+                  <div className="text-sm text-text-secondary">Total Sales</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <div className="text-2xl font-bold text-brand">
                     {currentReport.salesSummary.transactionCount}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Transactions</div>
+                  <div className="text-sm text-text-secondary">Transactions</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                  <div className="text-2xl font-bold text-brand">
                     {currentReport.salesSummary.itemCount}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Items Sold</div>
+                  <div className="text-sm text-text-secondary">Items Sold</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                  <div className="text-2xl font-bold text-brand">
                     {formatCurrency(currentReport.salesSummary.averageTicket)}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Average Ticket</div>
+                  <div className="text-sm text-text-secondary">Average Ticket</div>
                 </div>
               </div>
               
@@ -287,7 +287,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
                   <span>Gross Sales:</span>
                   <span className="font-medium">{formatCurrency(currentReport.salesSummary.grossSales)}</span>
                 </div>
-                <div className="flex justify-between text-red-600 dark:text-red-400">
+                <div className="flex justify-between text-error">
                   <span>Total Discounts:</span>
                   <span className="font-medium">-{formatCurrency(currentReport.salesSummary.totalDiscounts)}</span>
                 </div>
@@ -319,7 +319,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
                   <span>Cash:</span>
                   <div className="text-right">
                     <div className="font-medium">{formatCurrency(currentReport.paymentSummary.cash.amount)}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm text-text-secondary">
                       {currentReport.paymentSummary.cash.count} transactions
                     </div>
                   </div>
@@ -328,7 +328,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
                   <span>Card:</span>
                   <div className="text-right">
                     <div className="font-medium">{formatCurrency(currentReport.paymentSummary.card.amount)}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm text-text-secondary">
                       {currentReport.paymentSummary.card.count} transactions
                     </div>
                   </div>
@@ -337,7 +337,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
                   <span>Other:</span>
                   <div className="text-right">
                     <div className="font-medium">{formatCurrency(currentReport.paymentSummary.other.amount)}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm text-text-secondary">
                       {currentReport.paymentSummary.other.count} transactions
                     </div>
                   </div>
@@ -347,7 +347,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
                   <span>Total:</span>
                   <div className="text-right">
                     <div>{formatCurrency(currentReport.paymentSummary.total.amount)}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm text-text-secondary">
                       {currentReport.paymentSummary.total.count} transactions
                     </div>
                   </div>
@@ -369,7 +369,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
                       <span>{(tax.rate * 100).toFixed(1)}% Tax:</span>
                       <div className="text-right">
                         <div className="font-medium">{formatCurrency(tax.taxAmount)}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                        <div className="text-sm text-text-secondary">
                           on {formatCurrency(tax.taxableAmount)}
                         </div>
                       </div>
@@ -393,7 +393,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
                       <span className="font-medium">{item.name}</span>
                       <div className="text-right">
                         <div className="font-medium">{formatCurrency(item.revenue)}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                        <div className="text-sm text-text-secondary">
                           {item.quantity} sold
                         </div>
                       </div>

@@ -40,7 +40,7 @@ export default function Tabs({ tabs, initialId, ariaLabel = 'Settings Sections',
               aria-selected={selected}
               aria-controls={`${t.id}-panel`}
               id={`${t.id}-tab`}
-              className={`px-3 py-2 border-b-2 ${selected ? 'border-brand-600 text-brand-700' : 'border-transparent text-gray-600'}`}
+              className={`px-3 py-2 border-b-2 ${selected ? 'border-brand text-brand' : 'border-transparent text-text-secondary'}`}
               onClick={() => handleTabChange(t.id)}
               type="button"
             >

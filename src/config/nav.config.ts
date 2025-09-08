@@ -9,6 +9,10 @@ export interface NavItem {
   order?: number;
   badgeId?: 'ordersCount' | 'lowStock' | 'expiringItems' | 'outOfStock';
   featureFlag?: string;
+  /**
+   * Marks this entry as a stub/inactive page. Sidebar should hide it by default.
+   */
+  stub?: boolean;
 }
 
 // Badge data hook type
@@ -183,11 +187,27 @@ export const navigationConfig: NavItem[] = [
         order: 6,
       },
       {
+        id: 'purchase-orders',
+        label: 'Purchase Orders',
+        path: '/inventory/purchase-orders',
+        roles: ['owner', 'tech_admin'],
+        order: 6,
+      },
+      {
+        id: 'cost-adjustments',
+        label: 'Cost Adjustments',
+        path: '/inventory/cost-adjustments',
+        roles: ['owner', 'tech_admin'],
+        order: 7,
+        stub: true,
+      },
+      {
         id: 'inventory-history',
         label: 'History',
         path: '/inventory/history',
         roles: ['owner', 'tech_admin'],
-        order: 7,
+        order: 8,
+        stub: true,
       },
       {
         id: 'recipes',

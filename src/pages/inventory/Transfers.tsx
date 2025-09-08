@@ -32,6 +32,8 @@ export default function Transfers() {
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
   const [showCompleteDrawer, setShowCompleteDrawer] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Transfer | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [queryParams, setQueryParams] = useState<TransferQuery>({
     page: 1,
@@ -235,35 +237,9 @@ export default function Transfers() {
       });
       return;
     }
-
-    if (!confirm('Are you sure you want to delete this transfer?')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/inventory/transfers/${transfer.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete transfer');
-      }
-
-      showToast({
-        title: 'Transfer Deleted',
-        description: 'The transfer has been deleted successfully.',
-        variant: 'success'
-      });
-      
-      refetch();
-    } catch (error) {
-      showToast({
-        title: 'Error',
-        description: 'Failed to delete transfer',
-        variant: 'error'
-      });
-    }
-  }, [refetch, showToast]);
+    setPendingDelete(transfer);
+    setShowDeleteConfirm(true);
+  }, [showToast]);
 
   // Tab configuration
   const tabs = useMemo(() => [
@@ -458,6 +434,70 @@ export default function Transfers() {
               loading={isSubmitting}
             >
               Cancel Transfer
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setPendingDelete(null);
+        }}
+        title="Delete Transfer"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-text-secondary">
+            Are you sure you want to delete transfer <strong>{pendingDelete?.code}</strong>?
+            This action cannot be undone.
+          </p>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setPendingDelete(null);
+              }}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              loading={isSubmitting}
+              onClick={async () => {
+                if (!pendingDelete) return;
+                setIsSubmitting(true);
+                try {
+                  const response = await fetch(`/api/inventory/transfers/${pendingDelete.id}`, {
+                    method: 'DELETE'
+                  });
+                  if (!response.ok) {
+                    throw new Error('Failed to delete transfer');
+                  }
+                  showToast({
+                    title: 'Transfer Deleted',
+                    description: 'The transfer has been deleted successfully.',
+                    variant: 'success'
+                  });
+                  setShowDeleteConfirm(false);
+                  setPendingDelete(null);
+                  refetch();
+                } catch (error) {
+                  showToast({
+                    title: 'Error',
+                    description: 'Failed to delete transfer',
+                    variant: 'error'
+                  });
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+            >
+              Delete Transfer
             </Button>
           </div>
         </div>

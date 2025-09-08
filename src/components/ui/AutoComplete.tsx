@@ -542,14 +542,14 @@ export const SKUAutoComplete: React.FC<SKUAutoCompleteProps> = ({
   const renderOption = (option: AutoCompleteOption, isHighlighted: boolean) => (
     <div className={cn(
       'px-3 py-2 cursor-pointer',
-      isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+      isHighlighted ? 'bg-brand-50' : 'hover:bg-surface-secondary'
     )}>
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <div className="font-medium text-gray-900 dark:text-gray-100">
+          <div className="font-medium text-text-primary">
             {option.metadata?.sku} - {option.metadata?.name}
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="text-sm text-text-muted">
             ${option.metadata?.price?.toFixed(2)}
             {option.metadata?.quantity !== undefined && (
               <span className="ml-2">
@@ -559,7 +559,7 @@ export const SKUAutoComplete: React.FC<SKUAutoCompleteProps> = ({
           </div>
         </div>
         <div className="flex flex-col items-end">
-          <span className="text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
+          <span className="text-xs bg-surface-secondary text-text-secondary px-2 py-1 rounded">
             {option.category}
           </span>
           {option.metadata?.inStock === false && (

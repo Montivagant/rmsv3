@@ -56,7 +56,7 @@ export const MobileNavDrawer: React.FC<MobileNavDrawerProps> = ({
     <div className="fixed inset-0 z-50 lg:hidden">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity duration-300"
+        className="drawer-backdrop transition-opacity duration-300"
         aria-hidden="true"
       />
 

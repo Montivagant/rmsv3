@@ -5,6 +5,8 @@
 @layer base {
   /* Design Tokens - CSS Custom Properties */
   :root {
+    /* Overlay/Backdrop */
+    --color-backdrop: 0 0 0;
     /* Brand Colors */
     --color-brand-50: 239 246 255;
     --color-brand-100: 219 234 254;
@@ -202,6 +204,29 @@
     font-size: var(--font-size-2xl);
     font-weight: 600;
     line-height: var(--line-height-tight);
+  }
+
+  /* Layout helpers for CSS var-driven grid templates (used to avoid inline gridTemplateColumns) */
+  .grid-cols-var {
+    display: grid;
+    grid-template-columns: var(--grid-template);
+  }
+
+  /* Dropdown menu positioning via CSS variables */
+  .menu-position {
+    position: fixed;
+    top: var(--menu-top);
+    left: var(--menu-left);
+  }
+
+  /* Virtualization helpers */
+  .virtual-container {
+    position: relative;
+    height: var(--virtual-total-height);
+  }
+  .virtual-row {
+    transform: translateY(var(--row-y));
+    height: var(--row-h);
   }
 
   /* Form Elements */
@@ -505,7 +530,7 @@
   .modal-backdrop {
     position: fixed;
     inset: 0;
-    background-color: rgb(0 0 0 / 0.5);
+    background-color: rgb(var(--color-backdrop) / 0.5);
     z-index: var(--z-modal-backdrop);
     display: flex;
     align-items: center;
@@ -528,7 +553,7 @@
   .drawer-backdrop {
     position: fixed;
     inset: 0;
-    background-color: rgb(0 0 0 / 0.5);
+    background-color: rgb(var(--color-backdrop) / 0.5);
     z-index: var(--z-modal-backdrop);
   }
 
@@ -622,6 +647,10 @@
 }
 
 @layer utilities {
+  /* Backdrop/Scrim Utility */
+  .bg-scrim {
+    background-color: rgb(var(--color-backdrop) / 0.5);
+  }
   /* Spacing Utilities */
   .space-y-form > * + * {
     margin-top: var(--spacing-4);

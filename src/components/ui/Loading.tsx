@@ -27,14 +27,14 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   }
 
   const colorClasses = {
-    primary: 'border-blue-600 border-t-transparent',
-    secondary: 'border-gray-600 border-t-transparent',
-    white: 'border-white border-t-transparent',
-    gray: 'border-gray-400 border-t-transparent'
+    primary: 'border-brand-600 border-t-transparent',
+    secondary: 'border-text-secondary border-t-transparent',
+    white: 'border-text-inverse border-t-transparent',
+    gray: 'border-text-tertiary border-t-transparent'
   }
 
   return (
-    <div 
+    <div
       className={cn(
         'animate-spin rounded-full border-2',
         sizeClasses[size],
@@ -79,8 +79,8 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   return (
     <div
       className={cn(
-        'bg-gray-200 dark:bg-gray-700',
-        animate && 'animate-pulse',
+        'skeleton',
+        !animate && 'animate-none',
         variantClasses[variant],
         className
       )}
@@ -107,9 +107,9 @@ export const TableSkeleton: React.FC<TableSkeletonProps> = ({
 }) => {
   return (
     <div className={cn('w-full', className)} role="status" aria-label="Loading table">
-      <div className="overflow-hidden border border-gray-200 dark:border-gray-700 rounded-lg">
+      <div className="overflow-hidden border border-border rounded-lg">
         {showHeader && (
-          <div className="bg-gray-50 dark:bg-gray-800 px-6 py-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="bg-surface-secondary px-6 py-3 border-b border-border">
             <div className="flex space-x-4">
               {Array.from({ length: columns }, (_, i) => (
                 <Skeleton key={i} className="h-4 flex-1" />
@@ -117,7 +117,7 @@ export const TableSkeleton: React.FC<TableSkeletonProps> = ({
             </div>
           </div>
         )}
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+        <div className="divide-y divide-border">
           {Array.from({ length: rows }, (_, rowIndex) => (
             <div key={rowIndex} className="px-6 py-4">
               <div className="flex space-x-4">
@@ -154,7 +154,7 @@ export const CardSkeleton: React.FC<CardSkeletonProps> = ({
   return (
     <div 
       className={cn(
-        'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6',
+        'bg-surface rounded-lg border border-border p-6',
         className
       )}
       role="status"
@@ -255,10 +255,10 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   }
 
   const colorClasses = {
-    primary: 'bg-blue-600',
-    success: 'bg-green-600',
-    warning: 'bg-yellow-600',
-    error: 'bg-red-600'
+    primary: 'bg-brand-600',
+    success: 'bg-success-600',
+    warning: 'bg-warning-600',
+    error: 'bg-error-600'
   }
 
   const progress = Math.min(Math.max(value, 0), 100)
@@ -267,11 +267,11 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     <div className={cn('w-full', className)}>
       {showLabel && (
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-700 dark:text-gray-300">
+          <span className="text-sm text-text-secondary">
             {label || 'Progress'}
           </span>
           {!indeterminate && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-text-muted">
               {progress}%
             </span>
           )}
@@ -279,7 +279,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       )}
       
       <div className={cn(
-        'bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden',
+        'bg-surface-secondary rounded-full overflow-hidden',
         sizeClasses[size]
       )}>
         <div
@@ -323,23 +323,23 @@ export const OptimisticWrapper: React.FC<OptimisticWrapperProps> = ({
 }) => {
   if (error) {
     return (
-      <div className={cn('bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4', className)}>
+      <div className={cn('bg-error-50 border border-error-200 rounded-md p-4', className)}>
         <div className="flex items-center">
-          <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="h-5 w-5 text-error-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
           <div className="flex-1">
-            <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+            <h3 className="text-sm font-medium text-error-700">
               Something went wrong
             </h3>
-            <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+            <p className="text-sm text-error-600 mt-1">
               {error}
             </p>
           </div>
           {retryAction && (
             <button
               onClick={retryAction}
-              className="ml-3 bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 px-3 py-1 rounded-md text-sm font-medium hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
+              className="ml-3 bg-error-100 text-error-800 px-3 py-1 rounded-md text-sm font-medium hover:bg-error-200 transition-colors"
             >
               Retry
             </button>
@@ -353,7 +353,7 @@ export const OptimisticWrapper: React.FC<OptimisticWrapperProps> = ({
     <div className={cn(isPending && 'opacity-75 pointer-events-none transition-opacity', className)}>
       {isPending && pendingContent ? pendingContent : children}
       {isPending && !pendingContent && (
-        <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center rounded-md">
+        <div className="absolute inset-0 bg-scrim flex items-center justify-center rounded-md">
           <LoadingSpinner size="lg" />
         </div>
       )}

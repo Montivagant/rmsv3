@@ -146,3 +146,17 @@ afterEach(() => {
 afterAll(() => {
   // server?.close()
 })
+// Silence noisy console output during tests (router future flags, jsdom focus loops)
+const originalWarn = console.warn.bind(console)
+const originalError = console.error.bind(console)
+console.warn = (...args: any[]) => {
+  const msg = args?.[0]?.toString?.() || ''
+  if (/React Router Future Flag Warning/.test(msg)) return
+  originalWarn(...args)
+}
+console.error = (...args: any[]) => {
+  const msg = args?.[0]?.toString?.() || ''
+  if (/React Router Future Flag Warning/.test(msg)) return
+  if (/Maximum call stack size exceeded/.test(msg)) return
+  originalError(...args)
+}

@@ -47,7 +47,7 @@ export default function Toggle({
         <span
           aria-hidden="true"
           className={cn(
-            'pointer-events-none inline-block rounded-full bg-white shadow',
+            'pointer-events-none inline-block rounded-full bg-surface shadow',
             'transition-transform duration-200 ease-in-out',
             dimensions.knob,
             checked && dimensions.knobChecked

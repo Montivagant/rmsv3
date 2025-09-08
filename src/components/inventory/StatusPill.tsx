@@ -16,21 +16,22 @@ export function StatusPill({
   dot = true,
   className,
 }: StatusPillProps) {
+  // Use semantic design tokens instead of palette colors
   const statusStyles = {
-    success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-    warning: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-    danger: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-    info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    default: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  };
+    success: 'bg-success/20 text-success',
+    warning: 'bg-warning/20 text-warning',
+    danger: 'bg-error/20 text-error',
+    info: 'bg-brand/20 text-brand',
+    default: 'bg-surface-secondary text-text-secondary',
+  } as const;
 
   const dotColors = {
-    success: 'bg-green-500',
-    warning: 'bg-amber-500',
-    danger: 'bg-red-500',
-    info: 'bg-blue-500',
-    default: 'bg-gray-500',
-  };
+    success: 'bg-success',
+    warning: 'bg-warning',
+    danger: 'bg-error',
+    info: 'bg-brand',
+    default: 'bg-border',
+  } as const;
 
   const sizeStyles = {
     sm: 'px-2 py-0.5 text-xs',

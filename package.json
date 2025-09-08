@@ -19,6 +19,8 @@
     "analyze": "npm-bundle-analyzer dist/assets/*.js",
     "security:scan": "npm audit --audit-level moderate",
     "quality:check": "npm run typecheck && npm run lint && npm run test:coverage && npm run security:scan",
+    "style:scan": "rg -n --glob 'src/**/*.{ts,tsx,jsx}' --stats -e 'style=\\{\\{' -e 'text-(white|gray|slate|neutral)' -e 'bg-(white|black|gray|blue|slate|neutral)'",
+    "style:check": "pnpm -s style:scan && echo 'If matches found above, replace with tokens'",
     "electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron electron/main.cjs",
     "electron:dev": "concurrently \"pnpm dev\" \"pnpm electron\"",
     "electron:build": "pnpm build && electron-builder",

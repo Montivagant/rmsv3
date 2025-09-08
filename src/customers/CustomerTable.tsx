@@ -352,10 +352,10 @@ export function CustomerTable({
       {/* Table header */}
       <div role="table" aria-rowcount={total} aria-colcount={table.getVisibleLeafColumns().length}>
         <div
-          className="grid px-4 py-2 border-b border-border bg-surface-elevated sticky top-0 z-10"
+          className="grid grid-cols-var px-4 py-2 border-b border-border bg-surface-secondary sticky top-0 z-10"
           role="row"
           aria-rowindex={1}
-          style={{ gridTemplateColumns: gridTemplate }}
+          style={{ ['--grid-template' as any]: gridTemplate }}
         >
           {headerGroups.map((hg) =>
             hg.headers.map((header) => {
@@ -430,8 +430,8 @@ export function CustomerTable({
             <div className="p-6 text-sm text-text-secondary">No customers found.</div>
           ) : (
             <div
-              className="relative w-full"
-              style={{ height: `${totalSize}px` }}
+              className="relative w-full virtual-container"
+              style={{ ['--virtual-total-height' as any]: `${totalSize}px` }}
             >
               {virtualItems.map((vi) => {
                 const row = rows[vi.index];
@@ -439,14 +439,14 @@ export function CustomerTable({
                 return (
                   <div
                     key={row.id}
-                    className="absolute left-0 right-0 grid items-center px-4 border-b border-border hover:bg-accent/40 focus-within:bg-accent/40 cursor-pointer"
+                    className="absolute left-0 right-0 grid grid-cols-var virtual-row items-center px-4 border-b border-border hover:bg-accent/40 focus-within:bg-accent/40 cursor-pointer"
                     role="row"
                     tabIndex={0}
                     aria-rowindex={vi.index + 2}
                     style={{
-                      transform: `translateY(${vi.start}px)`,
-                      height: `${vi.size}px`,
-                      gridTemplateColumns: gridTemplate
+                      ['--row-y' as any]: `${vi.start}px`,
+                      ['--row-h' as any]: `${vi.size}px`,
+                      ['--grid-template' as any]: gridTemplate,
                     }}
                     onClick={() => onRowClick(c)}
                     onKeyDown={(e) => {

@@ -74,10 +74,10 @@ export function LoadingOverlay({
     <div className={`relative ${className}`}>
       {children}
       {isLoading && (
-        <div className="absolute inset-0 bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-10 rounded-md">
+        <div className="absolute inset-0 bg-background/70 backdrop-blur-sm flex items-center justify-center z-10 rounded-md">
           <div className="flex flex-col items-center space-y-3">
             <LoadingSpinner size="lg" />
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <p className="text-sm font-medium text-text-secondary">
               {message}
             </p>
           </div>
@@ -100,7 +100,7 @@ export function Skeleton({
   className = '', 
   variant = 'rectangular' 
 }: SkeletonProps) {
-  const baseClasses = 'animate-pulse bg-gray-200 dark:bg-gray-700';
+  const baseClasses = 'animate-pulse bg-surface-secondary';
   
   const variantClasses = {
     text: 'rounded',
@@ -188,7 +188,7 @@ export function SkeletonCard({
   className = '' 
 }: SkeletonCardProps) {
   return (
-    <div className={`p-4 border border-gray-200 dark:border-gray-700 rounded-lg ${className}`}>
+    <div className={`p-4 border border-border rounded-lg ${className}`}>
       <div className="flex items-start space-x-3">
         {showAvatar && (
           <Skeleton variant="circular" width={40} height={40} />

@@ -324,7 +324,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       `}>
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-lg">D</span>
+            <span className="text-inverse font-bold text-lg">D</span>
           </div>
           {!collapsed && (
             <span className="text-lg font-semibold text-text-primary">DashUp</span>

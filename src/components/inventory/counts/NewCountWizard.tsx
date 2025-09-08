@@ -26,6 +26,8 @@ interface NewCountWizardProps {
   suppliers?: Array<{ id: string; name: string }>;
   storageAreas?: Array<{ id: string; name: string }>;
   loading?: boolean;
+  /** When true, render single-step UI (branch + scope together) */
+  simpleMode?: boolean;
 }
 
 type WizardStep = 'branch' | 'scope' | 'confirmation';
@@ -39,7 +41,8 @@ export default function NewCountWizard({
   categories = [],
   suppliers = [],
   storageAreas = [],
-  loading = false
+  loading = false,
+  simpleMode = false
 }: NewCountWizardProps) {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<WizardStep>('branch');
@@ -298,7 +301,7 @@ export default function NewCountWizard({
   };
 
   // Step utilities
-  const totalSteps = 3;
+  const totalSteps = simpleMode ? 1 : 3;
   const currentStepIndex = ['branch', 'scope', 'confirmation'].indexOf(currentStep);
   const stepTitles: Record<WizardStep, string> = {
     'branch': 'Select Branch Location',
@@ -331,6 +334,193 @@ export default function NewCountWizard({
         return false;
     }
   };
+
+  // Simple single-step mode: show Branch + Scope together and create directly
+  if (simpleMode) {
+    return (
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Create New Inventory Count"
+        description="Choose a branch and scope to start counting"
+        size="lg"
+        closeOnOverlayClick={!isSubmitting}
+      >
+        <div className="space-y-8 p-6">
+          {/* Branch + Freeze */}
+          <div className="space-y-6">
+            <div>
+              <Label htmlFor="branch-select" required>
+                Branch Location
+              </Label>
+              <Select
+                id="branch-select"
+                value={formData.branchId}
+                onValueChange={(value) => {
+                  setFormData(prev => ({ ...prev, branchId: value }));
+                  if (errors.branchId) setErrors(prev => ({ ...prev, branchId: '' }));
+                }}
+                placeholder="Select branch location..."
+                options={branches.map(branch => ({ value: branch.id, label: `${branch.name} (${branch.type})` }))}
+                error={errors.branchId}
+              />
+            </div>
+
+            <div className="bg-surface-secondary/30 p-4 rounded-md border border-border">
+              <div className="flex items-center">
+                <Checkbox
+                  id="freeze-inventory"
+                  checked={freezeInventory}
+                  onChange={(e) => setFreezeInventory(e.target.checked)}
+                />
+                <Label htmlFor="freeze-inventory" className="ml-2 cursor-pointer">
+                  Freeze Inventory During Count
+                  <Tooltip content="Prevents inventory adjustments while counting to maintain accuracy" side="right">
+                    <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-surface-secondary text-text-muted text-xs">?</span>
+                  </Tooltip>
+                </Label>
+              </div>
+
+              {freezeInventory && (
+                <div className="mt-4 ml-6 space-y-2">
+                  <Label htmlFor="estimated-duration" required>
+                    Estimated Duration (minutes)
+                  </Label>
+                  <Input
+                    id="estimated-duration"
+                    type="number"
+                    value={formData.estimatedDurationMinutes?.toString() || '60'}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 60;
+                      setFormData(prev => ({ ...prev, estimatedDurationMinutes: value }));
+                      if (errors.estimatedDurationMinutes) setErrors(prev => ({ ...prev, estimatedDurationMinutes: '' }));
+                    }}
+                    min="15"
+                    max="480"
+                    error={errors.estimatedDurationMinutes}
+                    helpText="Set the time limit for the inventory freeze (15-480 minutes)"
+                    className="w-28"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Scope */}
+          <div className="space-y-6">
+            <div>
+              <Label>Count Scope</Label>
+              <div className="mt-3">
+                <RadioGroup value={scopeType} onChange={handleScopeTypeChange} name="scope-type">
+                  <RadioOption value="all">
+                    <RadioOptionContent title="All Items" description="Count all active inventory items at selected branch" />
+                  </RadioOption>
+                  <RadioOption value="countSheet">
+                    <RadioOptionContent title="Use Count Sheet" description="Select from saved count templates with predefined item scopes" />
+                  </RadioOption>
+                </RadioGroup>
+              </div>
+            </div>
+
+            {scopeType === 'countSheet' && (
+              <div className="space-y-4">
+                <div className="p-4 border border-border rounded-lg bg-surface-secondary/50">
+                  <Label htmlFor="sheet-select" className="mb-2 block" required>
+                    Select Count Sheet
+                  </Label>
+                  {sheetsLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-10 w-full" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ) : countSheets.length > 0 ? (
+                    <>
+                      <div className="space-y-2 max-h-56 overflow-y-auto pb-2">
+                        {countSheets.map(sheet => {
+                          const preview = sheetPreviews[sheet.id];
+                          const isLoading = !preview || preview.loading;
+                          const isEmpty = preview?.totalItems === 0;
+                          const isSelected = selectedSheetId === sheet.id;
+                          const isDisabled = isLoading || isEmpty;
+                          return (
+                            <div
+                              key={sheet.id}
+                              className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                                isDisabled ? 'opacity-60 cursor-not-allowed' :
+                                isSelected ? 'border-brand-600 bg-brand-50' :
+                                'border-border hover:bg-surface-secondary'
+                              }`}
+                              onClick={() => !isDisabled && handleCountSheetChange(sheet.id)}
+                              role="button"
+                              tabIndex={isDisabled ? -1 : 0}
+                              aria-selected={isSelected}
+                              aria-disabled={isDisabled}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h4 className="font-medium text-text-primary">{sheet.name}</h4>
+                                  <div className="text-xs text-text-muted mt-1">
+                                    {CountSheetUtils.formatBranchScope(sheet.branchScope, branches)}
+                                  </div>
+                                </div>
+                                <div>
+                                  {isLoading ? (
+                                    <Badge variant="outline" size="sm">Loading...</Badge>
+                                  ) : isEmpty ? (
+                                    <Badge variant="destructive" size="sm" className="text-xs">Empty Sheet</Badge>
+                                  ) : (
+                                    <Badge variant="outline" size="sm" className="text-xs">
+                                      {preview.totalItems} {preview.totalItems === 1 ? 'item' : 'items'}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex justify-end mt-3">
+                        <Button variant="outline" size="sm" onClick={handleCreateNewSheet}>
+                          Create New Sheet
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center p-4">
+                      <p className="text-text-muted mb-3">No count sheets available.</p>
+                      <Button variant="outline" onClick={handleCreateNewSheet}>
+                        Create New Count Sheet
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {errors.countSheet && (
+                  <div className="p-3 bg-error-50 border border-error-200 rounded-lg">
+                    <p className="text-sm text-error-700">{errors.countSheet}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-2 border-t border-border">
+            <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              loading={isSubmitting}
+              disabled={loading || !canProceed('confirmation')}
+              onClick={handleSubmit}
+            >
+              Create Count
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

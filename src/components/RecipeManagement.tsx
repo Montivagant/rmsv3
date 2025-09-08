@@ -434,7 +434,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <MdRestaurant className="text-orange-600" />
+            <MdRestaurant className="text-warning-600" />
             {RECIPE_TEXT.RECIPE_MANAGEMENT}
           </h1>
           <p className="text-muted-foreground">{RECIPE_TEXT.CREATE_MANAGE_DESC}</p>
@@ -673,7 +673,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                   <span>${recipe.costing.costPerServing.toFixed(2)}/serving</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <FaUtensils className="text-purple-600" />
+                  <FaUtensils className="text-brand-600" />
                   <span>{recipe.ingredients.length} ingredients</span>
                 </div>
               </div>
@@ -780,8 +780,8 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                 <div className="text-lg font-semibold">${viewingRecipe.costing.costPerServing.toFixed(2)}</div>
                 <div className="text-sm text-muted-foreground">{RECIPE_TEXT.COST_SERVING}</div>
               </div>
-              <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
-                <FaUtensils className="text-2xl text-purple-600 mx-auto mb-2" />
+              <div className="text-center p-4 bg-brand-50 border border-brand-200 rounded-lg">
+                <FaUtensils className="text-2xl text-brand-600 mx-auto mb-2" />
                 <div className="text-lg font-semibold">{viewingRecipe.ingredients.length}</div>
                 <div className="text-sm text-muted-foreground">{RECIPE_TEXT.INGREDIENTS}</div>
               </div>

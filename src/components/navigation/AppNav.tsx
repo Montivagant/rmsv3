@@ -294,7 +294,7 @@ export const AppNav: React.FC<AppNavProps> = ({ userRole = 'staff', onNewAction,
       <div className="flex items-center justify-between px-4 py-4 border-b border-secondary">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">R</span>
+            <span className="text-inverse font-bold text-lg">R</span>
           </div>
           {!collapsed && <span className="text-lg font-semibold text-primary">RMS v3</span>}
         </div>

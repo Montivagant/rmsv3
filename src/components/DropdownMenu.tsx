@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import React, { useState, useRef, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../lib/utils';
 import { useDismissableLayer } from '../hooks/useDismissableLayer';
@@ -36,6 +36,7 @@ const DropdownMenu = ({
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuIdRef = useRef<string>(`dropdown-menu-${Math.random().toString(36).slice(2)}`);
   const { layerRef } = useDismissableLayer({
     isOpen,
     onDismiss: () => setIsOpen(false),
@@ -160,16 +161,14 @@ const DropdownMenu = ({
     <div
       ref={(node) => { menuRef.current = node; (layerRef as any).current = node; }}
       className={cn(
-        'fixed z-dropdown min-w-[12rem] rounded-lg border border-border-primary bg-surface shadow-lg',
+        'menu-position z-dropdown min-w-[12rem] rounded-lg border border-border bg-surface shadow-lg',
         'py-2 animate-fade-in',
         align === 'center' && 'transform -translate-x-1/2',
         align === 'end' && 'transform -translate-x-full',
         className
       )}
-      style={{
-        top: position.top,
-        left: position.left,
-      }}
+      style={{ ['--menu-top' as any]: `${position.top}px`, ['--menu-left' as any]: `${position.left}px` }}
+      id={menuIdRef.current}
       role="menu"
       aria-orientation="vertical"
     >
@@ -177,15 +176,101 @@ const DropdownMenu = ({
     </div>
   ) : null;
 
-  return (
-    <>
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!isOpen) updatePosition();
+      setIsOpen(true);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!isOpen) updatePosition();
+      setIsOpen(true);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!isOpen) updatePosition();
+      setIsOpen(true);
+      setTimeout(() => {
+        const items = menuRef.current?.querySelectorAll('[role="menuitem"]:not([disabled])');
+        if (items && items.length) {
+          (items[items.length - 1] as HTMLElement).focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Dev-only: warn about duplicate buttons with the same accessible label
+  useEffect(() => {
+    // Avoid in tests; only in dev browser
+    const env = (import.meta as any).env?.MODE || ((import.meta as any).env?.DEV ? 'development' : 'production');
+    const isDev = typeof window !== 'undefined' && env === 'development';
+    if (!isOpen || !isDev) return;
+    try {
+      const nodes = Array.from(document.querySelectorAll('button, [role="button"]')) as HTMLElement[];
+      const map = new Map<string, number>();
+      nodes.forEach((el) => {
+        const label = (el.getAttribute('aria-label') || el.textContent || '').trim();
+        if (!label) return;
+        map.set(label, (map.get(label) || 0) + 1);
+      });
+      map.forEach((count, label) => {
+        if (count > 1) {
+          // eslint-disable-next-line no-console
+          console.warn(`[a11y:dup-buttons] Found ${count} buttons with label "${label}" on the page.`);
+        }
+      });
+    } catch {
+      // ignore
+    }
+  }, [isOpen]);
+
+  // Render trigger: enhance interactive element directly to avoid nesting
+  let triggerNode: React.ReactNode;
+  if (React.isValidElement(trigger)) {
+    const original = trigger as React.ReactElement<any>;
+    const origOnClick = original.props.onClick as ((e: any) => void) | undefined;
+    const origOnKeyDown = original.props.onKeyDown as ((e: any) => void) | undefined;
+    triggerNode = React.cloneElement(original, {
+      ref: (node: HTMLElement) => {
+        const r: any = (original as any).ref;
+        if (typeof r === 'function') r(node);
+        (triggerRef as any).current = node;
+      },
+      onClick: (e: any) => {
+        origOnClick?.(e);
+        handleTriggerClick();
+      },
+      onKeyDown: (e: any) => {
+        origOnKeyDown?.(e);
+        handleTriggerKeyDown(e);
+      },
+      'aria-haspopup': 'menu',
+      'aria-expanded': isOpen,
+      'aria-controls': isOpen ? menuIdRef.current : undefined,
+      'aria-disabled': disabled,
+    });
+  } else {
+    triggerNode = (
       <div
         ref={triggerRef}
         onClick={handleTriggerClick}
+        onKeyDown={handleTriggerKeyDown}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? menuIdRef.current : undefined}
+        aria-disabled={disabled}
         className={cn(disabled && 'opacity-50 cursor-not-allowed')}
       >
         {trigger}
       </div>
+    );
+  }
+
+  return (
+    <>
+      {triggerNode}
       {menu && createPortal(menu, document.body)}
     </>
   );
