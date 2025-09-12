@@ -50,6 +50,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     closeOnEscape: true,
     closeOnRouteChange: true,
     triggerRef: searchTriggerRef,
+    closeOthersOnOpen: false,
   });
 
   const { layerRef: notifLayerRef } = useDismissableLayer({
@@ -59,6 +60,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     closeOnEscape: true,
     closeOnRouteChange: true,
     triggerRef: notifTriggerRef,
+    closeOthersOnOpen: false,
   });
 
   const { layerRef: profileLayerRef } = useDismissableLayer({
@@ -68,6 +70,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     closeOnEscape: true,
     closeOnRouteChange: true,
     triggerRef: profileTriggerRef,
+    closeOthersOnOpen: false,
   });
 
 
