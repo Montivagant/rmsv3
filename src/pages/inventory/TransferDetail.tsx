@@ -6,6 +6,7 @@ import { Badge } from '../../components/Badge';
 import { Modal } from '../../components/Modal';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
+// Import namespace to allow test-time mutation of exports via vi.mock/vi.doMock
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../hooks/useToast';
 import { TransferStatusBadge } from '../../components/inventory/transfers/TransferStatusBadge';
@@ -391,14 +392,14 @@ export default function TransferDetail() {
                   className="w-full"
                   onClick={handleComplete}
                 >
-                  Complete Transfer
+                  Finish Transfer
                 </Button>
                 <Button
                   variant="destructive"
                   className="w-full"
                   onClick={handleCancel}
                 >
-                  Cancel
+                  Cancel Draft
                 </Button>
               </CardContent>
             </Card>

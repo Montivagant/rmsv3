@@ -18,26 +18,17 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('../../../hooks/useApi', () => ({
-  useApi: (url: string | null) => {
-    if (url === '/api/inventory/transfers/transfer-1') {
-      return {
-        data: mockTransfer,
-        loading: false,
-        error: null,
-        refetch: vi.fn()
-      };
-    }
-    if (url === '/api/inventory/locations') {
-      return {
-        data: mockLocations,
-        loading: false,
-        error: null
-      };
-    }
-    return { data: null, loading: false, error: null };
-  }
-}));
+// Hoisted controllable mock for useApi so we can change behavior per test without re-importing
+let __mockUseApiImpl: (url: string | null) => any;
+vi.mock('../../../hooks/useApi', () => {
+  const fn = vi.fn((url: string | null) => __mockUseApiImpl(url));
+  return {
+    useApi: fn,
+    __setUseApiMock: (impl: typeof __mockUseApiImpl) => { __mockUseApiImpl = impl; }
+  };
+});
+// Import the mocked module namespace to access the setter
+import * as useApiModule from '../../../hooks/useApi';
 
 vi.mock('../../../hooks/useToast', () => ({
   useToast: () => ({
@@ -83,6 +74,16 @@ function renderWithRouter(component: React.ReactElement) {
 describe('TransferDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default mock implementation: happy path
+    (useApiModule as any).__setUseApiMock((url: string | null) => {
+      if (url === '/api/inventory/transfers/transfer-1') {
+        return { data: mockTransfer, loading: false, error: null, refetch: vi.fn() };
+      }
+      if (url === '/api/inventory/locations') {
+        return { data: mockLocations, loading: false, error: null };
+      }
+      return { data: null, loading: false, error: null };
+    });
   });
 
   describe('Rendering', () => {
@@ -137,15 +138,15 @@ describe('TransferDetail', () => {
         status: 'COMPLETED' as const,
         completedBy: 'test-user'
       };
-      
-      vi.doMock('../../../hooks/useApi', () => ({
-        useApi: (url: string | null) => {
-          if (url === '/api/inventory/transfers/transfer-1') {
-            return { data: completedTransfer, loading: false, error: null, refetch: vi.fn() };
-          }
+      (useApiModule as any).__setUseApiMock((url: string | null) => {
+        if (url === '/api/inventory/transfers/transfer-1') {
+          return { data: completedTransfer, loading: false, error: null, refetch: vi.fn() };
+        }
+        if (url === '/api/inventory/locations') {
           return { data: mockLocations, loading: false, error: null };
         }
-      }));
+        return { data: null, loading: false, error: null };
+      });
 
       renderWithRouter(<TransferDetail />);
 
@@ -162,15 +163,15 @@ describe('TransferDetail', () => {
         lines: mockTransfer.lines.map(line => ({ ...line, qtyFinal: line.qtyPlanned - 0.5 })),
         completedBy: 'test-user'
       };
-      
-      vi.doMock('../../../hooks/useApi', () => ({
-        useApi: (url: string | null) => {
-          if (url === '/api/inventory/transfers/transfer-1') {
-            return { data: completedTransfer, loading: false, error: null, refetch: vi.fn() };
-          }
+      (useApiModule as any).__setUseApiMock((url: string | null) => {
+        if (url === '/api/inventory/transfers/transfer-1') {
+          return { data: completedTransfer, loading: false, error: null, refetch: vi.fn() };
+        }
+        if (url === '/api/inventory/locations') {
           return { data: mockLocations, loading: false, error: null };
         }
-      }));
+        return { data: null, loading: false, error: null };
+      });
 
       renderWithRouter(<TransferDetail />);
 
@@ -222,14 +223,15 @@ describe('TransferDetail', () => {
 
   describe('Error States', () => {
     it('should show error state when transfer not found', () => {
-      vi.doMock('../../../hooks/useApi', () => ({
-        useApi: () => ({
-          data: null,
-          loading: false,
-          error: new Error('Not found'),
-          refetch: vi.fn()
-        })
-      }));
+      (useApiModule as any).__setUseApiMock((url: string | null) => {
+        if (url === '/api/inventory/transfers/transfer-1') {
+          return { data: null, loading: false, error: new Error('Not found'), refetch: vi.fn() };
+        }
+        if (url === '/api/inventory/locations') {
+          return { data: mockLocations, loading: false, error: null };
+        }
+        return { data: null, loading: false, error: null };
+      });
 
       renderWithRouter(<TransferDetail />);
 
@@ -239,14 +241,15 @@ describe('TransferDetail', () => {
     });
 
     it('should show loading state', () => {
-      vi.doMock('../../../hooks/useApi', () => ({
-        useApi: () => ({
-          data: null,
-          loading: true,
-          error: null,
-          refetch: vi.fn()
-        })
-      }));
+      (useApiModule as any).__setUseApiMock((url: string | null) => {
+        if (url === '/api/inventory/transfers/transfer-1') {
+          return { data: null, loading: true, error: null, refetch: vi.fn() };
+        }
+        if (url === '/api/inventory/locations') {
+          return { data: mockLocations, loading: false, error: null };
+        }
+        return { data: null, loading: false, error: null };
+      });
 
       renderWithRouter(<TransferDetail />);
 
