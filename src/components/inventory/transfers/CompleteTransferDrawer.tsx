@@ -96,6 +96,7 @@ export default function CompleteTransferDrawer({
       onClose={onClose}
       title="Complete Transfer"
       size="lg"
+      aria-label="Complete Transfer"
     >
       <div className="space-y-6">
         {/* Warning Message */}
