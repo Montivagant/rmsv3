@@ -517,36 +517,37 @@ export default function NewCountWizard({
               {/* Scope Type Selection */}
               <div>
                 <Label>Audit Scope</Label>
-                  <RadioGroup
-                    value={scopeType}
+                <RadioGroup
+                  name="count-scope"
+                  value={scopeType}
                   onValueChange={(value) => handleScopeTypeChange(value as ScopeType)}
                   className="mt-3 space-y-3"
-                  >
-                    <RadioOption value="all">
-                      <RadioOptionContent
-                        title="All Items"
+                >
+                  <RadioOption value="all">
+                    <RadioOptionContent
+                      title="All Items"
                       description="Audit will include all active inventory items at selected branch"
                     />
                   </RadioOption>
                   <RadioOption value="categories">
                     <RadioOptionContent
-                      title="By Category"
+                      title="Filtered Items"
                       description="Select specific inventory categories to audit"
-                      />
-                    </RadioOption>
+                    />
+                  </RadioOption>
                   <RadioOption value="itemTypes">
-                      <RadioOptionContent
+                    <RadioOptionContent
                       title="By Item Type"
                       description="Select specific item types to audit"
-                      />
-                    </RadioOption>
-                  </RadioGroup>
+                    />
+                  </RadioOption>
+                </RadioGroup>
               </div>
 
               {/* Category Selection */}
               {scopeType === 'categories' && (
                 <div className="space-y-3">
-                  <Label required>Select Categories</Label>
+                  <Label required>Categories</Label>
                   <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
                     {!formData.branchId ? (
                       <p className="text-sm text-text-muted">Select a branch first.</p>
@@ -606,7 +607,7 @@ export default function NewCountWizard({
               {/* Item Type Selection */}
               {scopeType === 'itemTypes' && (
                 <div className="space-y-3">
-                  <Label required>Select Item Types</Label>
+                  <Label required>Item Types</Label>
                   <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
                     {!formData.branchId ? (
                       <p className="text-sm text-text-muted">Select a branch first.</p>
