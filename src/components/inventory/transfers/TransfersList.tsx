@@ -309,6 +309,7 @@ export function TransfersList({
               value={pageSize.toString()}
               onChange={(e) => onPageSizeChange(parseInt(e.target.value))}
               className="w-20"
+              label="Show"
             >
               <option value="10">10</option>
               <option value="25">25</option>
