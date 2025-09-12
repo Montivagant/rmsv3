@@ -169,7 +169,7 @@ export default function TransferDetail() {
   }
 
   // Error state
-  if (error || !transfer) {
+  if (error || (!loading && !transfer)) {
     return (
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <EmptyState
