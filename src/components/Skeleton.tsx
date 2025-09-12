@@ -1,6 +1,6 @@
-import { forwardRef } from 'react';
+﻿import { forwardRef } from 'react';
 import type { HTMLAttributes } from 'react';
-import { cn } from '../utils/cn';
+import { cn } from '../lib/utils';
 
 interface SkeletonProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'text' | 'circular' | 'rectangular' | 'rounded';
@@ -52,6 +52,7 @@ const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
           className
         )}
         style={style}
+        data-testid="skeleton"
         {...props}
       />
     );
@@ -93,7 +94,7 @@ const SkeletonTable = forwardRef<HTMLDivElement, { rows?: number; columns?: numb
         {...props}
       >
         {/* Header */}
-        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+        <div className="grid gap-4 grid-cols-var" style={{ ['--grid-template' as any]: `repeat(${columns}, 1fr)` }}>
           {Array.from({ length: columns }).map((_, index) => (
             <Skeleton key={`header-${index}`} height={20} />
           ))}
@@ -103,8 +104,8 @@ const SkeletonTable = forwardRef<HTMLDivElement, { rows?: number; columns?: numb
         {Array.from({ length: rows }).map((_, rowIndex) => (
           <div
             key={`row-${rowIndex}`}
-            className="grid gap-4"
-            style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}
+            className="grid gap-4 grid-cols-var"
+            style={{ ['--grid-template' as any]: `repeat(${columns}, 1fr)` }}
           >
             {Array.from({ length: columns }).map((_, colIndex) => (
               <Skeleton key={`cell-${rowIndex}-${colIndex}`} height={16} />
