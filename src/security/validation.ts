@@ -7,15 +7,17 @@
 export function sanitizeInput(input: string): string {
   return input
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
     .replace(/javascript:/gi, '')
-    .replace(/on\w+\s*=/gi, '')
     .trim();
 }
 
 // SQL Injection Protection (for future API params)
 export function sanitizeSQL(input: string): string {
   return input
-    .replace(/['";\\]/g, '')
+    .replace(/['";\\-]{1,}/g, '')
     .replace(/(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)\b)/gi, '')
     .trim();
 }
