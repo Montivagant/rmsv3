@@ -150,6 +150,8 @@ export const TopBar: React.FC<TopBarProps> = ({
           <button
             ref={searchTriggerRef}
             onClick={() => {
+              setShowNotifications(false);
+              setShowProfile(false);
               setShowSearch(true);
               setTimeout(() => searchInputRef.current?.focus(), 100);
             }}
@@ -191,7 +193,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div ref={notificationRef} className="relative">
             <button
               ref={notifTriggerRef}
-              onClick={() => setShowNotifications(!showNotifications)}
+              onClick={() => {
+                const next = !showNotifications;
+                setShowSearch(false);
+                setShowProfile(false);
+                setShowNotifications(next);
+              }}
               className="relative p-2 text-secondary hover:bg-surface-secondary rounded-md transition-colors focus-ring"
               aria-label="Notifications"
               aria-expanded={showNotifications}
@@ -246,7 +253,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div ref={profileRef} className="relative">
             <button
               ref={profileTriggerRef}
-              onClick={() => setShowProfile(!showProfile)}
+              onClick={() => {
+                const next = !showProfile;
+                setShowNotifications(false);
+                setShowSearch(false);
+                setShowProfile(next);
+              }}
               className="flex items-center space-x-2 p-2 text-secondary hover:bg-surface-secondary rounded-md transition-colors focus-ring"
               aria-expanded={showProfile}
               aria-haspopup="true"
