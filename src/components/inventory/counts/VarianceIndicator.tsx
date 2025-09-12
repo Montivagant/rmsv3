@@ -55,7 +55,7 @@ export function VarianceIndicator({
   const formattedValue = CountUtils.formatVarianceValue(varianceValue);
 
   return (
-    <div className={cn(
+    <div role="generic" className={cn(
       'inline-flex items-center gap-1 rounded-md border font-medium',
       severityClasses[severity],
       sizeClasses[size],

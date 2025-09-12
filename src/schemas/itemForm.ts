@@ -10,11 +10,11 @@ import { z } from 'zod';
 // Simplified inventory item form schema with only basic required fields
 export const itemFormSchema = z.object({
   // Required fields (labels as per tests)
-  name: z.string().transform(v => v?.trim?.() ?? '').min(1, 'Name is required').max(120, 'Name cannot exceed 120 characters'),
-  sku: z.string().transform(v => v?.trim?.() ?? '').min(3, 'SKU must be at least 3 characters').max(20, 'SKU cannot exceed 20 characters').regex(/^[A-Z0-9_-]+$/i, 'SKU can only contain letters, numbers, underscores, and hyphens'),
-  categoryId: z.string().transform(v => v?.trim?.() ?? '').min(1, 'Category is required'),
-  storageUnitId: z.string().transform(v => v?.trim?.() ?? '').min(1, 'Storage unit is required'),
-  ingredientUnitId: z.string().transform(v => v?.trim?.() ?? '').min(1, 'Ingredient unit is required'),
+  name: z.string().transform((v: any) => (typeof v === 'string' ? v.trim() : '')).min(1, 'Name is required').max(120, 'Name cannot exceed 120 characters'),
+  sku: z.string().transform((v: any) => (typeof v === 'string' ? v.trim() : '')).min(3, 'SKU must be at least 3 characters').max(20, 'SKU cannot exceed 20 characters').regex(/^[A-Z0-9_-]+$/i, 'SKU can only contain letters, numbers, underscores, and hyphens'),
+  categoryId: z.string().transform((v: any) => (typeof v === 'string' ? v.trim() : '')).min(1, 'Category is required'),
+  storageUnitId: z.string().transform((v: any) => (typeof v === 'string' ? v.trim() : '')).min(1, 'Storage unit is required'),
+  ingredientUnitId: z.string().transform((v: any) => (typeof v === 'string' ? v.trim() : '')).min(1, 'Ingredient unit is required'),
 
   // Optional fields
   barcode: z.string().max(32, 'Barcode cannot exceed 32 characters').optional().or(z.literal('')),
