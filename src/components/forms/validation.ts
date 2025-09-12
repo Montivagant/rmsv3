@@ -446,6 +446,7 @@ export function useFormValidation(
   const finalConfig = { ...defaultConfig, ...config }
 
   const [values, setValues] = useState<Record<string, unknown>>(initialValues)
+  const [rulesByField, setRulesByField] = useState<Record<string, ValidationRule[]>>({})
   const [state, setState] = useState<FormValidationState>(() => ({
     fields: Object.keys(initialValues).reduce((acc, key) => {
       acc[key] = {
@@ -479,44 +480,160 @@ export function useFormValidation(
       [fieldName]: value
     }))
 
+    setState(prev => {
+      const previousField: FieldValidationState = prev.fields[fieldName] || {
+        value: undefined,
+        errors: [],
+        warnings: [],
+        info: [],
+        isValidating: false,
+        hasBeenTouched: false,
+        hasBeenFocused: false,
+      }
+      return ({
+        ...prev,
+        fields: {
+          ...prev.fields,
+          [fieldName]: {
+            ...previousField,
+            value,
+            hasBeenTouched: true,
+          },
+        },
+      })
+    })
+
+    if (validate && finalConfig.validateOnChange) {
+      await validateField(fieldName, value, true)
+    }
+  }, [finalConfig.validateOnChange, validateField])
+
+  // Validate field
+  const validateField = useCallback(async (fieldName: string, value: unknown, shouldValidate = true) => {
+    if (!shouldValidate) return
+
+    const fieldRules = rulesByField[fieldName] || []
+    // Mark field validating
+    setState(prev => {
+      const previousField: FieldValidationState = prev.fields[fieldName] || {
+        value: value,
+        errors: [],
+        warnings: [],
+        info: [],
+        isValidating: false,
+        hasBeenTouched: false,
+        hasBeenFocused: false,
+      }
+      return ({
+        ...prev,
+        fields: {
+          ...prev.fields,
+          [fieldName]: {
+            ...previousField,
+            isValidating: true,
+            hasBeenTouched: true,
+            value,
+          }
+        }
+      })
+    })
+
+    const errors: string[] = []
+    const warnings: string[] = []
+    const info: string[] = []
+
+    // Run sync rules
+    for (const rule of fieldRules) {
+      try {
+        const result = rule.validate(value, values)
+        if (!result.isValid) {
+          const message = result.message || rule.message
+          const severity = rule.severity || 'error'
+          if (severity === 'error') errors.push(message)
+          else if (severity === 'warning') warnings.push(message)
+          else if (severity === 'info') info.push(message)
+        }
+        if (result.warnings && result.warnings.length) warnings.push(...result.warnings)
+        if (result.info && result.info.length) info.push(...result.info)
+      } catch (e) {
+        errors.push('Validation error occurred')
+      }
+    }
+
+    // Run async rules
+    const asyncRules = fieldRules.filter(r => typeof r.validateAsync === 'function')
+    if (asyncRules.length > 0) {
+      try {
+        const asyncResults = await Promise.all(asyncRules.map(r => r.validateAsync!(value, values)))
+        asyncResults.forEach((res, idx) => {
+          const rule = asyncRules[idx]
+          if (!res.isValid) {
+            const message = res.message || rule.message
+            const severity = rule.severity || 'error'
+            if (severity === 'error') errors.push(message)
+            else if (severity === 'warning') warnings.push(message)
+            else if (severity === 'info') info.push(message)
+          }
+          if (res.warnings && res.warnings.length) warnings.push(...res.warnings)
+          if (res.info && res.info.length) info.push(...res.info)
+        })
+      } catch (e) {
+        errors.push('Validation error occurred')
+      }
+    }
+
+    // Update field state with results
     setState(prev => ({
       ...prev,
       fields: {
         ...prev.fields,
         [fieldName]: {
-          ...prev.fields[fieldName],
-          value,
-          hasBeenTouched: true,
-        },
+          ...(prev.fields[fieldName] || {
+            value,
+            errors: [], warnings: [], info: [], isValidating: false, hasBeenTouched: true, hasBeenFocused: false,
+          }),
+          errors,
+          warnings,
+          info,
+          isValidating: false,
+        }
       },
     }))
-
-    if (validate && finalConfig.validateOnChange) {
-      // Validation would happen here in a real implementation
-      // For now, we'll skip automatic validation
-    }
-  }, [finalConfig.validateOnChange])
-
-  // Validate field
-  const validateField = useCallback(async (fieldName: string, _value: unknown, shouldValidate = true) => {
-    if (!shouldValidate) return
-    
-    // This would contain the actual validation logic in a real implementation
-    // For now, we'll return a simple success
-  }, [])
+  }, [rulesByField, values])
 
   // Validate form
   const validateForm = useCallback(async (): Promise<boolean> => {
-    // This would contain the actual form validation logic
-    // For now, we'll return true (valid)
-    return true
-  }, [])
+    const fieldNames = Array.from(new Set([...Object.keys(rulesByField), ...Object.keys(state.fields)]))
+    await Promise.all(fieldNames.map(async (name) => {
+      const value = values[name]
+      await validateField(name, value, true)
+    }))
+    const hasErrors = Object.values(state.fields).some(f => f.errors && f.errors.length > 0)
+    setState(prev => ({ ...prev, hasErrors, isValid: !hasErrors }))
+    return !hasErrors
+  }, [rulesByField, state.fields, validateField, values])
 
   // Add field rules
-  const addFieldRules = useCallback((_fieldName: string, _rules: ValidationRule[]) => {
-    // This would add validation rules to a field
-    // For now, we'll just acknowledge the rules
-  }, [])
+  const addFieldRules = useCallback((fieldName: string, rules: ValidationRule[]) => {
+    setRulesByField(prev => ({
+      ...prev,
+      [fieldName]: rules,
+    }))
+    // Ensure field exists in state map
+    setState(prev => {
+      if (prev.fields[fieldName]) return prev
+      return ({
+        ...prev,
+        fields: {
+          ...prev.fields,
+          [fieldName]: {
+            value: values[fieldName],
+            errors: [], warnings: [], info: [], isValidating: false, hasBeenTouched: false, hasBeenFocused: false,
+          }
+        }
+      })
+    })
+  }, [values])
 
   return {
     values,
