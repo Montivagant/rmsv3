@@ -153,13 +153,13 @@ export default function TransferDetail() {
     return (
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="space-y-6">
-          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-8 w-64" data-testid="skeleton" />
           <Card>
             <CardContent className="p-6">
               <div className="space-y-4">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-6 w-48" data-testid="skeleton" />
+                <Skeleton className="h-4 w-full" data-testid="skeleton" />
+                <Skeleton className="h-4 w-3/4" data-testid="skeleton" />
               </div>
             </CardContent>
           </Card>

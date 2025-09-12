@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Form data mapping utilities for inventory items
  */
 
@@ -9,24 +9,35 @@ interface InventoryItemAPIPayload {
   name: string;
   sku: string;
   categoryId: string;
+  itemTypeId?: string;
   uom: {
     base: string;
+    purchase?: string;
     recipe: string;
+    conversions?: Array<{ from: string; to: string; factor: number }>;
+  };
+  status?: 'active' | 'inactive';
+  tracking?: {
+    lotTracking: boolean;
+    expiryTracking: boolean;
+    serialTracking: boolean;
+    trackByLocation: boolean;
   };
   description?: string;
   barcode?: string;
   costing?: {
-    method: 'fifo' | 'lifo' | 'average';
-    lastCost?: number;
-    averageCost?: number;
+    costMethod: 'AVERAGE' | 'FIFO' | 'LIFO';
+    currency: 'USD';
+    lastCost: number;
+    averageCost: number;
   };
   levels?: {
-    minimum?: number;
-    par?: {
+    par: {
+      min?: number;
+      max?: number;
       reorderPoint: number;
       reorderQuantity: number;
     };
-    maximum?: number;
   };
 }
 
@@ -38,9 +49,19 @@ export function mapFormToAPI(formData: InventoryItemFormData): InventoryItemAPIP
     name: formData.name?.trim() || '',
     sku: (formData.sku?.trim() || '').toUpperCase(),
     categoryId: formData.categoryId || '',
+    itemTypeId: formData.itemTypeId || undefined,
     uom: {
       base: formData.storageUnit || formData.storageUnitId || '',
-      recipe: formData.ingredientUnit || formData.recipeUnitId || ''
+      purchase: formData.storageUnit || formData.storageUnitId || '',
+      recipe: (formData as any).ingredientUnitId || formData.ingredientUnit || formData.recipeUnitId || '',
+      conversions: [],
+    },
+    status: 'active',
+    tracking: {
+      lotTracking: false,
+      expiryTracking: false,
+      serialTracking: false,
+      trackByLocation: false,
     }
   };
 
@@ -55,36 +76,29 @@ export function mapFormToAPI(formData: InventoryItemFormData): InventoryItemAPIP
   }
 
   // Costing information
-  if (formData.cost && formData.cost > 0) {
+  if (formData.cost !== undefined && formData.cost > 0) {
     payload.costing = {
-      method: 'average',
-      averageCost: formData.cost
+      costMethod: 'AVERAGE',
+      currency: 'USD',
+      lastCost: formData.cost,
+      averageCost: formData.cost,
     };
   }
 
   // Inventory levels
-  if (formData.minimumLevel || formData.parLevel || formData.maximumLevel) {
-    payload.levels = {};
-    
-    if (formData.minimumLevel !== undefined) {
-      payload.levels.minimum = formData.minimumLevel;
-    }
-    
-    if (formData.parLevel !== undefined) {
-      const reorderPoint = formData.minimumLevel || formData.parLevel;
-      const reorderQuantity = formData.maximumLevel 
-        ? formData.maximumLevel - reorderPoint 
-        : 10; // Default reorder quantity
-        
-      payload.levels.par = {
+  if (formData.minimumLevel !== undefined || formData.parLevel !== undefined || formData.maximumLevel !== undefined) {
+    const min = formData.minimumLevel;
+    const max = formData.maximumLevel;
+    const reorderPoint = min ?? formData.parLevel ?? 0;
+    const reorderQuantity = typeof max === 'number' ? Math.round(max * 0.2) : 10;
+    payload.levels = {
+      par: {
+        min,
+        max,
         reorderPoint,
-        reorderQuantity
-      };
-    }
-    
-    if (formData.maximumLevel !== undefined) {
-      payload.levels.maximum = formData.maximumLevel;
-    }
+        reorderQuantity,
+      }
+    };
   }
 
   return payload;
@@ -99,13 +113,14 @@ export function mapAPIToForm(apiData: InventoryItemAPIPayload): InventoryItemFor
     sku: apiData.sku || '',
     description: apiData.description || '',
     categoryId: apiData.categoryId || '',
+    itemTypeId: apiData.itemTypeId || '',
     barcode: apiData.barcode || '',
-    cost: apiData.costing?.lastCost || apiData.costing?.averageCost || undefined,
+    cost: (apiData as any).costing?.lastCost ?? apiData.costing?.averageCost ?? undefined,
     storageUnitId: apiData.uom?.base || '',
-    recipeUnitId: apiData.uom?.recipe || '',
-    minimumLevel: apiData.levels?.minimum || undefined,
-    parLevel: apiData.levels?.par?.reorderPoint || undefined,
-    maximumLevel: apiData.levels?.maximum || undefined
+    ingredientUnitId: apiData.uom?.recipe || '',
+    minimumLevel: apiData.levels?.par?.min ?? undefined,
+    parLevel: undefined,
+    maximumLevel: apiData.levels?.par?.max ?? undefined
   };
 }
 
@@ -114,33 +129,19 @@ export function mapAPIToForm(apiData: InventoryItemAPIPayload): InventoryItemFor
  */
 export function validateAPIPayload(payload: InventoryItemAPIPayload): {
   isValid: boolean;
-  errors: Record<string, string>;
+  errors: string[];
 } {
-  const errors: Record<string, string> = {};
+  const errors: string[] = [];
 
-  if (!payload.name?.trim()) {
-    errors.name = 'Item name is required';
-  }
-
-  if (!payload.sku?.trim()) {
-    errors.sku = 'SKU is required';
-  }
-
-  if (!payload.categoryId?.trim()) {
-    errors.categoryId = 'Category is required';
-  }
-
-  if (!payload.uom?.base?.trim()) {
-    errors.storageUnit = 'Storage unit is required';
-  }
-
-  if (!payload.uom?.recipe?.trim()) {
-    errors.recipeUnit = 'Recipe unit is required';
-  }
+  if (!payload.name?.trim()) errors.push('Item name is required');
+  if (!payload.sku?.trim()) errors.push('SKU is required');
+  if (!payload.categoryId?.trim()) errors.push('Category ID is required');
+  if (!payload.uom?.base?.trim()) errors.push('Storage unit is required');
+  if (!payload.uom?.recipe?.trim()) errors.push('Ingredient unit is required');
 
   return {
-    isValid: Object.keys(errors).length === 0,
-    errors
+    isValid: errors.length === 0,
+    errors,
   };
 }
 
@@ -160,7 +161,7 @@ export function createAPIError(error: unknown): { message: string; details?: unk
     return { message: (error as any).message, details: error };
   }
   
-  return { message: 'An unexpected error occurred', details: error };
+  return { message: 'An unexpected error occurred', details: String(error) };
 }
 
 /**
@@ -175,7 +176,7 @@ export function createDefaultFormData(): InventoryItemFormData {
     barcode: '',
     cost: undefined,
     storageUnitId: '',
-    recipeUnitId: '',
+    ingredientUnitId: '',
     minimumLevel: undefined,
     parLevel: undefined,
     maximumLevel: undefined
@@ -193,7 +194,7 @@ export function hasFormData(formData: InventoryItemFormData): boolean {
     formData.categoryId?.trim() ||
     formData.barcode?.trim() ||
     formData.storageUnitId?.trim() ||
-    formData.recipeUnitId?.trim() ||
+    (formData as any).ingredientUnitId?.trim?.() ||
     (formData.cost !== undefined && formData.cost >= 0) ||
     formData.minimumLevel !== undefined ||
     formData.parLevel !== undefined ||
