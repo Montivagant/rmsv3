@@ -72,13 +72,18 @@ export function useDismissableLayer(options: UseDismissableLayerOptions) {
     onDismiss();
   }, [closeOnRouteChange, onDismiss]);
 
+  const isHandlingRef = useRef(false);
+
   const handleOverlayOpenEvent = useCallback((e: Event) => {
     // Close if another overlay announces opening
     const custom = e as CustomEvent<{ id: string }>;
     const incomingId = custom.detail?.id;
-    if (!incomingId) return;
+    if (!incomingId || isHandlingRef.current) return;
     if (incomingId !== overlayIdRef.current && isOpen) {
+      isHandlingRef.current = true;
       onDismiss();
+      // Allow stack to unwind before allowing another event
+      setTimeout(() => { isHandlingRef.current = false; }, 0);
     }
   }, [isOpen, onDismiss]);
 
@@ -114,8 +119,11 @@ export function useDismissableLayer(options: UseDismissableLayerOptions) {
 
     // Announce opening to others
     if (closeOthersOnOpen) {
-      const evt = new CustomEvent('overlay:open', { detail: { id: overlayIdRef.current } });
-      window.dispatchEvent(evt);
+      // Dispatch after a microtask to avoid self-handling rebroadcast loops
+      queueMicrotask(() => {
+        const evt = new CustomEvent('overlay:open', { detail: { id: overlayIdRef.current } });
+        window.dispatchEvent(evt);
+      });
     }
 
     return () => {
