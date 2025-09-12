@@ -530,9 +530,9 @@ export const AuditUtils = {
   validateAuditScope(scope: AuditScope): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    // Check for at least one scope type
+    // Check for at least one scope type (align wording with tests)
     if (!scope.all && !scope.byCategory && !scope.byItemType && !scope.filters && !scope.importRef) {
-      errors.push('Must specify audit scope: all items, by category, by item type, filters, or import');
+      errors.push('Must specify count scope: all items, filters, or import');
     }
     
     // If selecting by category, must have categoryIds
