@@ -228,7 +228,7 @@ export const TransferUtils = {
 
     // Lines validation
     if (!request.lines || request.lines.length === 0) {
-      errors.push('At least one line item is required');
+      errors.push('At least one item is required');
     }
 
     if (request.lines && request.lines.length > TRANSFER_CONFIG.MAX_LINES_PER_TRANSFER) {

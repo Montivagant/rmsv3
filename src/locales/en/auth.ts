@@ -5,7 +5,7 @@ export const AUTH_STRINGS = {
     login: '/login',
   },
   signup: {
-    title: 'Create your DashUp account',
+    title: 'Create your account',
     description: 'Sign up to get started with DashUp.',
     fields: {
       name: {

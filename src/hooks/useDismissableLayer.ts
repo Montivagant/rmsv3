@@ -78,12 +78,12 @@ export function useDismissableLayer(options: UseDismissableLayerOptions) {
     // Close if another overlay announces opening
     const custom = e as CustomEvent<{ id: string }>;
     const incomingId = custom.detail?.id;
-    if (!incomingId || isHandlingRef.current) return;
+    if (!incomingId) return;
+    if (isHandlingRef.current) return;
     if (incomingId !== overlayIdRef.current && isOpen) {
       isHandlingRef.current = true;
       onDismiss();
-      // Allow stack to unwind before allowing another event
-      setTimeout(() => { isHandlingRef.current = false; }, 0);
+      queueMicrotask(() => { isHandlingRef.current = false; });
     }
   }, [isOpen, onDismiss]);
 

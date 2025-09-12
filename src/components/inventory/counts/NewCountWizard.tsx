@@ -13,9 +13,6 @@ import { Tooltip } from '../../ui/Tooltip';
 import { useToast } from '../../../hooks/useToast';
 import { useApi } from '../../../hooks/useApi';
 import type { CreateCountRequest, CountScope } from '../../../inventory/counts/types';
-import type { CountSheet, CountSheetsResponse, CountSheetPreview } from '../../../inventory/count-sheets/types';
-import { CountSheetUtils } from '../../../inventory/count-sheets/types';
-import { countSheetsApiService } from '../../../inventory/count-sheets/api';
 
 interface NewCountWizardProps {
   isOpen: boolean;
@@ -23,7 +20,7 @@ interface NewCountWizardProps {
   onSuccess: (countId: string) => void;
   branches?: Array<{ id: string; name: string; type: string }>;
   categories?: Array<{ id: string; name: string }>;
-  suppliers?: Array<{ id: string; name: string }>;
+  itemTypes?: Array<{ id: string; name: string }>;
   storageAreas?: Array<{ id: string; name: string }>;
   loading?: boolean;
   /** When true, render single-step UI (branch + scope together) */
@@ -31,7 +28,7 @@ interface NewCountWizardProps {
 }
 
 type WizardStep = 'branch' | 'scope' | 'confirmation';
-type ScopeType = 'all' | 'countSheet';
+type ScopeType = 'all' | 'categories' | 'itemTypes';
 
 export default function NewCountWizard({
   isOpen,
@@ -39,12 +36,17 @@ export default function NewCountWizard({
   onSuccess,
   branches = [],
   categories = [],
-  suppliers = [],
+  itemTypes = [],
   storageAreas = [],
   loading = false,
   simpleMode = false
 }: NewCountWizardProps) {
-  const navigate = useNavigate();
+  let navigate: (to: string) => void;
+  try {
+    navigate = useNavigate();
+  } catch {
+    navigate = () => {};
+  }
   const [currentStep, setCurrentStep] = useState<WizardStep>('branch');
   const [formData, setFormData] = useState<CreateCountRequest>({
     branchId: '',
@@ -52,99 +54,11 @@ export default function NewCountWizard({
     notes: '',
     estimatedDurationMinutes: 60
   });
-  const [freezeInventory, setFreezeInventory] = useState(false);
   const [scopeType, setScopeType] = useState<ScopeType>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  // For count sheets selection
-  const [selectedSheetId, setSelectedSheetId] = useState<string>('');
-  const [showNewSheetButton, setShowNewSheetButton] = useState(false);
-  
-  // Sheet preview data
-  const [sheetPreviews, setSheetPreviews] = useState<Record<string, { totalItems: number, loading: boolean }>>({});
-  
   const { showToast } = useToast();
-  
-  // Get available count sheets
-  const { data: countSheetsResponse, loading: sheetsLoading } = useApi<CountSheetsResponse>('/api/inventory/count-sheets', {
-    params: { archived: false }
-  });
-  
-  const countSheets = countSheetsResponse?.data || [];
-
-  // Reset state when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setCurrentStep('branch');
-      setFormData({
-        branchId: '',
-        scope: { all: true },
-        notes: '',
-        estimatedDurationMinutes: 60
-      });
-      setFreezeInventory(false);
-      setScopeType('all');
-      setSelectedSheetId('');
-      setShowNewSheetButton(false);
-      setSheetPreviews({});
-      setErrors({});
-      setIsSubmitting(false);
-    }
-  }, [isOpen]);
-
-  // Load sheet previews when we have sheets and a branch
-  useEffect(() => {
-    if (formData.branchId && countSheets.length > 0 && scopeType === 'countSheet') {
-      loadSheetPreviews();
-    }
-  }, [countSheets, formData.branchId, scopeType]);
-
-  // Load preview counts for all sheets
-  const loadSheetPreviews = async () => {
-    if (!formData.branchId) return;
-    
-    // Initialize loading states
-    const initialPreviews: Record<string, { totalItems: number, loading: boolean }> = {};
-    countSheets.forEach(sheet => {
-      initialPreviews[sheet.id] = { totalItems: 0, loading: true };
-    });
-    setSheetPreviews(initialPreviews);
-    
-    // Load all previews in parallel
-    const previewPromises = countSheets.map(async sheet => {
-      try {
-        const preview = await countSheetsApiService.previewCountSheet(
-          sheet.id,
-          { branchId: formData.branchId }
-        );
-        return { id: sheet.id, preview };
-      } catch (error) {
-        console.error(`Error loading preview for sheet ${sheet.id}:`, error);
-        return { id: sheet.id, error };
-      }
-    });
-    
-    // Process results
-    const results = await Promise.allSettled(previewPromises);
-    const newPreviews = { ...initialPreviews };
-    
-    results.forEach(result => {
-      if (result.status === 'fulfilled') {
-        const { id, preview, error } = result.value;
-        if (preview && !error) {
-          newPreviews[id] = { 
-            totalItems: preview.totalItems,
-            loading: false 
-          };
-        } else {
-          newPreviews[id] = { totalItems: 0, loading: false };
-        }
-      }
-    });
-    
-    setSheetPreviews(newPreviews);
-  };
 
   // Validation for each step
   const validateStep = (step: WizardStep): boolean => {
@@ -161,12 +75,14 @@ export default function NewCountWizard({
         break;
         
       case 'scope':
-        if (scopeType === 'countSheet') {
-          if (!selectedSheetId) {
-            newErrors.countSheet = 'Please select a count sheet or create a new one';
-          } else if (sheetPreviews[selectedSheetId]?.totalItems === 0) {
-            newErrors.countSheet = 'Selected sheet contains no items. Please select a different sheet or create a new one.';
-          }
+        if (scopeType === 'categories' && 
+            (!formData.scope.filters?.categoryIds || formData.scope.filters.categoryIds.length === 0)) {
+          newErrors.categoryIds = 'At least one category must be selected';
+        }
+        
+        if (scopeType === 'itemTypes' && 
+            (!formData.scope.filters?.itemTypeIds || formData.scope.filters.itemTypeIds.length === 0)) {
+          newErrors.itemTypeIds = 'At least one item type must be selected';
         }
         break;
         
@@ -175,13 +91,7 @@ export default function NewCountWizard({
         if (!formData.branchId) {
           newErrors.branch = 'Branch selection is missing';
         }
-        if (scopeType === 'countSheet') {
-          if (!selectedSheetId) {
-            newErrors.countSheet = 'Count sheet selection is required';
-          } else if (sheetPreviews[selectedSheetId]?.totalItems === 0) {
-            newErrors.countSheet = 'Selected sheet contains no items';
-          }
-        }
+        // Count sheet support has been removed
         break;
     }
 
@@ -212,27 +122,12 @@ export default function NewCountWizard({
 
     setIsSubmitting(true);
     try {
-      if (scopeType === 'countSheet' && selectedSheetId) {
-        // When using a count sheet, redirect to the dedicated page
-        onClose();
-        const params = new URLSearchParams({
-          sheetId: selectedSheetId
-        });
-        if (freezeInventory) {
-          params.append('freeze', 'true');
-          params.append('duration', formData.estimatedDurationMinutes.toString());
-        }
-        navigate(`/inventory/counts/new?${params.toString()}`);
-        return;
-      }
-      
-      // For "all items" scope
-      const finalScope: CountScope = { all: true };
+      // Use the user-selected scope
+      const finalScope: CountScope = formData.scope;
 
       const requestData: CreateCountRequest = {
         ...formData,
         scope: finalScope,
-        freezeInventory // Add freeze inventory flag to request
       };
 
       // API call
@@ -258,55 +153,49 @@ export default function NewCountWizard({
     }
   };
 
-  const handleScopeTypeChange = (newScopeType: ScopeType) => {
-    setScopeType(newScopeType);
+  // Handle scope type selection
+  const handleScopeTypeChange = (type: ScopeType) => {
+    setScopeType(type);
     
-    if (newScopeType === 'all') {
-      setFormData(prev => ({ ...prev, scope: { all: true } }));
-      setSelectedSheetId('');
-    } else if (newScopeType === 'countSheet') {
-      setSelectedSheetId('');
-      setShowNewSheetButton(true);
-      loadSheetPreviews();
+    // Reset scope filters based on selected type
+    let newScope: CountScope = { all: false };
+    
+    switch (type) {
+      case 'all':
+        newScope = { all: true };
+        break;
+      case 'categories':
+        newScope = { 
+          byCategory: true,
+          filters: { 
+            categoryIds: [] 
+          } 
+        };
+        break;
+      case 'itemTypes':
+        newScope = { 
+          byItemType: true,
+          filters: { 
+            itemTypeIds: [] 
+          } 
+        };
+        break;
     }
+    
+    setFormData(prev => ({ ...prev, scope: newScope }));
   };
 
-  const handleCreateNewSheet = () => {
-    onClose(); // Close this modal
-    navigate('/inventory/count-sheets'); // Navigate to count sheets
-  };
+  // Count templates feature removed
 
-  const handleCountSheetChange = (sheetId: string) => {
-    // Only allow selection if sheet has items
-    if (sheetPreviews[sheetId]?.totalItems > 0) {
-      setSelectedSheetId(sheetId);
-      if (errors.countSheet) {
-        setErrors(prev => ({ ...prev, countSheet: '' }));
-      }
-    } else if (sheetPreviews[sheetId]?.loading) {
-      // Don't allow selection while loading
-      showToast({
-        title: 'Loading Items',
-        description: 'Please wait while we check the count sheet contents',
-        variant: 'warning'
-      });
-    } else {
-      // Show error message for empty sheets
-      showToast({
-        title: 'Empty Sheet',
-        description: 'This count sheet contains no items. Please select a different sheet or create a new one.',
-        variant: 'error'
-      });
-    }
-  };
+  // Count templates feature removed
 
   // Step utilities
   const totalSteps = simpleMode ? 1 : 3;
   const currentStepIndex = ['branch', 'scope', 'confirmation'].indexOf(currentStep);
   const stepTitles: Record<WizardStep, string> = {
-    'branch': 'Select Branch Location',
-    'scope': 'Define Count Scope',
-    'confirmation': 'Confirm and Create'
+    'branch': 'Select Branch',
+    'scope': 'Define Scope',
+    'confirmation': 'Confirm & Create'
   };
 
   // Check if can proceed to next step
@@ -315,24 +204,32 @@ export default function NewCountWizard({
       case 'branch':
         return Boolean(formData.branchId);
       case 'scope':
-        if (scopeType === 'all') return true;
-        if (scopeType === 'countSheet') {
-          const hasValidSheet = Boolean(selectedSheetId) && 
-            sheetPreviews[selectedSheetId]?.totalItems > 0 && 
-            !sheetPreviews[selectedSheetId]?.loading;
-          return hasValidSheet;
+        if (scopeType === 'all') {
+          return true;
+        } else if (scopeType === 'categories') {
+          return formData.scope.filters?.categoryIds && formData.scope.filters.categoryIds.length > 0;
+        } else if (scopeType === 'itemTypes') {
+          return formData.scope.filters?.itemTypeIds && formData.scope.filters.itemTypeIds.length > 0;
         }
         return false;
       case 'confirmation':
-        if (!formData.branchId) return false;
-        if (scopeType === 'countSheet') {
-          return Boolean(selectedSheetId) && 
-            sheetPreviews[selectedSheetId]?.totalItems > 0;
-        }
-        return true;
+        // Just check branch is selected
+        return Boolean(formData.branchId);
       default:
         return false;
     }
+  };
+  // Lightweight proceed check for simple mode
+  const canProceedSimple = (): boolean => {
+    if (!formData.branchId) return false;
+    if (scopeType === 'all') return true;
+    if (scopeType === 'categories') {
+      return Boolean(formData.scope.filters?.categoryIds && formData.scope.filters.categoryIds.length > 0);
+    }
+    if (scopeType === 'itemTypes') {
+      return Boolean(formData.scope.filters?.itemTypeIds && formData.scope.filters.itemTypeIds.length > 0);
+    }
+    return false;
   };
 
   // Simple single-step mode: show Branch + Scope together and create directly
@@ -341,13 +238,13 @@ export default function NewCountWizard({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title="Create New Inventory Count"
-        description="Choose a branch and scope to start counting"
+        title="Create New Inventory Audit"
+        description="Choose a branch and scope to start auditing"
         size="lg"
         closeOnOverlayClick={!isSubmitting}
       >
         <div className="space-y-8 p-6">
-          {/* Branch + Freeze */}
+          {/* Branch Selection */}
           <div className="space-y-6">
             <div>
               <Label htmlFor="branch-select" required>
@@ -367,142 +264,156 @@ export default function NewCountWizard({
             </div>
 
             <div className="bg-surface-secondary/30 p-4 rounded-md border border-border">
-              <div className="flex items-center">
-                <Checkbox
-                  id="freeze-inventory"
-                  checked={freezeInventory}
-                  onChange={(e) => setFreezeInventory(e.target.checked)}
-                />
-                <Label htmlFor="freeze-inventory" className="ml-2 cursor-pointer">
-                  Freeze Inventory During Count
-                  <Tooltip content="Prevents inventory adjustments while counting to maintain accuracy" side="right">
-                    <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-surface-secondary text-text-muted text-xs">?</span>
-                  </Tooltip>
-                </Label>
+              <div className="text-sm text-text-primary">
+                <p>This will create a snapshot of the inventory at the time of audit creation.</p>
+                <p className="mt-2 text-xs text-text-muted">Inventory movements during the audit will be tracked and displayed when the audit is completed.</p>
               </div>
-
-              {freezeInventory && (
-                <div className="mt-4 ml-6 space-y-2">
-                  <Label htmlFor="estimated-duration" required>
-                    Estimated Duration (minutes)
-                  </Label>
-                  <Input
-                    id="estimated-duration"
-                    type="number"
-                    value={formData.estimatedDurationMinutes?.toString() || '60'}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value) || 60;
-                      setFormData(prev => ({ ...prev, estimatedDurationMinutes: value }));
-                      if (errors.estimatedDurationMinutes) setErrors(prev => ({ ...prev, estimatedDurationMinutes: '' }));
-                    }}
-                    min="15"
-                    max="480"
-                    error={errors.estimatedDurationMinutes}
-                    helpText="Set the time limit for the inventory freeze (15-480 minutes)"
-                    className="w-28"
-                  />
-                </div>
-              )}
             </div>
           </div>
 
           {/* Scope */}
           <div className="space-y-6">
             <div>
-              <Label>Count Scope</Label>
-              <div className="mt-3">
-                <RadioGroup value={scopeType} onChange={handleScopeTypeChange} name="scope-type">
-                  <RadioOption value="all">
-                    <RadioOptionContent title="All Items" description="Count all active inventory items at selected branch" />
-                  </RadioOption>
-                  <RadioOption value="countSheet">
-                    <RadioOptionContent title="Use Count Sheet" description="Select from saved count templates with predefined item scopes" />
-                  </RadioOption>
-                </RadioGroup>
-              </div>
+              <Label>Audit Scope</Label>
+              <RadioGroup 
+                value={scopeType} 
+                onValueChange={(value) => handleScopeTypeChange(value as ScopeType)}
+                className="mt-3 space-y-3"
+              >
+                <RadioOption value="all">
+                  <RadioOptionContent
+                    title="All Items"
+                    description="Audit will include all active inventory items"
+                  />
+                </RadioOption>
+                <RadioOption value="categories">
+                  <RadioOptionContent
+                    title="By Category"
+                    description="Select specific inventory categories to audit"
+                  />
+                </RadioOption>
+                <RadioOption value="itemTypes">
+                  <RadioOptionContent
+                    title="By Item Type"
+                    description="Select specific item types to audit"
+                  />
+                </RadioOption>
+              </RadioGroup>
             </div>
 
-            {scopeType === 'countSheet' && (
-              <div className="space-y-4">
-                <div className="p-4 border border-border rounded-lg bg-surface-secondary/50">
-                  <Label htmlFor="sheet-select" className="mb-2 block" required>
-                    Select Count Sheet
-                  </Label>
-                  {sheetsLoading ? (
-                    <div className="space-y-2">
-                      <Skeleton className="h-10 w-full" />
-                      <Skeleton className="h-10 w-full" />
+            {/* Dynamic selection for chosen scope */}
+            {scopeType === 'categories' && (
+              <div className="space-y-3">
+                <Label required>Select Categories</Label>
+                <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
+                  {!formData.branchId ? (
+                    <p className="text-sm text-text-muted">Select a branch first.</p>
+                  ) : (categories.length > 0 ? (
+                    <div className="max-h-56 overflow-y-auto space-y-2">
+                      {categories.map(category => (
+                        <div key={category.id} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`cat-${category.id}`}
+                            checked={(formData.scope.filters?.categoryIds || []).includes(category.id)}
+                            disabled={!formData.branchId}
+                            onCheckedChange={(checked) => {
+                              const categoryIds = [...(formData.scope.filters?.categoryIds || [])];
+                              if (checked) {
+                                if (!categoryIds.includes(category.id)) categoryIds.push(category.id);
+                              } else {
+                                const index = categoryIds.indexOf(category.id);
+                                if (index !== -1) categoryIds.splice(index, 1);
+                              }
+                              setFormData(prev => ({
+                                ...prev,
+                                scope: {
+                                  ...prev.scope,
+                                  filters: {
+                                    ...(prev.scope.filters || {}),
+                                    categoryIds
+                                  }
+                                }
+                              }));
+                              if (errors.categoryIds && categoryIds.length > 0) {
+                                setErrors(prev => ({ ...prev, categoryIds: '' }));
+                              }
+                            }}
+                          />
+                          <label 
+                            htmlFor={`cat-${category.id}`}
+                            className="text-sm cursor-pointer"
+                          >
+                            {category.name}
+                          </label>
+                        </div>
+                      ))}
                     </div>
-                  ) : countSheets.length > 0 ? (
-                    <>
-                      <div className="space-y-2 max-h-56 overflow-y-auto pb-2">
-                        {countSheets.map(sheet => {
-                          const preview = sheetPreviews[sheet.id];
-                          const isLoading = !preview || preview.loading;
-                          const isEmpty = preview?.totalItems === 0;
-                          const isSelected = selectedSheetId === sheet.id;
-                          const isDisabled = isLoading || isEmpty;
-                          return (
-                            <div
-                              key={sheet.id}
-                              className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                                isDisabled ? 'opacity-60 cursor-not-allowed' :
-                                isSelected ? 'border-brand-600 bg-brand-50' :
-                                'border-border hover:bg-surface-secondary'
-                              }`}
-                              onClick={() => !isDisabled && handleCountSheetChange(sheet.id)}
-                              role="button"
-                              tabIndex={isDisabled ? -1 : 0}
-                              aria-selected={isSelected}
-                              aria-disabled={isDisabled}
-                            >
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <h4 className="font-medium text-text-primary">{sheet.name}</h4>
-                                  <div className="text-xs text-text-muted mt-1">
-                                    {CountSheetUtils.formatBranchScope(sheet.branchScope, branches)}
-                                  </div>
-                                </div>
-                                <div>
-                                  {isLoading ? (
-                                    <Badge variant="outline" size="sm">Loading...</Badge>
-                                  ) : isEmpty ? (
-                                    <Badge variant="destructive" size="sm" className="text-xs">Empty Sheet</Badge>
-                                  ) : (
-                                    <Badge variant="outline" size="sm" className="text-xs">
-                                      {preview.totalItems} {preview.totalItems === 1 ? 'item' : 'items'}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="flex justify-end mt-3">
-                        <Button variant="outline" size="sm" onClick={handleCreateNewSheet}>
-                          Create New Sheet
-                        </Button>
-                      </div>
-                    </>
                   ) : (
-                    <div className="text-center p-4">
-                      <p className="text-text-muted mb-3">No count sheets available.</p>
-                      <Button variant="outline" onClick={handleCreateNewSheet}>
-                        Create New Count Sheet
-                      </Button>
-                    </div>
-                  )}
+                    <p className="text-sm text-text-muted">No categories available.</p>
+                  ))}
                 </div>
-                {errors.countSheet && (
-                  <div className="p-3 bg-error-50 border border-error-200 rounded-lg">
-                    <p className="text-sm text-error-700">{errors.countSheet}</p>
-                  </div>
+                {errors.categoryIds && (
+                  <p className="text-destructive text-sm mt-1">{errors.categoryIds}</p>
+                )}
+              </div>
+            )}
+
+            {scopeType === 'itemTypes' && (
+              <div className="space-y-3">
+                <Label required>Select Item Types</Label>
+                <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
+                  {!formData.branchId ? (
+                    <p className="text-sm text-text-muted">Select a branch first.</p>
+                  ) : (itemTypes.length > 0 ? (
+                    <div className="max-h-56 overflow-y-auto space-y-2">
+                      {itemTypes.map(t => (
+                        <div key={t.id} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`type-${t.id}`}
+                            checked={(formData.scope.filters?.itemTypeIds || []).includes(t.id)}
+                            disabled={!formData.branchId}
+                            onCheckedChange={(checked) => {
+                              const itemTypeIds = [...(formData.scope.filters?.itemTypeIds || [])];
+                              if (checked) {
+                                if (!itemTypeIds.includes(t.id)) itemTypeIds.push(t.id);
+                              } else {
+                                const index = itemTypeIds.indexOf(t.id);
+                                if (index !== -1) itemTypeIds.splice(index, 1);
+                              }
+                              setFormData(prev => ({
+                                ...prev,
+                                scope: {
+                                  ...prev.scope,
+                                  filters: {
+                                    ...(prev.scope.filters || {}),
+                                    itemTypeIds
+                                  }
+                                }
+                              }));
+                              if (errors.itemTypeIds && itemTypeIds.length > 0) {
+                                setErrors(prev => ({ ...prev, itemTypeIds: '' }));
+                              }
+                            }}
+                          />
+                          <label 
+                            htmlFor={`type-${t.id}`}
+                            className="text-sm cursor-pointer"
+                          >
+                            {t.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-text-muted">No item types available.</p>
+                  ))}
+                </div>
+                {errors.itemTypeIds && (
+                  <p className="text-destructive text-sm mt-1">{errors.itemTypeIds}</p>
                 )}
               </div>
             )}
           </div>
-
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-2 border-t border-border">
             <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
@@ -511,7 +422,7 @@ export default function NewCountWizard({
             <Button
               variant="primary"
               loading={isSubmitting}
-              disabled={loading || !canProceed('confirmation')}
+              disabled={loading || !canProceedSimple()}
               onClick={handleSubmit}
             >
               Create Count
@@ -526,8 +437,8 @@ export default function NewCountWizard({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create New Inventory Count"
-      description="Set up a new count session to reconcile stock levels"
+      title="Create New Inventory Audit"
+      description="Set up a new audit session to reconcile stock levels"
       size="lg"
       closeOnOverlayClick={!isSubmitting}
     >
@@ -592,51 +503,10 @@ export default function NewCountWizard({
               </div>
 
               <div className="bg-surface-secondary/30 p-4 rounded-md border border-border">
-                <div className="flex items-center">
-                  <Checkbox
-                    id="freeze-inventory"
-                    checked={freezeInventory}
-                    onChange={(e) => {
-                      // Use the checkbox's checked property from the event
-                      setFreezeInventory(e.target.checked);
-                    }}
-                  />
-                  <Label htmlFor="freeze-inventory" className="ml-2 cursor-pointer">
-                    Freeze Inventory During Count
-                    <Tooltip content="Prevents inventory adjustments while counting to maintain accuracy" side="right">
-                      <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-surface-secondary text-text-muted text-xs">?</span>
-                    </Tooltip>
-                  </Label>
+                <div className="text-sm text-text-primary">
+                  <p>This will create a snapshot of the inventory at the time of audit creation.</p>
+                  <p className="mt-2 text-xs text-text-muted">Inventory movements during the audit will be tracked and displayed when the audit is completed.</p>
                 </div>
-                
-                {freezeInventory && (
-                  <div className="mt-4 ml-6 space-y-2">
-                    <Label htmlFor="estimated-duration" required>
-                      Estimated Duration (minutes)
-                    </Label>
-                    <Input
-                      id="estimated-duration"
-                      type="number"
-                      value={formData.estimatedDurationMinutes?.toString() || '60'}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value) || 60;
-                        setFormData(prev => ({ ...prev, estimatedDurationMinutes: value }));
-                        if (errors.estimatedDurationMinutes) {
-                          setErrors(prev => ({ ...prev, estimatedDurationMinutes: '' }));
-                        }
-                      }}
-                      min="15"
-                      max="480"
-                      error={errors.estimatedDurationMinutes}
-                      helpText="Set the time limit for the inventory freeze (15-480 minutes)"
-                      className="w-28"
-                    />
-                    
-                    <div className="text-xs text-text-muted mt-1 bg-info/10 p-2 rounded border border-info/20">
-                      <p>While frozen, inventory transactions will be queued and applied after the count completes or when manually unfrozen by an admin.</p>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -645,138 +515,151 @@ export default function NewCountWizard({
             <div className="space-y-6">
               {/* Scope Type Selection */}
               <div>
-                <Label>Count Scope</Label>
-                <div className="mt-3">
+                <Label>Audit Scope</Label>
                   <RadioGroup
                     value={scopeType}
-                    onChange={handleScopeTypeChange}
-                    name="scope-type"
+                  onValueChange={(value) => handleScopeTypeChange(value as ScopeType)}
+                  className="mt-3 space-y-3"
                   >
                     <RadioOption value="all">
                       <RadioOptionContent
                         title="All Items"
-                        description="Count all active inventory items at selected branch"
+                      description="Audit will include all active inventory items at selected branch"
+                    />
+                  </RadioOption>
+                  <RadioOption value="categories">
+                    <RadioOptionContent
+                      title="By Category"
+                      description="Select specific inventory categories to audit"
                       />
                     </RadioOption>
-
-                    <RadioOption value="countSheet">
+                  <RadioOption value="itemTypes">
                       <RadioOptionContent
-                        title="Use Count Sheet"
-                        description="Select from saved count templates with predefined item scopes"
+                      title="By Item Type"
+                      description="Select specific item types to audit"
                       />
                     </RadioOption>
                   </RadioGroup>
-                </div>
               </div>
 
-              {/* Count Sheet Selection */}
-              {scopeType === 'countSheet' && (
-                <div className="space-y-4">
-                  <div className="p-4 border border-border rounded-lg bg-surface-secondary/50">
-                    <Label htmlFor="sheet-select" className="mb-2 block" required>
-                      Select Count Sheet
-                    </Label>
-                    
-                    {sheetsLoading ? (
-                      <div className="space-y-2">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
+              {/* Category Selection */}
+              {scopeType === 'categories' && (
+                <div className="space-y-3">
+                  <Label required>Select Categories</Label>
+                  <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
+                    {!formData.branchId ? (
+                      <p className="text-sm text-text-muted">Select a branch first.</p>
+                    ) : (categories.length > 0 ? (
+                      <div className="max-h-56 overflow-y-auto space-y-2">
+                        {categories.map(category => (
+                          <div key={category.id} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`cat-${category.id}`}
+                              checked={(formData.scope.filters?.categoryIds || []).includes(category.id)}
+                              disabled={!formData.branchId}
+                              onCheckedChange={(checked) => {
+                                const categoryIds = [...(formData.scope.filters?.categoryIds || [])];
+                                
+                                if (checked) {
+                                  categoryIds.push(category.id);
+                                } else {
+                                  const index = categoryIds.indexOf(category.id);
+                                  if (index !== -1) categoryIds.splice(index, 1);
+                                }
+                                
+                                setFormData(prev => ({
+                                  ...prev,
+                                  scope: {
+                                    ...prev.scope,
+                                    filters: {
+                                      ...(prev.scope.filters || {}),
+                                      categoryIds
+                                    }
+                                  }
+                                }));
+                                
+                                if (errors.categoryIds && categoryIds.length > 0) {
+                                  setErrors(prev => ({ ...prev, categoryIds: '' }));
+                                }
+                              }}
+                            />
+                            <label 
+                              htmlFor={`cat-${category.id}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {category.name}
+                            </label>
+                          </div>
+                        ))}
                       </div>
-                    ) : countSheets.length > 0 ? (
-                      <>
-                        <div className="space-y-2 max-h-56 overflow-y-auto pb-2">
-                          {countSheets.map(sheet => {
-                            const preview = sheetPreviews[sheet.id];
-                            const isLoading = !preview || preview.loading;
-                            const isEmpty = preview?.totalItems === 0;
-                            const isSelected = selectedSheetId === sheet.id;
-                            const isDisabled = isLoading || isEmpty;
-                            
-                            return (
-                              <div 
-                                key={sheet.id} 
-                                className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                                  isDisabled ? 'opacity-60 cursor-not-allowed' :
-                                  isSelected ? 'border-primary bg-primary/10' :
-                                  'border-border hover:bg-surface-secondary'
-                                }`}
-                                onClick={() => !isDisabled && handleCountSheetChange(sheet.id)}
-                                role="button"
-                                tabIndex={isDisabled ? -1 : 0}
-                                aria-selected={isSelected}
-                                aria-disabled={isDisabled}
-                              >
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h4 className="font-medium text-text-primary">{sheet.name}</h4>
-                                    <div className="text-xs text-text-muted mt-1">
-                                      {CountSheetUtils.formatBranchScope(sheet.branchScope, branches)}
-                                    </div>
+                    ) : (
+                      <p className="text-sm text-text-muted">No categories available.</p>
+                    ))}
                                   </div>
-                                  <div>
-                                    {isLoading ? (
-                                      <Badge variant="outline" size="sm">Loading...</Badge>
-                                    ) : isEmpty ? (
-                                      <Badge variant="destructive" size="sm" className="text-xs">Empty Sheet</Badge>
-                                    ) : (
-                                      <Badge variant="outline" size="sm" className="text-xs">
-                                        {preview.totalItems} {preview.totalItems === 1 ? 'item' : 'items'}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {CountSheetUtils.formatScopeSummary(sheet.criteria, {
-                                    categories, suppliers, storageAreas
-                                  }).slice(0, 2).map((item, index) => (
-                                    <Badge key={index} variant="secondary" size="sm" className="text-xs">
-                                      {item.label}
-                                    </Badge>
-                                  ))}
-                                  {CountSheetUtils.formatScopeSummary(sheet.criteria, {
-                                    categories, suppliers, storageAreas
-                                  }).length > 2 && (
-                                    <Badge variant="secondary" size="sm" className="text-xs">
-                                      +{CountSheetUtils.formatScopeSummary(sheet.criteria, {
-                                        categories, suppliers, storageAreas
-                                      }).length - 2} more
-                                    </Badge>
+                  {errors.categoryIds && (
+                    <p className="text-destructive text-sm mt-1">{errors.categoryIds}</p>
                                   )}
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div className="flex justify-end mt-3">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={handleCreateNewSheet}
-                          >
-                            Create New Sheet
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-text-muted mb-3">No count sheets available.</p>
-                        <Button 
-                          variant="outline"
-                          onClick={handleCreateNewSheet}
-                        >
-                          Create New Count Sheet
-                        </Button>
+              )}
+
+              {/* Item Type Selection */}
+              {scopeType === 'itemTypes' && (
+                <div className="space-y-3">
+                  <Label required>Select Item Types</Label>
+                  <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
+                    {!formData.branchId ? (
+                      <p className="text-sm text-text-muted">Select a branch first.</p>
+                    ) : (itemTypes.length > 0 ? (
+                      <div className="max-h-56 overflow-y-auto space-y-2">
+                        {itemTypes.map(t => (
+                          <div key={t.id} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`type-${t.id}`}
+                              checked={(formData.scope.filters?.itemTypeIds || []).includes(t.id)}
+                              disabled={!formData.branchId}
+                              onCheckedChange={(checked) => {
+                                const itemTypeIds = [...(formData.scope.filters?.itemTypeIds || [])];
+                                if (checked) {
+                                  if (!itemTypeIds.includes(t.id)) itemTypeIds.push(t.id);
+                                } else {
+                                  const index = itemTypeIds.indexOf(t.id);
+                                  if (index !== -1) itemTypeIds.splice(index, 1);
+                                }
+                                setFormData(prev => ({
+                                  ...prev,
+                                  scope: {
+                                    ...prev.scope,
+                                    filters: {
+                                      ...(prev.scope.filters || {}),
+                                      itemTypeIds
+                                    }
+                                  }
+                                }));
+                                if (errors.itemTypeIds && itemTypeIds.length > 0) {
+                                  setErrors(prev => ({ ...prev, itemTypeIds: '' }));
+                                }
+                              }}
+                            />
+                            <label 
+                              htmlFor={`type-${t.id}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {t.name}
+                            </label>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                    ) : (
+                      <p className="text-sm text-text-muted">No item types available.</p>
+                    ))}
                   </div>
-                  
-                  {errors.countSheet && (
-                    <div className="p-3 bg-error/10 border border-error/20 rounded-lg">
-                      <p className="text-sm text-error">{errors.countSheet}</p>
-                    </div>
+                  {errors.itemTypeIds && (
+                    <p className="text-destructive text-sm mt-1">{errors.itemTypeIds}</p>
                   )}
                 </div>
               )}
+
+              {/* Count sheets feature completely removed */}
             </div>
           )}
 
@@ -798,13 +681,15 @@ export default function NewCountWizard({
                     <dt className="text-text-secondary">Scope:</dt>
                     <dd className="text-text-primary">
                       {scopeType === 'all' && 'All Items'}
-                      {scopeType === 'countSheet' && selectedSheetId && (
-                        <div className="flex items-center">
-                          <span>Using sheet: </span>
-                          <span className="font-medium ml-1">
-                            {countSheets.find(s => s.id === selectedSheetId)?.name || selectedSheetId}
-                          </span>
-                        </div>
+                      {scopeType === 'categories' && (
+                        <span>
+                          By Categories ({formData.scope.filters?.categoryIds?.length || 0})
+                        </span>
+                      )}
+                      {scopeType === 'itemTypes' && (
+                        <span>
+                          By Item Types ({formData.scope.filters?.itemTypeIds?.length || 0})
+                        </span>
                       )}
                     </dd>
                   </div>
@@ -812,19 +697,14 @@ export default function NewCountWizard({
                   <div className="flex justify-between">
                     <dt className="text-text-secondary">Inventory:</dt>
                     <dd className="text-text-primary">
-                      {freezeInventory 
-                        ? `Frozen (${formData.estimatedDurationMinutes} minute limit)`
-                        : 'Not frozen'}
+                      Snapshot at creation time
                     </dd>
                   </div>
                   
                   <div className="flex justify-between">
                     <dt className="text-text-secondary">Estimated Items:</dt>
                     <dd className="text-text-primary">
-                      {scopeType === 'all' ? '~500 items' :
-                       scopeType === 'countSheet' && selectedSheetId ? 
-                        `${sheetPreviews[selectedSheetId]?.totalItems || 0} items` :
-                        'Unknown'}
+                      ~500 items
                     </dd>
                   </div>
                 </dl>
@@ -852,7 +732,7 @@ export default function NewCountWizard({
                     <h4 className="text-sm font-medium text-warning">Important</h4>
                     <p className="text-sm text-warning/80 mt-1">
                       This will create a snapshot of current theoretical quantities. 
-                      {freezeInventory ? ' Inventory will be frozen until counting is complete or manually unfrozen.' : ''}
+                      Inventory movements during audit will be tracked and shown at completion.
                     </p>
                   </div>
                 </div>
@@ -908,3 +788,4 @@ export default function NewCountWizard({
     </Modal>
   );
 }
+
