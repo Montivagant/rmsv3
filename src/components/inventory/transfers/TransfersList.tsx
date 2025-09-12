@@ -198,6 +198,7 @@ export function TransfersList({
                           variant="ghost"
                           size="sm"
                           className="h-8 w-8 p-0"
+                          aria-label="More actions"
                         >
                           <span className="sr-only">Open menu</span>
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
