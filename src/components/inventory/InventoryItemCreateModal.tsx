@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Simplified Inventory Item Create Modal
  * 
  * A focused, accessible form for adding new inventory items.
@@ -11,13 +11,13 @@ import { Input } from '../Input';
 import { Select } from '../Select';
 import { Button } from '../Button';
 import { useToast } from '../../hooks/useToast';
+import { useApi } from '../../hooks/useApi';
 import { useDismissableLayer } from '../../hooks/useDismissableLayer';
 import type { ItemFormData, ItemFormErrors } from '../../schemas/itemForm';
 import { 
   validateItemForm, 
   createDefaultFormData, 
   generateSKU,
-  validateBarcode,
   FIELD_LABELS,
   FIELD_HELP_TEXT 
 } from '../../schemas/itemForm';
@@ -103,15 +103,6 @@ export default function InventoryItemCreateModal({
     handleFieldChange('sku', newSKU);
   }, [formData.name, existingSKUs, handleFieldChange]);
 
-  // Validate barcode on blur
-  const handleBarcodeBlur = useCallback((value: string) => {
-    if (!value) return;
-    
-    const validation = validateBarcode(value);
-    if (!validation.isValid && validation.message) {
-      setErrors(prev => ({ ...prev, barcode: validation.message }));
-    }
-  }, []);
 
   // Form submission
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -179,22 +170,25 @@ export default function InventoryItemCreateModal({
     value: unit.id,
     label: `${unit.name} (${unit.abbreviation})`
   }));
+  // Removed unused item type options to avoid ReferenceError; add when item types are supported in this modal
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Create Item"
+      title="Add Basic Inventory Item"
+      description="Create an item with just the essential information"
       size="lg"
       closeOnOverlayClick={!hasUnsavedChanges}
       closeOnEscape={!hasUnsavedChanges}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Two-column grid on desktop, single column on mobile */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* Left Column */}
-          <div className="space-y-6">
+        {/* Simplified form - single column layout */}
+        <div className="space-y-6">
+          {/* Required Fields */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Required Information</h3>
+            
             {/* Name - Required */}
             <Input
               id="item-name"
@@ -226,7 +220,7 @@ export default function InventoryItemCreateModal({
                 rightIcon={
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="ghost" 
                     size="sm"
                     onClick={handleGenerateSKU}
                     disabled={isSubmitting || !formData.name}
@@ -238,7 +232,26 @@ export default function InventoryItemCreateModal({
               />
             </div>
 
-            {/* Category - Required */}
+            {/* Unit - Required */}
+            <Select
+              id="item-unit"
+              label={FIELD_LABELS.unit}
+              value={formData.unit || ''}
+              onChange={(e) => handleFieldChange('unit', e.target.value)}
+              options={unitOptions}
+              error={errors.unit}
+              helpText={FIELD_HELP_TEXT.unit}
+              required
+              disabled={isSubmitting || isLoading}
+              placeholder="Select unit (e.g., each, kg, liter)"
+            />
+          </div>
+
+          {/* Optional fields */}
+          <div className="border-t border-border pt-6 space-y-4">
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Optional Information</h3>
+            
+            {/* Category - Optional */}
             <Select
               id="item-category"
               label={FIELD_LABELS.categoryId}
@@ -247,121 +260,48 @@ export default function InventoryItemCreateModal({
               options={categoryOptions}
               error={errors.categoryId}
               helpText={FIELD_HELP_TEXT.categoryId}
-              required
               disabled={isSubmitting || isLoading}
-              placeholder="Select a category"
+              placeholder="Select category (optional)"
             />
 
-            {/* Storage Unit - Required */}
-            <Select
-              id="item-storage-unit"
-              label={FIELD_LABELS.storageUnit}
-              value={formData.storageUnit || ''}
-              onChange={(e) => handleFieldChange('storageUnit', e.target.value)}
-              options={unitOptions}
-              error={errors.storageUnit}
-              helpText={FIELD_HELP_TEXT.storageUnit}
-              required
-              disabled={isSubmitting || isLoading}
-              placeholder="Select storage unit"
-            />
+            {/* Two-column layout for quantity and cost */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Quantity - Optional */}
+              <Input
+                id="item-quantity"
+                label={FIELD_LABELS.quantity}
+                type="number"
+                value={formData.quantity?.toString() || ''}
+                onChange={(e) => handleFieldChange('quantity', e.target.value ? parseFloat(e.target.value) : undefined)}
+                error={errors.quantity}
+                helpText={FIELD_HELP_TEXT.quantity}
+                disabled={isSubmitting}
+                placeholder="0"
+                min={0}
+                step={0.01}
+              />
 
-            {/* Ingredient Unit - Required */}
-            <Select
-              id="item-ingredient-unit"
-              label={FIELD_LABELS.ingredientUnit}
-              value={formData.ingredientUnit || ''}
-              onChange={(e) => handleFieldChange('ingredientUnit', e.target.value)}
-              options={unitOptions}
-              error={errors.ingredientUnit}
-              helpText={FIELD_HELP_TEXT.ingredientUnit}
-              required
-              disabled={isSubmitting || isLoading}
-              placeholder="Select ingredient unit"
-            />
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Barcode - Optional */}
-            <Input
-              id="item-barcode"
-              label={FIELD_LABELS.barcode}
-              value={formData.barcode || ''}
-              onChange={(e) => handleFieldChange('barcode', e.target.value)}
-              onBlur={(e) => handleBarcodeBlur(e.target.value)}
-              error={errors.barcode}
-              helpText={FIELD_HELP_TEXT.barcode}
-              disabled={isSubmitting}
-              placeholder="e.g., 1234567890123"
-              maxLength={32}
-            />
-
-            {/* Cost - Optional */}
-            <Input
-              id="item-cost"
-              label={FIELD_LABELS.cost}
-              type="number"
-              value={formData.cost?.toString() || ''}
-              onChange={(e) => handleFieldChange('cost', e.target.value ? parseFloat(e.target.value) : undefined)}
-              error={errors.cost}
-              helpText={FIELD_HELP_TEXT.cost}
-              disabled={isSubmitting}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-            />
-
-            {/* Minimum Level - Optional */}
-            <Input
-              id="item-min-level"
-              label={FIELD_LABELS.minimumLevel}
-              type="number"
-              value={formData.minimumLevel?.toString() || ''}
-              onChange={(e) => handleFieldChange('minimumLevel', e.target.value ? parseInt(e.target.value) : undefined)}
-              error={errors.minimumLevel}
-              helpText={FIELD_HELP_TEXT.minimumLevel}
-              disabled={isSubmitting}
-              placeholder="0"
-              min="0"
-              step="1"
-            />
-
-            {/* Par Level - Optional */}
-            <Input
-              id="item-par-level"
-              label={FIELD_LABELS.parLevel}
-              type="number"
-              value={formData.parLevel?.toString() || ''}
-              onChange={(e) => handleFieldChange('parLevel', e.target.value ? parseInt(e.target.value) : undefined)}
-              error={errors.parLevel}
-              helpText={FIELD_HELP_TEXT.parLevel}
-              disabled={isSubmitting}
-              placeholder="0"
-              min="0"
-              step="1"
-            />
-
-            {/* Maximum Level - Optional */}
-            <Input
-              id="item-max-level"
-              label={FIELD_LABELS.maximumLevel}
-              type="number"
-              value={formData.maximumLevel?.toString() || ''}
-              onChange={(e) => handleFieldChange('maximumLevel', e.target.value ? parseInt(e.target.value) : undefined)}
-              error={errors.maximumLevel}
-              helpText={FIELD_HELP_TEXT.maximumLevel}
-              disabled={isSubmitting}
-              placeholder="0"
-              min="0"
-              step="1"
-            />
+              {/* Cost - Optional */}
+              <Input
+                id="item-cost"
+                label={FIELD_LABELS.cost}
+                type="number"
+                value={formData.cost?.toString() || ''}
+                onChange={(e) => handleFieldChange('cost', e.target.value ? parseFloat(e.target.value) : undefined)}
+                error={errors.cost}
+                helpText={FIELD_HELP_TEXT.cost}
+                disabled={isSubmitting}
+                placeholder="0.00"
+                min={0}
+                step={0.01}
+              />
+            </div>
           </div>
         </div>
 
         {/* Form Error */}
         {errors._form && (
-          <div className="p-3 rounded-lg bg-error-surface border border-error text-error-text text-sm">
+          <div className="p-3 rounded-lg bg-error-surface border border-error text-error-text text-sm" role="alert" aria-live="polite">
             {errors._form}
           </div>
         )}
