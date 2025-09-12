@@ -303,7 +303,7 @@ export function TransfersList({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-text-muted">
-              Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total} transfers
+              Showing {((page - 1) * pageSize) + 1} to {Math.min(((page - 1) * pageSize) + data.length, total)} of {total} transfers
             </span>
             
             <Select
