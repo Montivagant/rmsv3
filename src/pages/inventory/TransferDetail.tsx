@@ -398,7 +398,7 @@ export default function TransferDetail() {
                   className="w-full"
                   onClick={handleCancel}
                 >
-                  Cancel Transfer
+                  Cancel
                 </Button>
               </CardContent>
             </Card>
