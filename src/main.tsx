@@ -47,9 +47,9 @@ async function initializeApp() {
       console.log('📦 MSW module loaded successfully');
       await worker.start({ 
         onUnhandledRequest: 'bypass',
-        quiet: false 
+        quiet: true // Reduce MSW console noise
       });
-      console.log('✅ MSW worker ready and intercepting requests');
+      console.log('✅ MSW worker ready');
     } catch (error) {
       console.error('❌ MSW initialization failed:', error);
       console.log('ℹ️ MSW not available - API calls will go to real endpoints');

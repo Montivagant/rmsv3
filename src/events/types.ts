@@ -37,6 +37,8 @@ export type KnownEvent =
   | SupplierCreatedEvent
   | SupplierUpdatedEvent
   | DeliveryReceivedEvent
+  | ShiftStartedEvent
+  | ShiftEndedEvent
 
 export interface SaleRecordedEvent extends Event {
   type: 'sale.recorded'
@@ -386,21 +388,7 @@ export interface BatchWastedEvent extends Event {
   }
 }
 
-export interface SupplierCreatedEvent extends Event {
-  type: 'inventory.supplier.created'
-  payload: {
-    supplier: any; // Supplier type
-  }
-}
-
-export interface SupplierUpdatedEvent extends Event {
-  type: 'inventory.supplier.updated'
-  payload: {
-    supplierId: string;
-    updates: any;
-    previousData: any;
-  }
-}
+// Supplier events removed from system
 
 export interface DeliveryReceivedEvent extends Event {
   type: 'inventory.delivery.received'
@@ -414,5 +402,24 @@ export interface DeliveryReceivedEvent extends Event {
     }>;
     receivedBy: string;
     actualDeliveryDate: string;
+  }
+}
+
+export interface ShiftStartedEvent extends Event {
+  type: 'shift.started'
+  payload: {
+    userId: string
+    userName: string
+    startedAt: number
+  }
+}
+
+export interface ShiftEndedEvent extends Event {
+  type: 'shift.ended'
+  payload: {
+    userId: string
+    userName: string
+    startedAt: number
+    endedAt: number
   }
 }

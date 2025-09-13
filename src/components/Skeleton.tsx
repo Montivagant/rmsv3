@@ -18,9 +18,9 @@ const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
       rounded: 'skeleton-rounded',
     };
 
-    const style = {
-      width: typeof width === 'number' ? `${width}px` : width,
-      height: typeof height === 'number' ? `${height}px` : height,
+    const styleVars: Record<string, string | undefined> = {
+      ['--sk-w' as any]: typeof width === 'number' ? `${width}px` : (width as string | undefined),
+      ['--sk-h' as any]: typeof height === 'number' ? `${height}px` : (height as string | undefined),
     };
 
     // For multiple lines of text
@@ -36,7 +36,7 @@ const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
                 index === lines - 1 && 'w-3/4', // Last line is shorter
                 className
               )}
-              style={index === lines - 1 ? { ...style, width: '75%' } : style}
+              style={index === lines - 1 ? { ...styleVars, ['--sk-w' as any]: '75%' } : styleVars}
             />
           ))}
         </div>
@@ -51,7 +51,7 @@ const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
           variantClasses[variant],
           className
         )}
-        style={style}
+        style={styleVars}
         data-testid="skeleton"
         {...props}
       />

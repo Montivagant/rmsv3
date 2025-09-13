@@ -71,14 +71,14 @@ export function generateReceiptHTML(data: ReceiptData): string {
       margin: 0;
       padding: 20px;
       max-width: 300px;
-      background: white;
-      color: black;
+      background: #ffffff; /* print-safe white */
+      color: #000000;      /* print-safe black */
     }
     .receipt {
       text-align: center;
     }
     .header {
-      border-bottom: 1px dashed #000;
+      border-bottom: 1px dashed #000000;
       padding-bottom: 10px;
       margin-bottom: 10px;
     }
@@ -92,7 +92,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
       margin-bottom: 10px;
     }
     .items {
-      border-bottom: 1px dashed #000;
+      border-bottom: 1px dashed #000000;
       padding-bottom: 10px;
       margin-bottom: 10px;
     }
@@ -113,7 +113,7 @@ export function generateReceiptHTML(data: ReceiptData): string {
       text-align: right;
     }
     .totals {
-      border-bottom: 1px dashed #000;
+      border-bottom: 1px dashed #000000;
       padding-bottom: 10px;
       margin-bottom: 10px;
     }
@@ -125,19 +125,19 @@ export function generateReceiptHTML(data: ReceiptData): string {
     .total-line.grand-total {
       font-weight: bold;
       font-size: 14px;
-      border-top: 1px solid #000;
+      border-top: 1px solid #000000;
       padding-top: 5px;
       margin-top: 5px;
     }
     .payment-info {
-      border-bottom: 1px dashed #000;
+      border-bottom: 1px dashed #000000;
       padding-bottom: 10px;
       margin-bottom: 10px;
     }
     .footer {
       text-align: center;
       font-size: 11px;
-      color: #666;
+      color: #666666;
     }
     @media print {
       body { margin: 0; padding: 10px; }

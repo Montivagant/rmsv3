@@ -1,17 +1,11 @@
-export type CustomerStatus = 'active' | 'inactive';
-
 export interface Customer {
   id: string;
   name: string;
   phone: string;
   email: string;
-  orders: number;
-  totalSpent: number;
-  visits: number;
-  points: number;
-  lastVisit: string; // ISO date
-  status?: CustomerStatus;
-  tags?: string[];
+  orders?: number;
+  totalSpent?: number;
+  points?: number;
 }
 
 export interface CustomersResponse {
@@ -22,11 +16,7 @@ export interface CustomersResponse {
 }
 
 export interface CustomerFilters {
-  status?: CustomerStatus[];
-  tags?: string[];
-  spend?: [number | null, number | null];
-  visitRecency?: string; // e.g. "30d"
-  signup?: [string | null, string | null]; // ISO from,to (optional, reserved)
+  // simplified: no status/tags/recency
 }
 
 export interface QueryState {
@@ -47,6 +37,6 @@ export interface TableColumnDef<TData> {
 }
 
 export interface BulkAction {
-  id: 'export' | 'activate' | 'deactivate' | 'add_tag';
+  id: 'export';
   label: string;
 }

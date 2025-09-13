@@ -1,3 +1,4 @@
+﻿import React from 'react';
 import { Badge } from '../../Badge';
 import type { TransferStatus } from '../../../inventory/transfers/types';
 import { TransferUtils } from '../../../inventory/transfers/types';
@@ -7,7 +8,7 @@ interface TransferStatusBadgeProps {
   className?: string;
 }
 
-export function TransferStatusBadge({ status, className }: TransferStatusBadgeProps) {
+function TransferStatusBadgeBase({ status, className }: TransferStatusBadgeProps) {
   const variant = TransferUtils.getStatusColorVariant(status);
   const label = TransferUtils.getStatusDisplayText(status);
 
@@ -23,3 +24,5 @@ export function TransferStatusBadge({ status, className }: TransferStatusBadgePr
     </Badge>
   );
 }
+
+export { TransferStatusBadgeBase as TransferStatusBadge };

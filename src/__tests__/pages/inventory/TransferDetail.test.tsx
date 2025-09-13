@@ -202,11 +202,12 @@ describe('TransferDetail', () => {
     it('should open complete drawer when complete button clicked', () => {
       renderWithRouter(<TransferDetail />);
 
-      const completeButton = screen.getByText('Complete Transfer');
-      fireEvent.click(completeButton);
+      // Click the header action button
+      const [headerCompleteBtn] = screen.getAllByText('Complete Transfer');
+      fireEvent.click(headerCompleteBtn);
 
-      // Should open the complete drawer modal
-      expect(screen.getByText('Complete Transfer')).toBeInTheDocument();
+      // The drawer dialog should be open and labelled "Complete Transfer"
+      expect(screen.getByRole('dialog', { name: 'Complete Transfer' })).toBeInTheDocument();
     });
 
     it('should open cancel confirmation when cancel button clicked', () => {

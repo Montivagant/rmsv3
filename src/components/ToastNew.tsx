@@ -1,6 +1,6 @@
-import { forwardRef, useEffect, useState } from 'react';
+﻿import { forwardRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { cn } from '../utils/cn';
+import { cn } from '../lib/utils';
 
 interface ToastProps {
   id: string;

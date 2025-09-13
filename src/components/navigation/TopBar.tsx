@@ -79,6 +79,7 @@ export const TopBar: React.FC<TopBarProps> = ({
     active: showSearch,
     initialFocus: () => searchInputRef.current,
     returnFocus: true,
+    allowOutsideClick: true,
   });
 
   // Handle keyboard shortcuts
@@ -197,10 +198,13 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               ref={notifTriggerRef}
               onClick={() => {
-                const next = !showNotifications;
-                setShowSearch(false);
-                setShowProfile(false);
-                setShowNotifications(next);
+                if (!showNotifications) {
+                  if (showSearch) setShowSearch(false);
+                  if (showProfile) setShowProfile(false);
+                  setShowNotifications(true);
+                } else {
+                  setShowNotifications(false);
+                }
               }}
               className="relative p-2 text-secondary hover:bg-surface-secondary rounded-md transition-colors focus-ring"
               aria-label="Notifications"

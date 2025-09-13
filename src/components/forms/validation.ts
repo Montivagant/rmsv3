@@ -473,41 +473,6 @@ export function useFormValidation(
     return state.fields[fieldName]
   }, [state.fields])
 
-  // Set field value
-  const setFieldValue = useCallback(async (fieldName: string, value: unknown, validate = true) => {
-    setValues(prev => ({
-      ...prev,
-      [fieldName]: value
-    }))
-
-    setState(prev => {
-      const previousField: FieldValidationState = prev.fields[fieldName] || {
-        value: undefined,
-        errors: [],
-        warnings: [],
-        info: [],
-        isValidating: false,
-        hasBeenTouched: false,
-        hasBeenFocused: false,
-      }
-      return ({
-        ...prev,
-        fields: {
-          ...prev.fields,
-          [fieldName]: {
-            ...previousField,
-            value,
-            hasBeenTouched: true,
-          },
-        },
-      })
-    })
-
-    if (validate && finalConfig.validateOnChange) {
-      await validateField(fieldName, value, true)
-    }
-  }, [finalConfig.validateOnChange, validateField])
-
   // Validate field
   const validateField = useCallback(async (fieldName: string, value: unknown, shouldValidate = true) => {
     if (!shouldValidate) return
@@ -600,6 +565,41 @@ export function useFormValidation(
       },
     }))
   }, [rulesByField, values])
+
+  // Set field value (defined after validateField to avoid TDZ issues)
+  const setFieldValue = useCallback(async (fieldName: string, value: unknown, validate = true) => {
+    setValues(prev => ({
+      ...prev,
+      [fieldName]: value
+    }))
+
+    setState(prev => {
+      const previousField: FieldValidationState = prev.fields[fieldName] || {
+        value: undefined,
+        errors: [],
+        warnings: [],
+        info: [],
+        isValidating: false,
+        hasBeenTouched: false,
+        hasBeenFocused: false,
+      }
+      return ({
+        ...prev,
+        fields: {
+          ...prev.fields,
+          [fieldName]: {
+            ...previousField,
+            value,
+            hasBeenTouched: true,
+          },
+        },
+      })
+    })
+
+    if (validate && finalConfig.validateOnChange) {
+      await validateField(fieldName, value, true)
+    }
+  }, [finalConfig.validateOnChange, validateField])
 
   // Validate form
   const validateForm = useCallback(async (): Promise<boolean> => {

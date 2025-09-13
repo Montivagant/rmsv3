@@ -118,8 +118,8 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
   },
   {
     id: 'inventory.count',
-    name: 'Count Inventory',
-    description: 'Perform inventory counts and audits',
+    name: 'Perform Inventory Audit',
+    description: 'Perform inventory audits and reconciliations',
     module: 'inventory',
     action: 'count'
   },
@@ -168,6 +168,29 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
     description: 'Access recipe costing and profitability analysis',
     module: 'recipes',
     action: 'cost_analysis'
+  },
+  
+  // Menu permissions
+  {
+    id: 'menu.view',
+    name: 'View Menu',
+    description: 'View menu categories, items, and menu structure',
+    module: 'menu',
+    action: 'view'
+  },
+  {
+    id: 'menu.edit',
+    name: 'Edit Menu',
+    description: 'Create and modify menu categories and items',
+    module: 'menu',
+    action: 'edit'
+  },
+  {
+    id: 'menu.manage',
+    name: 'Manage Menu',
+    description: 'Full menu management including pricing, availability, and organization',
+    module: 'menu',
+    action: 'manage'
   },
   
   // Reports permissions

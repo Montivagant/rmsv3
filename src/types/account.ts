@@ -20,16 +20,16 @@ export interface Preferences {
   timeZone: string; // Default 'Africa/Cairo'
   taxInclusivePricing: boolean;
   enableLocalization: boolean;
-  restrictPurchasedItemsToSupplier: boolean;
+  defaultBranchId?: string;
+  locale?: string;
   enableTwoFactor: boolean; // May be stubbed if backend not ready
 }
 
 export type NotificationKey =
   | 'costAdjustmentSubmitted'
-  | 'inventoryCountSubmitted'
+  | 'inventoryAuditSubmitted'
   | 'purchasingSubmitted'
   | 'quantityAdjustmentSubmitted'
-  | 'supplierReturn'
   | 'incomingTransfer'
   | 'outgoingTransfer'
   | 'productionSubmitted'
@@ -94,9 +94,9 @@ export const NOTIFICATION_CONFIGS: NotificationConfig[] = [
     category: 'inventory'
   },
   {
-    key: 'inventoryCountSubmitted', 
-    label: 'Inventory Count Submitted',
-    description: 'When physical inventory counts are completed',
+    key: 'inventoryAuditSubmitted', 
+    label: 'Inventory Audit Submitted',
+    description: 'When physical inventory audits are completed',
     category: 'inventory'
   },
   {
@@ -110,12 +110,6 @@ export const NOTIFICATION_CONFIGS: NotificationConfig[] = [
     label: 'Quantity Adjustments Submitted',
     description: 'When inventory quantity adjustments are made',
     category: 'inventory'
-  },
-  {
-    key: 'supplierReturn',
-    label: 'Supplier Returns',
-    description: 'When items are returned to suppliers',
-    category: 'purchasing'
   },
   {
     key: 'incomingTransfer',

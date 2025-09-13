@@ -43,33 +43,6 @@ interface InventoryItem {
   status: 'in-stock' | 'low-stock' | 'out-of-stock' | 'expired';
 }
 
-interface Supplier {
-  id: string;
-  name: string;
-  contactPerson?: string;
-  email?: string;
-  phone?: string;
-  address?: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    country: string;
-  };
-  paymentTerms?: string;
-  leadTimeDays?: number;
-  minimumOrderAmount?: number;
-  deliveryDays?: string[];
-  notes?: string;
-  isActive: boolean;
-  rating?: number;
-  averageLeadTime?: number;
-  onTimeDeliveryRate?: number;
-  qualityRating?: number;
-  lastOrderDate?: string;
-  totalOrdersCount?: number;
-  totalOrderValue?: number;
-}
 
 interface Category {
   id: string;
@@ -84,8 +57,7 @@ const INVENTORY_TABS = [
   { id: 'stock', label: 'Stock Levels', icon: '📈' },
   { id: 'operations', label: 'Operations', icon: '🔄' },
   { id: 'recipes', label: 'Recipes & BOM', icon: '🍳' },
-  { id: 'suppliers', label: 'Suppliers', icon: '🚚' },
-  { id: 'alerts', label: 'Alerts & Reports', icon: '🔔' },
+    { id: 'alerts', label: 'Alerts & Reports', icon: '🔔' },
 ];
 
 export default function Inventory() {
@@ -251,8 +223,6 @@ export default function Inventory() {
         return <OperationsTab />;
       case 'recipes':
         return <RecipesTab />;
-      case 'suppliers':
-        return <SuppliersTab />;
       case 'alerts':
         return <AlertsTab items={safeItems} />;
       default:
@@ -268,7 +238,7 @@ export default function Inventory() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Inventory Management</h1>
-              <p className="text-sm text-muted-foreground mt-1">Track stock levels, manage suppliers, and monitor costs</p>
+              <p className="text-sm text-muted-foreground mt-1">Track stock levels and monitor costs</p>
             </div>
             <button
               onClick={() => setIsAddDrawerOpen(true)}
@@ -465,11 +435,11 @@ function OverviewTab({ kpis, items }: { kpis: any; items: InventoryItem[] }) {
         </button>
         
         <button
-          onClick={() => navigate('/inventory/counts')}
+          onClick={() => navigate('/inventory/audits')}
           className="p-4 bg-card border border-border rounded-lg hover:bg-muted transition-colors text-left"
         >
-          <h3 className="font-semibold text-foreground mb-1">Stock Count</h3>
-          <p className="text-sm text-muted-foreground">Perform inventory counts</p>
+          <h3 className="font-semibold text-foreground mb-1">Inventory Audit</h3>
+          <p className="text-sm text-muted-foreground">Perform inventory audits</p>
         </button>
         
         <button
@@ -560,7 +530,7 @@ function CatalogTab({
         <div>
           <p className="font-medium">{item.quantity} {item.unit}</p>
           {item.quantity <= item.reorderPoint && (
-            <p className="text-xs text-amber-600">Below reorder point</p>
+            <p className="text-xs text-warning-600">Below reorder point</p>
           )}
         </div>
       ),
@@ -774,19 +744,19 @@ function StockTab({ items }: { items: InventoryItem[] }) {
     switch (type) {
       case 'received':
         return (
-          <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 text-success-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
         );
       case 'consumed':
         return (
-          <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 text-error-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
           </svg>
         );
       case 'transferred':
         return (
-          <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
           </svg>
         );
@@ -880,7 +850,7 @@ function StockTab({ items }: { items: InventoryItem[] }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Low Stock Items:</span>
-                  <span className={cn('font-medium', location.lowStockCount > 0 ? 'text-yellow-600' : 'text-green-600')}>
+                  <span className={cn('font-medium', location.lowStockCount > 0 ? 'text-warning-600' : 'text-success-600')}>
                     {location.lowStockCount}
                   </span>
                 </div>
@@ -1113,8 +1083,8 @@ function OperationsTab() {
     },
     {
       id: 'count',
-      title: 'Stock Count',
-      description: 'Perform physical inventory counts',
+      title: 'Inventory Audit',
+      description: 'Perform physical inventory audits',
       icon: (
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
@@ -1160,7 +1130,7 @@ function OperationsTab() {
       const operationLabels = {
         receive: 'Stock Received',
         adjust: 'Inventory Adjusted', 
-        count: 'Count Completed'
+        count: 'Audit Completed'
       };
       
       showSuccess(
@@ -1224,7 +1194,7 @@ function OperationsTab() {
       <div>
         <h2 className="text-xl font-semibold mb-2">Inventory Operations</h2>
         <p className="text-muted-foreground">
-          Manage your inventory with receiving, adjustments, and stock counts
+          Manage your inventory with receiving, adjustments, and stock audits
         </p>
       </div>
 
@@ -1278,7 +1248,7 @@ function OperationsTab() {
               const operationConfig = {
                 receive: { label: 'Received', status: 'success' as const, icon: '📦' },
                 adjust: { label: 'Adjusted', status: 'warning' as const, icon: '✏️' },
-                count: { label: 'Counted', status: 'default' as const, icon: '📋' }
+                count: { label: 'Audited', status: 'default' as const, icon: '📋' }
               };
               
               const config = operationConfig[operation.type as keyof typeof operationConfig] || 
@@ -1342,337 +1312,6 @@ function RecipesTab() {
   );
 }
 
-// Suppliers Tab Component (functional implementation)
-function SuppliersTab() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all');
-
-  // Fetch suppliers on component mount
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        setLoading(true);
-        // Simulate API call - replace with actual API when available
-        const mockSuppliers: Supplier[] = [
-          {
-            id: 'SUPPLIER_001',
-            name: 'Premium Meat Supply Co.',
-            contactPerson: 'John Smith',
-            email: 'orders@premiummeat.com',
-            phone: '(555) 123-4567',
-            address: {
-              street: '123 Industrial Way',
-              city: 'Food City',
-              state: 'CA',
-              zipCode: '90210',
-              country: 'US'
-            },
-            paymentTerms: 'net_30',
-            leadTimeDays: 2,
-            minimumOrderAmount: 200,
-            deliveryDays: ['monday', 'wednesday', 'friday'],
-            isActive: true,
-            rating: 4.5,
-            onTimeDeliveryRate: 95,
-            qualityRating: 4.8,
-            averageLeadTime: 1.8,
-            totalOrdersCount: 45,
-            totalOrderValue: 12500
-          },
-          {
-            id: 'SUPPLIER_002',
-            name: 'Fresh Bakery Supplies',
-            contactPerson: 'Maria Garcia',
-            email: 'sales@freshbakery.com',
-            phone: '(555) 234-5678',
-            address: {
-              street: '456 Bakery Lane',
-              city: 'Bread Town',
-              state: 'CA',
-              zipCode: '90211',
-              country: 'US'
-            },
-            paymentTerms: 'net_15',
-            leadTimeDays: 1,
-            minimumOrderAmount: 100,
-            deliveryDays: ['tuesday', 'thursday', 'saturday'],
-            isActive: true,
-            rating: 4.3,
-            onTimeDeliveryRate: 88,
-            qualityRating: 4.5,
-            averageLeadTime: 1.2,
-            totalOrdersCount: 32,
-            totalOrderValue: 5600
-          },
-          {
-            id: 'SUPPLIER_003',
-            name: 'Valley Fresh Produce',
-            contactPerson: 'David Wong',
-            email: 'david@valleyfresh.com',
-            phone: '(555) 345-6789',
-            address: {
-              street: '789 Farm Road',
-              city: 'Green Valley',
-              state: 'CA',
-              zipCode: '90212',
-              country: 'US'
-            },
-            paymentTerms: 'cash_on_delivery',
-            leadTimeDays: 1,
-            minimumOrderAmount: 50,
-            deliveryDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-            isActive: true,
-            rating: 4.0,
-            onTimeDeliveryRate: 78,
-            qualityRating: 4.2,
-            averageLeadTime: 1.5,
-            totalOrdersCount: 28,
-            totalOrderValue: 3200
-          }
-        ];
-        setSuppliers(mockSuppliers);
-      } catch (error) {
-        console.error('Error fetching suppliers:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSuppliers();
-  }, []);
-
-  // Filter suppliers based on search and status
-  const filteredSuppliers = useMemo(() => {
-    return suppliers.filter(supplier => {
-      const matchesSearch = !searchTerm || 
-        supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        supplier.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        supplier.email?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = selectedStatus === 'all' || 
-        (selectedStatus === 'active' && supplier.isActive) ||
-        (selectedStatus === 'inactive' && !supplier.isActive);
-      
-      return matchesSearch && matchesStatus;
-    });
-  }, [suppliers, searchTerm, selectedStatus]);
-
-  const getPaymentTermsLabel = (terms: string) => {
-    const labels: Record<string, string> = {
-      'cash_on_delivery': 'Cash on Delivery',
-      'net_15': 'Net 15 Days',
-      'net_30': 'Net 30 Days',
-      'net_60': 'Net 60 Days',
-      'prepaid': 'Prepaid',
-      'credit_terms': 'Credit Terms'
-    };
-    return labels[terms] || terms;
-  };
-
-  const getDeliveryDaysLabel = (days: string[]) => {
-    if (!days || days.length === 0) return 'Not specified';
-    if (days.length === 7) return 'Every day';
-    if (days.length === 5 && !days.includes('saturday') && !days.includes('sunday')) return 'Weekdays';
-    return days.map(day => day.charAt(0).toUpperCase() + day.slice(1, 3)).join(', ');
-  };
-
-  const getReliabilityColor = (rate: number) => {
-    if (rate >= 95) return 'text-green-600 bg-green-100';
-    if (rate >= 85) return 'text-brand-600 bg-brand-100';
-    if (rate >= 75) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
-  };
-
-  const getRatingStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => {
-      const filled = i < Math.floor(rating);
-      const halfFilled = i === Math.floor(rating) && rating % 1 >= 0.5;
-      return (
-        <svg key={i} className={`w-4 h-4 ${filled || halfFilled ? 'text-warning-600' : 'text-text-muted'}`} fill="currentColor" viewBox="0 0 20 20">
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      );
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="h-10 bg-muted rounded animate-pulse" />
-        <div className="h-64 bg-muted rounded animate-pulse" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header with search and actions */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold">Supplier Management</h2>
-          <p className="text-muted-foreground">Manage vendors, track performance, and monitor delivery schedules</p>
-        </div>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Supplier
-        </Button>
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-4">
-        <div className="flex-1 max-w-md">
-          <Input
-            placeholder="Search suppliers..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full"
-          />
-        </div>
-        <Select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value as any)}
-          options={[
-            { value: 'all', label: 'All Status' },
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' }
-          ]}
-        />
-      </div>
-
-      {/* Suppliers grid */}
-      {filteredSuppliers.length === 0 ? (
-        <EmptyState
-          icon={
-            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-          }
-          title="No suppliers found"
-          description={searchTerm ? 'Try adjusting your search criteria' : 'Get started by adding your first supplier'}
-          action={{
-            label: 'Add Supplier',
-            onClick: () => setIsAddModalOpen(true),
-          }}
-        />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredSuppliers.map((supplier) => (
-            <div key={supplier.id} className="bg-card border border-border rounded-lg p-6 hover:shadow-md transition-shadow">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-lg">{supplier.name}</h3>
-                  <p className="text-sm text-muted-foreground">{supplier.contactPerson}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn(
-                    'px-2 py-1 rounded-full text-xs font-medium',
-                    supplier.isActive ? 'bg-success-100 text-success-700' : 'bg-surface-secondary text-text-secondary'
-                  )}>
-                    {supplier.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Rating */}
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center">
-                  {getRatingStars(supplier.rating || 0)}
-                </div>
-                <span className="text-sm text-muted-foreground">({supplier.rating?.toFixed(1) || 'N/A'})</span>
-              </div>
-
-              {/* Contact info */}
-              <div className="space-y-2 mb-4">
-                {supplier.email && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 7.89a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-muted-foreground">{supplier.email}</span>
-                  </div>
-                )}
-                {supplier.phone && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    <span className="text-muted-foreground">{supplier.phone}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Performance metrics */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">On-time Delivery</p>
-                  <div className="flex items-center gap-1">
-                    <span className={cn('text-sm font-medium px-2 py-1 rounded', getReliabilityColor(supplier.onTimeDeliveryRate || 0))}>
-                      {supplier.onTimeDeliveryRate || 0}%
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Lead Time</p>
-                  <p className="text-sm font-medium">{supplier.averageLeadTime || supplier.leadTimeDays || 'N/A'} days</p>
-                </div>
-              </div>
-
-              {/* Order info */}
-              <div className="space-y-2 mb-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Min Order:</span>
-                  <span>${supplier.minimumOrderAmount || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Payment:</span>
-                  <span>{getPaymentTermsLabel(supplier.paymentTerms || '')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Delivery:</span>
-                  <span>{getDeliveryDaysLabel(supplier.deliveryDays || [])}</span>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => {
-                    setSelectedSupplier(supplier);
-                    setIsEditModalOpen(true);
-                  }}
-                  className="flex-1"
-                >
-                  Edit
-                </Button>
-                <Button variant="outline" size="sm">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Order
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Add/Edit Modals would go here */}
-      {/* TODO: Implement SupplierFormModal component */}
-    </div>
-  );
-}
-
 // Alerts Tab Component (functional implementation)
 function AlertsTab({ items }: { items: InventoryItem[] }) {
   const [selectedAlert, setSelectedAlert] = useState<'low-stock' | 'expiring' | 'out-of-stock' | 'all'>('all');
@@ -1706,21 +1345,21 @@ function AlertsTab({ items }: { items: InventoryItem[] }) {
 
   const alertTypes = [
     { id: 'all', label: 'All Alerts', count: alerts.all.length, color: 'text-text-secondary' },
-    { id: 'out-of-stock', label: 'Out of Stock', count: alerts.outOfStock.length, color: 'text-red-600' },
-    { id: 'low-stock', label: 'Low Stock', count: alerts.lowStock.length, color: 'text-amber-600' },
-    { id: 'expiring', label: 'Expiring Soon', count: alerts.expiring.length, color: 'text-orange-600' }
+    { id: 'out-of-stock', label: 'Out of Stock', count: alerts.outOfStock.length, color: 'text-error-600' },
+    { id: 'low-stock', label: 'Low Stock', count: alerts.lowStock.length, color: 'text-warning-600' },
+    { id: 'expiring', label: 'Expiring Soon', count: alerts.expiring.length, color: 'text-warning-600' }
   ];
 
   const getAlertPriority = (item: any) => {
-    if (item.quantity === 0) return { level: 'critical', label: 'Out of Stock', color: 'text-red-600 bg-red-50' };
-    if (item.quantity <= item.reorderPoint) return { level: 'high', label: 'Low Stock', color: 'text-amber-600 bg-amber-50' };
+    if (item.quantity === 0) return { level: 'critical', label: 'Out of Stock', color: 'text-error-600 bg-error-50' };
+    if (item.quantity <= item.reorderPoint) return { level: 'high', label: 'Low Stock', color: 'text-warning-600 bg-warning-50' };
     if (item.expiryDate) {
       const daysUntilExpiry = Math.floor((new Date(item.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
-        return { level: 'medium', label: `Expires in ${daysUntilExpiry} days`, color: 'text-orange-600 bg-orange-50' };
+        return { level: 'medium', label: `Expires in ${daysUntilExpiry} days`, color: 'text-warning-600 bg-warning-50' };
       }
     }
-    return { level: 'low', label: 'Normal', color: 'text-green-600 bg-green-50' };
+    return { level: 'low', label: 'Normal', color: 'text-success-600 bg-success-50' };
   };
 
   const filteredItems = selectedAlert === 'all' ? alerts.all : alerts[selectedAlert as keyof typeof alerts] || [];
@@ -1775,13 +1414,13 @@ function AlertsTab({ items }: { items: InventoryItem[] }) {
 
         {filteredItems.length === 0 ? (
           <div className="p-8 text-center">
-            <div className="text-green-600 mb-2">
+            <div className="text-success-600 mb-2">
               <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h4 className="text-lg font-semibold text-green-600 mb-1">All Good!</h4>
+            <h4 className="text-lg font-semibold text-success-600 mb-1">All Good!</h4>
             <p className="text-muted-foreground">
               No {selectedAlert === 'all' ? 'alerts' : alertTypes.find(t => t.id === selectedAlert)?.label.toLowerCase()} at this time.
             </p>
@@ -2119,7 +1758,7 @@ function InventoryForm({ item, onSubmit, onCancel }: InventoryFormProps) {
 
       {/* Pricing */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-form">
-        <FormField error={formErrors.cost} helpText="Cost per unit from supplier" required>
+        <FormField error={formErrors.cost} helpText="Cost per unit" required>
           <Label htmlFor="item-cost" required>Cost per Unit ($)</Label>
           <Input
             id="item-cost"
@@ -2172,3 +1811,5 @@ function InventoryForm({ item, onSubmit, onCancel }: InventoryFormProps) {
     </form>
   );
 }
+
+

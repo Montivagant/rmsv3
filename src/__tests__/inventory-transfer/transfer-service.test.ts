@@ -127,7 +127,7 @@ describe('Inventory Transfer Service', () => {
 
         const result = TransferUtils.validateCreateTransfer(request);
         expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('At least one line item is required');
+        expect(result.errors).toContain('At least one item is required');
       });
 
       it('should validate line quantities', () => {

@@ -144,10 +144,12 @@ export default function CountSession() {
       }
 
       const result = await response.json();
-      showToast(
-        `Count submitted successfully. ${result.summary.totalAdjustments} adjustments created.`, 
-        'success'
-      );
+      // Show movement summary if available
+      if (result.movementsDuringAudit && result.movementsDuringAudit.hasMovements) {
+        showToast(result.summary.totalAdjustments + ' adjustments created. ' + result.movementsDuringAudit.message, 'success');
+      } else {
+        showToast('Audit submitted successfully. ' + result.summary.totalAdjustments + ' adjustments created.', 'success');
+      }
       
       navigate('/inventory/counts');
       
@@ -192,7 +194,7 @@ export default function CountSession() {
   if (error || !count) {
     return (
       <div className="p-6 text-center">
-        <div className="text-error">Failed to load count session</div>
+        <div className="text-error">Failed to load Inventory Audit Session</div>
         <Button onClick={() => navigate('/inventory/counts')} className="mt-4">
           Return to Counts
         </Button>
@@ -220,7 +222,7 @@ export default function CountSession() {
           
           <div>
             <h1 className="text-2xl font-bold text-text-primary">
-              Count Session
+              Inventory Audit Session
             </h1>
             <p className="text-text-secondary">
               {count.branchId} â€¢ Created {new Date(count.createdAt).toLocaleDateString()}
@@ -322,7 +324,7 @@ export default function CountSession() {
         <CardContent className="p-0">
           {/* Items List */}
           <div className="max-h-[480px] overflow-auto">
-            <div className="relative divide-y divide-border" style={{ height: `${totalSize}px` }}>
+            <div className="relative divide-y divide-border virtual-container" style={{ ['--virtual-total-height' as any]: `${totalSize}px` }}>
               {virtualItems.map((vi) => { const item = filteredItems[vi.index];
                 const pendingUpdate = unsavedChanges.get(item.itemId);
                 const currentCountedQty = pendingUpdate?.countedQty ?? item.countedQty;
@@ -352,7 +354,7 @@ export default function CountSession() {
                           {item.name}
                         </div>
                         <div className="text-sm text-text-secondary">
-                          SKU: {item.sku} • {item.unit}
+                          SKU: {item.sku} ï¿½ {item.unit}
                         </div>
                         {item.categoryName && (
                           <Badge variant="outline" className="text-xs mt-1">
@@ -410,7 +412,7 @@ export default function CountSession() {
                             size="sm"
                           />
                         ) : (
-                          <span className="text-text-muted">—</span>
+                          <span className="text-text-muted">ï¿½</span>
                         )}
                       </div>
 
@@ -426,7 +428,7 @@ export default function CountSession() {
                             {CountUtils.formatVarianceValue(variance.varianceValue)}
                           </div>
                         ) : (
-                          <span className="text-text-muted">—</span>
+                          <span className="text-text-muted">ï¿½</span>
                         )}
                       </div>
                     </div>
@@ -448,7 +450,7 @@ export default function CountSession() {
         <div className="space-y-4 p-6">
           <p className="text-text-primary">
             Are you sure you want to submit this count? This will create inventory adjustments
-            and close the count session.
+            and close the Inventory Audit Session.
           </p>
           
           {currentTotals && (
@@ -493,3 +495,6 @@ export default function CountSession() {
     </div>
   );
 }
+
+
+

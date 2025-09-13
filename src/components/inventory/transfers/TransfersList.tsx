@@ -79,18 +79,7 @@ export function TransfersList({
     );
   }
 
-  if (data.length === 0 && !Object.keys(filters).length && !searchQuery) {
-    return (
-      <EmptyState
-        title="No transfers found"
-        description="Create your first transfer to move inventory between branches."
-        action={onCreateTransfer ? {
-          label: "Create Transfer",
-          onClick: onCreateTransfer
-        } : undefined}
-      />
-    );
-  }
+  const showGlobalEmpty = data.length === 0 && !Object.keys(filters).length && !searchQuery;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -114,7 +103,7 @@ export function TransfersList({
           >
             <option value="">All Sources</option>
             {(locations || []).map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
+              <option key={loc.id} value={loc.id}>{`${loc.name} (${loc.type})`}</option>
             ))}
           </Select>
 
@@ -125,11 +114,24 @@ export function TransfersList({
           >
             <option value="">All Destinations</option>
             {(locations || []).map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
+              <option key={loc.id} value={loc.id}>{`${loc.name} (${loc.type})`}</option>
             ))}
           </Select>
         </div>
       </div>
+
+      {showGlobalEmpty && (
+        <div className="mt-6">
+          <EmptyState
+            title="No transfers found"
+            description="Create your first transfer to move inventory between branches."
+            action={onCreateTransfer ? {
+              label: 'Create Transfer',
+              onClick: onCreateTransfer,
+            } : undefined}
+          />
+        </div>
+      )}
 
       {/* Transfers Table */}
       <div className="bg-surface rounded-lg border border-border overflow-hidden">

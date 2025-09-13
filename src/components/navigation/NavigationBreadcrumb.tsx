@@ -28,7 +28,7 @@ export const NavigationBreadcrumb: React.FC<NavigationBreadcrumbProps> = ({
   const breadcrumbs = generateBreadcrumbs(location.pathname, filteredNavItems);
   
   // Don't show breadcrumbs on the dashboard
-  if (location.pathname === '/' || breadcrumbs.length <= 1) {
+  if (location.pathname === '/' || location.pathname === '/dashboard' || breadcrumbs.length <= 1) {
     return null;
   }
   

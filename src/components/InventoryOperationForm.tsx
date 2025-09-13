@@ -16,7 +16,6 @@ import {
   HELP_TEXT, 
   MESSAGES, 
   OPERATION_CONFIG,
-  SUPPLIER_OPTIONS,
   ADJUSTMENT_REASON_OPTIONS
 } from '../constants/ui-text';
 
@@ -126,27 +125,7 @@ export function InventoryOperationForm({ operation, onSubmit, onCancel }: Invent
         <h3 className="text-lg font-semibold mb-4 text-foreground">{FORM_LABELS.GENERAL_INFORMATION}</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Supplier Field (for receive operations) */}
-          {config.requiresSupplier && (
-            <div>
-              <label htmlFor="supplierId" className="field-label">
-                {FORM_LABELS.SUPPLIER} {FORM_LABELS.REQUIRED_INDICATOR}
-              </label>
-              <Select
-                id="supplierId"
-                value={generalData.supplierId || ''}
-                onChange={(e) => setGeneralData({...generalData, supplierId: e.target.value})}
-                options={[
-                  { value: '', label: `Select ${FORM_LABELS.SUPPLIER}` },
-                  ...SUPPLIER_OPTIONS
-                ]}
-                required
-              />
-              {HELP_TEXT.SUPPLIER && (
-                <p className="mt-1 text-sm text-muted-foreground">{HELP_TEXT.SUPPLIER}</p>
-              )}
-            </div>
-          )}
+          {/* Supplier field removed from system */}
 
           {/* Adjustment Reason Field (for adjust operations) */}
           {config.requiresReason && (

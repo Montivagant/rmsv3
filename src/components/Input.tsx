@@ -28,7 +28,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputId = id || `input-${Math.random().toString(36).slice(2, 11)}`;
     const helpId = helpText ? `${inputId}-help` : undefined;
     const errorId = error ? `${inputId}-error` : undefined;
-    const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+    const describedBy = errorId || helpId || undefined;
     const hasError = Boolean(error);
     
     return (
@@ -37,12 +37,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           <label
             id={`${inputId}-label`}
             htmlFor={inputId}
-            className={cn(
-              'field-label',
-              required && 'after:content-["*"] after:ml-1 after:text-error'
-            )}
+            className={cn('field-label')}
           >
-            {label}
+            <span>{label}</span>
+            {required && (
+              <span className="text-error ml-1">*</span>
+            )}
           </label>
         )}
         
@@ -69,17 +69,17 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             disabled={disabled}
             required={required}
+            aria-required={required ? 'true' : undefined}
             aria-invalid={hasError ? 'true' : 'false'}
             aria-describedby={describedBy}
             aria-labelledby={label ? `${inputId}-label` : undefined}
+            aria-label={label ? label : undefined}
             {...props}
           />
           
           {rightIcon && (
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <span className="text-text-tertiary" aria-hidden="true">
-                {rightIcon}
-              </span>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+              {rightIcon}
             </div>
           )}
         </div>

@@ -115,15 +115,13 @@ export function useDismissableLayer(options: UseDismissableLayerOptions) {
     }
 
     // One-overlay-at-a-time coordination
-    window.addEventListener('overlay:open', handleOverlayOpenEvent as EventListener);
+    const handle = handleOverlayOpenEvent as EventListener;
+    window.addEventListener('overlay:open', handle);
 
-    // Announce opening to others
+    // Announce opening to others once per open
     if (closeOthersOnOpen) {
-      // Dispatch after a microtask to avoid self-handling rebroadcast loops
-      queueMicrotask(() => {
-        const evt = new CustomEvent('overlay:open', { detail: { id: overlayIdRef.current } });
-        window.dispatchEvent(evt);
-      });
+      const evt = new CustomEvent('overlay:open', { detail: { id: overlayIdRef.current } });
+      window.dispatchEvent(evt);
     }
 
     return () => {
@@ -132,7 +130,7 @@ export function useDismissableLayer(options: UseDismissableLayerOptions) {
       if (closeOnRouteChange) {
         window.removeEventListener('popstate', handleRouteChange);
       }
-      window.removeEventListener('overlay:open', handleOverlayOpenEvent as EventListener);
+      window.removeEventListener('overlay:open', handle);
     };
   }, [
     isOpen,

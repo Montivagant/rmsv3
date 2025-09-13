@@ -1,6 +1,6 @@
-import { forwardRef } from 'react';
+﻿import { forwardRef } from 'react';
 import type { LabelHTMLAttributes } from 'react';
-import { cn } from '../utils/cn';
+import { cn } from '../lib/utils';
 
 interface LabelProps extends LabelHTMLAttributes<HTMLLabelElement> {
   required?: boolean;

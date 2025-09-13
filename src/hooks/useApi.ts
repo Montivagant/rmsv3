@@ -35,7 +35,9 @@ export function useApi<T>(url: string, defaultValue?: T): UseApiReturn<T> {
         return;
       }
       
-      console.log(`🔄 Fetching data from ${url}`);
+      if (import.meta.env.DEV && import.meta.env.VITE_CONSOLE_LOGGING !== 'false') {
+        console.log(`🔄 Fetching: ${url}`);
+      }
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -45,7 +47,8 @@ export function useApi<T>(url: string, defaultValue?: T): UseApiReturn<T> {
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        console.error(`Expected JSON but got ${contentType} for ${url}:`, text.substring(0, 200));
+        console.error(`❌ Expected JSON but got ${contentType} for ${url}`);
+        console.error(`📄 Response preview: ${text.substring(0, 100)}...`);
         
         // Check if we got HTML instead of JSON (likely MSW not ready)
         if (text.includes('<!doctype html>') || text.includes('<html')) {
@@ -74,14 +77,17 @@ export function useApi<T>(url: string, defaultValue?: T): UseApiReturn<T> {
         return;
       }
       
-      console.log(`✅ Data fetched successfully from ${url}`);
+      if (import.meta.env.DEV && import.meta.env.VITE_CONSOLE_LOGGING !== 'false') {
+        console.log(`✅ Success: ${url}`);
+      }
       setState({ data, loading: false, error: null });
     } catch (error) {
-      console.error(`❌ Error fetching data from ${url}:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      console.error(`❌ Error fetching data from ${url}: ${errorMessage}`);
       setState({
         data: defaultValueRef.current || null,
         loading: false,
-        error: error instanceof Error ? error.message : 'An error occurred',
+        error: errorMessage,
       });
     }
   };

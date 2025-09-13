@@ -163,7 +163,7 @@ function NotificationContainer() {
   const { notifications } = useNotifications();
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full">
+    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full" aria-live="polite" aria-relevant="additions">
       {notifications.map(notification => (
         <NotificationItem key={notification.id} notification={notification} />
       ))}
@@ -245,6 +245,9 @@ function NotificationItem({ notification }: NotificationItemProps) {
         ${getBackgroundColor()}
         ${isExiting ? 'opacity-0 translate-x-full scale-95' : 'opacity-100 translate-x-0 scale-100'}
       `}
+      role={notification.type === 'error' ? 'alert' : 'status'}
+      aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
+      aria-label={`${notification.type}: ${notification.title}`}
     >
       <div className="flex items-start">
         <div className="flex-shrink-0">
@@ -265,8 +268,8 @@ function NotificationItem({ notification }: NotificationItemProps) {
           {notification.type === 'loading' && notification.progress !== undefined && (
             <div className="mt-2 w-full bg-surface-secondary rounded-full h-2">
               <div
-                className="bg-brand h-2 rounded-full transition-all duration-300"
-                style={{ width: `${notification.progress}%` }}
+                className="bg-brand h-2 rounded-full transition-all duration-300 w-[--progress-width]"
+                style={{ ['--progress-width' as any]: `${notification.progress}%` }}
               />
             </div>
           )}
@@ -306,6 +309,7 @@ function NotificationItem({ notification }: NotificationItemProps) {
             <button
               onClick={handleClose}
               className="inline-flex text-text-secondary hover:text-text-primary focus:outline-none"
+              aria-label="Dismiss notification"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />

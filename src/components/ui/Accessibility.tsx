@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Accessibility Utilities and ARIA Management
  * Provides comprehensive accessibility features for WCAG AA compliance
  */
@@ -355,8 +355,8 @@ export const AccessibleTable: React.FC<AccessibleTableProps> = ({
                 {sortable && (
                   <span aria-hidden="true" className="ml-2">
                     {sortColumn === header.id ? (
-                      sortDirection === 'asc' ? '↑' : '↓'
-                    ) : '↕'}
+                      sortDirection === 'asc' ? 'â†‘' : 'â†“'
+                    ) : 'â†•'}
                   </span>
                 )}
               </div>
@@ -470,7 +470,7 @@ export const AccessibleModal: React.FC<AccessibleModalProps> = ({
           className={`relative bg-surface rounded-lg shadow-xl w-full ${sizeClasses[size]} ${className}`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-6 border-b border-border border-border">
             <h2 id="modal-title" className="text-lg font-semibold text-text-primary">
               {title}
             </h2>
@@ -559,3 +559,4 @@ export default {
   useHighContrastMode,
   useReducedMotion
 }
+

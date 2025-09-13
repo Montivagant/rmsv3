@@ -5,3 +5,4 @@ export { SearchInput } from './SearchInput';
 export { MenuCard } from './MenuCard';
 export { QtyStepper } from './QtyStepper';
 export { CartPanel } from './CartPanel';
+export { HeldOrdersModal, type HeldOrder } from './HeldOrdersModal';

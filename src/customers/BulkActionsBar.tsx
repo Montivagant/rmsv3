@@ -18,13 +18,17 @@ export function BulkActionsBar({
   onDeactivate,
   onClear,
 }: Props) {
-  if (count <= 0) return null;
-
+  const hidden = count <= 0;
   return (
     <div
       role="region"
       aria-label="Bulk actions"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface-elevated/95 backdrop-blur supports-[backdrop-filter]:bg-surface-elevated/80"
+      aria-hidden={hidden}
+      className={
+        hidden
+          ? 'hidden'
+          : 'fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface-elevated/95 backdrop-blur supports-[backdrop-filter]:bg-surface-elevated/80'
+      }
     >
       <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
         <div className="text-sm text-text-secondary">

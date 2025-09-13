@@ -11,15 +11,18 @@ const RadioGroupContext = createContext<RadioGroupContextType | null>(null);
 
 interface RadioGroupProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
+  onValueChange?: (value: string) => void;
   name: string;
   className?: string;
   children: React.ReactNode;
 }
 
-export function RadioGroup({ value, onChange, name, className, children }: RadioGroupProps) {
+export function RadioGroup({ value, onChange, onValueChange, name, className, children }: RadioGroupProps) {
+  // Support both onChange and onValueChange props; default to no-op to avoid crashes
+  const handler = onChange || onValueChange || (() => {});
   return (
-    <RadioGroupContext.Provider value={{ value, onChange, name }}>
+    <RadioGroupContext.Provider value={{ value, onChange: handler, name }}>
       <div className={cn('space-y-3', className)}>
         {children}
       </div>
@@ -98,3 +101,4 @@ export function RadioOptionContent({ title, description, badge }: RadioOptionCon
     </div>
   );
 }
+

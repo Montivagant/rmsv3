@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { cn } from '../../lib/utils';
 
 interface StatusPillProps {
@@ -9,7 +9,7 @@ interface StatusPillProps {
   className?: string;
 }
 
-export function StatusPill({
+export function StatusPillBase({
   status,
   label,
   size = 'md',
@@ -55,3 +55,5 @@ export function StatusPill({
     </span>
   );
 }
+
+export const StatusPill = React.memo(StatusPillBase);

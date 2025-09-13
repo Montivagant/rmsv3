@@ -8,6 +8,8 @@ import {
   type GeneratePinResponse,
   type AccountResponse 
 } from '../types/account';
+import { getCurrentUser } from '../rbac/roles';
+import { userService } from './user';
 
 // Base API configuration
 const API_BASE = '/api/account';
@@ -95,19 +97,74 @@ export const businessApi = {
   }
 };
 
-// Preferences Management
+// Preferences Management - Integrated with User Service
 export const preferencesApi = {
   async get(): Promise<Preferences> {
-    const response = await apiRequest<AccountResponse<Preferences>>('/preferences');
-    return response.data;
+    const currentUser = getCurrentUser();
+    if (!currentUser?.id) {
+      throw new AccountApiError(401, 'User not authenticated');
+    }
+    
+    try {
+      const user = await userService.getById(currentUser.id);
+      // Map user preferences to account preferences format
+      return {
+        timeZone: user.preferences.timeZone || 'UTC',
+        locale: user.preferences.locale || 'en',
+        defaultBranchId: user.preferences.defaultBranch || '',
+        taxInclusivePricing: user.preferences.taxInclusivePricing ?? true,
+        enableLocalization: user.preferences.enableLocalization ?? false,
+        enableTwoFactor: user.preferences.enableTwoFactor ?? false
+      };
+    } catch (error) {
+      throw new AccountApiError(500, 'Failed to fetch preferences');
+    }
   },
 
   async update(preferences: Partial<Preferences>): Promise<Preferences> {
-    const response = await apiRequest<AccountResponse<Preferences>>('/preferences', {
-      method: 'PUT',
-      body: JSON.stringify(preferences),
-    });
-    return response.data;
+    const currentUser = getCurrentUser();
+    if (!currentUser?.id) {
+      throw new AccountApiError(401, 'User not authenticated');
+    }
+    
+    try {
+      // Map account preferences to user preferences format
+      const userPrefs: any = {};
+      if (preferences.defaultBranchId !== undefined) {
+        userPrefs.defaultBranch = preferences.defaultBranchId;
+      }
+      if (preferences.locale !== undefined) {
+        userPrefs.locale = preferences.locale;
+      }
+      if (preferences.timeZone !== undefined) {
+        userPrefs.timeZone = preferences.timeZone;
+      }
+      // Add other preference mappings as needed
+      if (preferences.taxInclusivePricing !== undefined) {
+        userPrefs.taxInclusivePricing = preferences.taxInclusivePricing;
+      }
+      if (preferences.enableLocalization !== undefined) {
+        userPrefs.enableLocalization = preferences.enableLocalization;
+      }
+      if (preferences.enableTwoFactor !== undefined) {
+        userPrefs.enableTwoFactor = preferences.enableTwoFactor;
+      }
+      
+      const updatedUser = await userService.updatePreferences(currentUser.id, userPrefs);
+      
+      // Map back to account preferences format
+      return {
+        timeZone: updatedUser.preferences.timeZone || 'UTC',
+        locale: updatedUser.preferences.locale || 'en',
+        defaultBranchId: updatedUser.preferences.defaultBranch || '',
+        taxInclusivePricing: updatedUser.preferences.taxInclusivePricing ?? true,
+        enableLocalization: updatedUser.preferences.enableLocalization ?? false,
+        restrictPurchasedItemsToSupplier: updatedUser.preferences.restrictPurchasedItemsToSupplier ?? false,
+        enableTwoFactor: updatedUser.preferences.enableTwoFactor ?? false
+      };
+    } catch (error) {
+      throw new AccountApiError(500, 'Failed to update preferences');
+    }
   }
 };
 
@@ -178,10 +235,11 @@ export const mockAccountApi = {
   profile: {
     async get(): Promise<Profile> {
       await new Promise(resolve => setTimeout(resolve, 500));
+      const currentUser = getCurrentUser();
       return {
-        name: 'Ahmed Hassan',
+        name: currentUser?.name || 'Current User',
         phone: '1234567890', // Local digits only
-        email: 'ahmed@example.com',
+        email: currentUser?.id ? `${currentUser.id}@example.com` : 'user@example.com',
         loginPin: '1234',
         language: 'en',
         avatar: undefined
@@ -194,10 +252,11 @@ export const mockAccountApi = {
       if (profile.name && profile.name.length < 2) {
         throw new AccountApiError(400, 'Name must be at least 2 characters');
       }
+      const currentUser = getCurrentUser();
       return {
-        name: 'Ahmed Hassan',
+        name: currentUser?.name || 'Current User',
         phone: '1234567890',
-        email: 'ahmed@example.com',
+        email: currentUser?.id ? `${currentUser.id}@example.com` : 'user@example.com',
         loginPin: '1234',
         language: 'en',
         ...profile
@@ -237,6 +296,8 @@ export const mockAccountApi = {
         timeZone: 'Africa/Cairo',
         taxInclusivePricing: true,
         enableLocalization: false,
+        defaultBranchId: 'main-restaurant',
+        locale: 'en',
         restrictPurchasedItemsToSupplier: false,
         enableTwoFactor: false
       };
@@ -248,6 +309,8 @@ export const mockAccountApi = {
         timeZone: 'Africa/Cairo',
         taxInclusivePricing: true,
         enableLocalization: false,
+        defaultBranchId: 'main-restaurant',
+        locale: 'en',
         restrictPurchasedItemsToSupplier: false,
         enableTwoFactor: false,
         ...preferences

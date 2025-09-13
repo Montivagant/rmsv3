@@ -25,7 +25,7 @@ export interface AuditScope {
 }
 
 // Legacy alias for backward compatibility
-export interface CountScope extends AuditScope {}
+export type CountScope = AuditScope;
 
 // Audit Session (Enhanced from existing InventoryCount)
 export interface InventoryAudit {
@@ -62,7 +62,7 @@ export interface InventoryAudit {
 }
 
 // Legacy alias for backward compatibility
-export interface InventoryCount extends InventoryAudit {}
+export type InventoryCount = InventoryAudit;
 
 // Individual audit item with snapshot and entry data
 export interface AuditItem {
@@ -103,7 +103,7 @@ export interface AuditItem {
 }
 
 // Legacy alias for backward compatibility
-export interface CountItem extends AuditItem {}
+export type CountItem = AuditItem;
 
 // Audit query and filtering
 export interface AuditQuery {
@@ -120,7 +120,7 @@ export interface AuditQuery {
 }
 
 // Legacy alias for backward compatibility
-export interface CountQuery extends AuditQuery {}
+export type CountQuery = AuditQuery;
 
 export type AuditSortField = 
   | 'createdAt'
@@ -209,7 +209,7 @@ export interface SubmitAuditRequest {
 }
 
 // Legacy alias for backward compatibility
-export interface SubmitCountRequest extends SubmitAuditRequest {}
+export type SubmitCountRequest = SubmitAuditRequest;
 
 // Audit submission response
 export interface SubmitAuditResponse {
@@ -232,7 +232,7 @@ export interface SubmitAuditResponse {
 }
 
 // Legacy alias for backward compatibility
-export interface SubmitCountResponse extends SubmitAuditResponse {}
+export type SubmitCountResponse = SubmitAuditResponse;
 
 // Audit cancellation request
 export interface CancelAuditRequest {
@@ -241,7 +241,7 @@ export interface CancelAuditRequest {
 }
 
 // Legacy alias for backward compatibility
-export interface CancelCountRequest extends CancelAuditRequest {}
+export type CancelCountRequest = CancelAuditRequest;
 
 // Audit export options
 export interface AuditExportOptions {
@@ -252,7 +252,7 @@ export interface AuditExportOptions {
 }
 
 // Legacy alias for backward compatibility
-export interface CountExportOptions extends AuditExportOptions {}
+export type CountExportOptions = AuditExportOptions;
 
 // Variance analysis for business insights
 export interface VarianceAnalysis {
@@ -586,7 +586,7 @@ export interface AuditError {
 }
 
 // Legacy alias for backward compatibility
-export interface CountError extends AuditError {}
+export type CountError = AuditError;
 
 export class AuditValidationError extends Error {
   public errors: AuditError[];

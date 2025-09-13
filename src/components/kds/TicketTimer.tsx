@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getKdsSettings } from '../../settings/kds';
 import { cn } from '../../lib/utils';
 
 interface TicketTimerProps {
@@ -11,9 +12,9 @@ interface TicketTimerProps {
 
 export function TicketTimer({
   startTime,
-  warningThreshold = 7,
-  dangerThreshold = 12,
-  showPulse = true,
+  warningThreshold = getKdsSettings().warningThresholdMinutes,
+  dangerThreshold = getKdsSettings().dangerThresholdMinutes,
+  showPulse = getKdsSettings().showPulse,
   className,
 }: TicketTimerProps) {
   const [elapsedMinutes, setElapsedMinutes] = useState(0);

@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Dynamic Forms Component
  * Implements conditional fields, progressive disclosure, and dynamic form generation
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { cn } from '../../utils/cn'
+import { cn } from '../../lib/utils'
 import type { FormField } from '../forms/SmartForm'
 import type { ValidationRule } from '../forms/validation'
 
@@ -256,7 +256,7 @@ export const FormSectionComponent: React.FC<FormSectionProps> = ({
   className
 }) => {
   return (
-    <div className={cn('border border-gray-200 dark:border-gray-700 rounded-lg', className)}>
+    <div className={cn('border border-border border-border rounded-lg', className)}>
       <div
         className={cn(
           'flex items-center justify-between p-4 cursor-pointer hover:bg-surface-secondary transition-colors',
@@ -266,7 +266,7 @@ export const FormSectionComponent: React.FC<FormSectionProps> = ({
       >
         <div className="flex items-center space-x-3">
           {section.icon && (
-            <div className="flex-shrink-0 text-blue-600 dark:text-blue-400">
+            <div className="flex-shrink-0 text-brand-600 text-brand-400">
               {section.icon}
             </div>
           )}
@@ -298,7 +298,7 @@ export const FormSectionComponent: React.FC<FormSectionProps> = ({
       </div>
       
       {isExpanded && (
-        <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+        <div className="px-4 pb-4 border-t border-border border-border pt-4">
           {children}
         </div>
       )}
@@ -368,10 +368,10 @@ export const WizardStep: React.FC<WizardStepProps> = ({
         
         {/* Progress indicator */}
         <div className="flex-1 mx-4">
-      <div className="h-2 bg-surface-secondary rounded-full">
+          <div className="h-2 bg-surface-secondary rounded-full">
             <div
-              className="h-2 bg-brand rounded-full transition-all duration-300"
-              style={{ '--progress-width': `${((stepIndex + 1) / totalSteps) * 100}%`, width: 'var(--progress-width)' } as React.CSSProperties}
+              className="h-2 bg-brand rounded-full transition-all duration-300 w-[--progress-width]"
+              style={{ ['--progress-width' as any]: `${((stepIndex + 1) / totalSteps) * 100}%` }}
             />
           </div>
           <div className="text-xs text-text-muted mt-1 text-center">
@@ -420,7 +420,7 @@ export const ConditionBuilder: React.FC<ConditionBuilderProps> = ({
       <select
         value={condition.field}
         onChange={(e) => onChange({ ...condition, field: e.target.value })}
-        className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded"
+        className="px-2 py-1 border border-border dark:border-border rounded"
       >
         <option value="">Select field</option>
         {availableFields.map(field => (
@@ -433,7 +433,7 @@ export const ConditionBuilder: React.FC<ConditionBuilderProps> = ({
       <select
         value={condition.operator}
         onChange={(e) => onChange({ ...condition, operator: e.target.value as any })}
-        className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded"
+        className="px-2 py-1 border border-border dark:border-border rounded"
       >
         {operatorOptions.map(op => (
           <option key={op.value} value={op.value}>
@@ -447,7 +447,7 @@ export const ConditionBuilder: React.FC<ConditionBuilderProps> = ({
         value={condition.value}
         onChange={(e) => onChange({ ...condition, value: e.target.value })}
         placeholder="Value"
-        className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded flex-1"
+        className="px-2 py-1 border border-border dark:border-border rounded flex-1"
       />
     </div>
   )
@@ -461,3 +461,4 @@ export default {
   evaluateCondition,
   evaluateVisibilityRule
 }
+

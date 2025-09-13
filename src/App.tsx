@@ -1,9 +1,10 @@
 import { Suspense, lazy, type ReactNode } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components';
+import ErrorBoundary from './components/ErrorBoundary';
 import { AdminLayout } from './components/AdminLayout';
-import { getCurrentUser, Role } from './rbac/roles';
-import { RoleGuard } from './rbac/guard';
+import { getCurrentUser, Role, setCurrentUser } from './rbac/roles';
+import { DynamicRoleGuard } from './rbac/dynamicGuard';
 import { PersistenceDebugger } from './components/PersistenceDebugger';
 import { useUI, getDensityClasses } from './store/ui';
 import { useFeature } from './store/flags';
@@ -16,10 +17,10 @@ const KDS = lazy(() => import('./pages/KDS'));
 const Inventory = lazy(() => import('./pages/Inventory-complete'));
 const Customers = lazy(() => import('./pages/Customers'));
 const Recipes = lazy(() => import('./components/RecipeManagement'));
-const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
+
 const SignupSuccess = lazy(() => import('./pages/SignupSuccess'));
 const NotFound = lazy(() => import('./pages/NotFound').then(m => ({ default: m.NotFound })));
 
@@ -28,55 +29,54 @@ const ActiveOrders = lazy(() => import('./pages/orders/ActiveOrders'));
 const OrderHistory = lazy(() => import('./pages/orders/OrderHistory'));
 
 // Inventory pages
-const Suppliers = lazy(() => import('./pages/inventory/Suppliers'));
 const CountSession = lazy(() => import('./pages/inventory/CountSession'));
 const Transfers = lazy(() => import('./pages/inventory/Transfers'));
 const TransferDetail = lazy(() => import('./pages/inventory/TransferDetail'));
 const EditTransfer = lazy(() => import('./pages/inventory/EditTransfer'));
-const CountSheets = lazy(() => import('./pages/inventory/CountSheets'));
-const NewCountFromSheet = lazy(() => import('./pages/inventory/NewCountFromSheet'));
+// CountSheets removed as part of feature simplification
+// NewCount doesn't exist - use audit component with query parameter
+const InventoryAudit = lazy(() => import('./pages/inventory/InventoryAudit'));
+const AuditSession = lazy(() => import('./pages/inventory/AuditSession'));
+const InventoryHistory = lazy(() => import('./pages/inventory/History'));
+// Cost Adjustments and Purchase Orders imports removed
 
 // Reports pages
 const SalesReports = lazy(() => import('./pages/reports/SalesReports'));
 const InventoryReports = lazy(() => import('./pages/reports/InventoryReports'));
-const CustomerReports = lazy(() => import('./pages/reports/CustomerReports'));
-const ZReports = lazy(() => import('./pages/reports/ZReports'));
 
 // Admin Reports pages
-const SalesReportsLanding = lazy(() => import('./pages/reports/SalesReportsLanding'));
-const InventoryReportsLanding = lazy(() => import('./pages/reports/InventoryReportsLanding'));
-const BusinessReports = lazy(() => import('./pages/reports/BusinessReports'));
-const AnalysisReports = lazy(() => import('./pages/reports/AnalysisReports'));
+// Report landings removed; link directly to actual reports
+const ShiftsReport = lazy(() => import('./pages/reports/ShiftsReport'));
+const VoidsReturnsReport = lazy(() => import('./pages/reports/VoidsReturnsReport'));
+const PaymentsReports = lazy(() => import('./pages/reports/PaymentsReports'));
+const ActivityLog = lazy(() => import('./pages/reports/ActivityLog'));
+const TransfersReport = lazy(() => import('./pages/reports/TransfersReport'));
+const KDSReport = lazy(() => import('./pages/reports/KDSReport'));
+// Removed unused Analysis/Customer/Z reports to simplify
 
 // Settings pages
 const MenuManagement = lazy(() => import('./pages/settings/MenuManagement'));
 const TaxSettings = lazy(() => import('./pages/settings/TaxSettings'));
 const SystemSettings = lazy(() => import('./pages/settings/SystemSettings'));
+const ItemTypesSettings = lazy(() => import('./pages/settings/ItemTypes'));
 
 // Menu pages
 const MenuCategories = lazy(() => import('./pages/menu/Categories'));
-const MenuProducts = lazy(() => import('./pages/menu/Products'));
+const MenuItems = lazy(() => import('./pages/menu/Items'));
 const MenuModifiers = lazy(() => import('./pages/menu/Modifiers'));
-const MenuCombos = lazy(() => import('./pages/menu/Combos'));
-const MenuAllergens = lazy(() => import('./pages/menu/settings/Allergens'));
+// Combos and Allergens imports removed
 
-// Inventory pages
-const PurchaseOrders = lazy(() => import('./pages/inventory/PurchaseOrders'));
-const PurchaseOrdersNew = lazy(() => import('./pages/inventory/PurchaseOrdersNew'));
-const CostAdjustments = lazy(() => import('./pages/inventory/CostAdjustments'));
+// Additional Inventory pages
 const InventoryItems = lazy(() => import('./pages/inventory/Items'));
-const InventoryCounts = lazy(() => import('./pages/inventory/Counts'));
-const InventoryTransfers = lazy(() => import('./pages/inventory/Transfers'));
-const InventoryHistory = lazy(() => import('./pages/inventory/History'));
 
 // Manage pages
 const ManageUsers = lazy(() => import('./pages/manage/Users'));
 const ManageRoles = lazy(() => import('./pages/manage/Roles'));
 const ManageBranches = lazy(() => import('./pages/manage/Branches'));
-const ManageMore = lazy(() => import('./pages/manage/More'));
+// More page import removed
+const ItemTypes = lazy(() => import('./pages/manage/ItemTypes'));
 
-// Marketing pages
-const MarketingLoyalty = lazy(() => import('./pages/marketing/Loyalty'));
+// Marketing pages removed - not essential for core restaurant operations
 
 // Account pages
 const AccountLayout = lazy(() => import('./pages/account/AccountLayout'));
@@ -107,6 +107,11 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   const currentUser = getCurrentUser();
   
   if (!currentUser) {
+    // In development, auto-login as Business Owner to prevent accidental redirects
+    if (import.meta.env.DEV) {
+      setCurrentUser({ id: 'dev-user', name: 'Development User', role: Role.BUSINESS_OWNER });
+      return <>{children}</>; // allow render on same pass
+    }
     return <Navigate to="/login" replace />;
   }
   
@@ -136,17 +141,36 @@ function FeatureDisabledBanner({ feature }: { feature: string }) {
   );
 }
 
-function AppContent() {
+export function AppContent() {
   const density = useUI((state) => state.density);
   const kdsEnabled = useFeature('kds');
   const currentUser = getCurrentUser();
   const useAdminLayout = shouldUseAdminLayout(currentUser);
   
+  const AppRouter = ({ children }: { children: ReactNode }) => {
+    const mode = (import.meta as any).env?.MODE || (import.meta as any).env?.VITEST ? 'test' : undefined;
+    if (mode === 'test') {
+      const testEntries = (globalThis as any).__TEST_INITIAL_ENTRIES as string[] | undefined;
+      const initialEntries = testEntries && testEntries.length ? testEntries : [window.location.pathname || '/'];
+      return (
+        <MemoryRouter initialEntries={initialEntries}>
+          {children}
+        </MemoryRouter>
+      );
+    }
+    return (
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        {children}
+      </Router>
+    );
+  };
+
   return (
     <div className={getDensityClasses(density)}>
-      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Suspense fallback={<Loading />}>
-          <Routes>
+      <AppRouter>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <Routes>
             {/* Unprotected routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
@@ -165,9 +189,7 @@ function AppContent() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardEnhanced />} />
             <Route path="pos" element={<POS />} />
-            <Route path="kds" element={
-              kdsEnabled ? <KDS /> : <FeatureDisabledBanner feature="Kitchen Display System" />
-            } />
+            <Route path="kds" element={<KDS />} />
             
             {/* Orders Routes */}
             <Route path="orders" element={<ActiveOrders />} />
@@ -176,173 +198,154 @@ function AppContent() {
             
             {/* Inventory Routes */}
             <Route path="inventory" element={<Navigate to="/inventory/items" replace />} />
+            <Route path="inventory/counts" element={<Navigate to="/inventory/audit" replace />} />
             <Route path="inventory/items" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="inventory.view">
                 <InventoryItems />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
-            <Route path="inventory/suppliers" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <Suppliers />
-              </RoleGuard>
+            {/* Suppliers route removed */}
+            <Route path="inventory/audit" element={
+              <DynamicRoleGuard requiredPermission="inventory.count">
+                <InventoryAudit />
+              </DynamicRoleGuard>
             } />
-            <Route path="inventory/counts" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <InventoryCounts />
-              </RoleGuard>
+            <Route path="inventory/audit/:auditId" element={
+              <DynamicRoleGuard requiredPermission="inventory.count">
+                <AuditSession />
+              </DynamicRoleGuard>
             } />
-            <Route path="inventory/counts/:countId" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <CountSession />
-              </RoleGuard>
-            } />
-            <Route path="inventory/counts/:countId/entry" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <CountSession />
-              </RoleGuard>
+            <Route path="inventory/audit/:auditId/entry" element={
+              <DynamicRoleGuard requiredPermission="inventory.count">
+                <AuditSession />
+              </DynamicRoleGuard>
             } />
             <Route path="inventory/transfers" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="inventory.view">
                 <Transfers />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
             <Route path="inventory/transfers/:transferId" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="inventory.view">
                 <TransferDetail />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
             <Route path="inventory/transfers/:transferId/edit" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="inventory.edit">
                 <EditTransfer />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
-            <Route path="inventory/count-sheets" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <CountSheets />
-              </RoleGuard>
-            } />
-            <Route path="inventory/purchase-orders" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <PurchaseOrders />
-              </RoleGuard>
-            } />
-            <Route path="inventory/purchase-orders/new" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <PurchaseOrdersNew />
-              </RoleGuard>
-            } />
-            <Route path="inventory/cost-adjustments" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <CostAdjustments />
-              </RoleGuard>
-            } />            <Route path="inventory/counts/new" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <NewCountFromSheet />
-              </RoleGuard>
+            {/* Purchase Orders and Cost Adjustments removed - not essential for core operations */}
+            <Route path="inventory/audit/new" element={
+              <DynamicRoleGuard requiredPermission="inventory.count">
+                <InventoryAudit newAudit={true} />
+              </DynamicRoleGuard>
             } />
             <Route path="inventory/history" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="inventory.view">
                 <InventoryHistory />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
-            
             <Route path="customers" element={<Customers />} />
-            <Route path="recipes" element={<Recipes />} />
+            {/* Menu Management */}
+            <Route path="menu/categories" element={
+              <DynamicRoleGuard requiredPermission="menu.view">
+                <MenuCategories />
+              </DynamicRoleGuard>
+            } />
+            <Route path="menu/items" element={
+              <DynamicRoleGuard requiredPermission="menu.view">
+                <MenuItems />
+              </DynamicRoleGuard>
+            } />
+
+            {/* Recipes Management */}
+            <Route path="recipes" element={
+              <DynamicRoleGuard requiredPermission="recipes.view">
+                <Recipes />
+              </DynamicRoleGuard>
+            } />
             
             {/* Reports Routes */}
-            <Route path="reports" element={<Reports />} />
             <Route path="reports/sales" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                {useAdminLayout ? <SalesReportsLanding /> : <SalesReports />}
-              </RoleGuard>
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <SalesReports />
+              </DynamicRoleGuard>
             } />
             <Route path="reports/inventory" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                {useAdminLayout ? <InventoryReportsLanding /> : <InventoryReports />}
-              </RoleGuard>
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <InventoryReports />
+              </DynamicRoleGuard>
             } />
-            <Route path="reports/business" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <BusinessReports />
-              </RoleGuard>
+            <Route path="reports/transfers" element={
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <TransfersReport />
+              </DynamicRoleGuard>
             } />
-            <Route path="reports/analysis" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <AnalysisReports />
-              </RoleGuard>
+            <Route path="reports/shifts" element={
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <ShiftsReport />
+              </DynamicRoleGuard>
             } />
-            <Route path="reports/customers" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <CustomerReports />
-              </RoleGuard>
+            <Route path="reports/payments" element={
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <PaymentsReports />
+              </DynamicRoleGuard>
             } />
-            <Route path="reports/z-reports" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <ZReports />
-              </RoleGuard>
+            <Route path="reports/voids-returns" element={
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <VoidsReturnsReport />
+              </DynamicRoleGuard>
+            } />
+            <Route path="reports/activity-log" element={
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <ActivityLog />
+              </DynamicRoleGuard>
+            } />
+            <Route path="reports/kds" element={
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <KDSReport />
+              </DynamicRoleGuard>
             } />
             
-            {/* Menu Routes (Admin only) */}
-            <Route path="menu/categories" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <MenuCategories />
-              </RoleGuard>
-            } />
-            <Route path="menu/products" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <MenuProducts />
-              </RoleGuard>
-            } />
+            {/* Legacy menu routes - handled above in main menu section */}
             <Route path="menu/modifiers" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.view">
                 <MenuModifiers />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
-            <Route path="menu/combos" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <MenuCombos />
-              </RoleGuard>
-            } />
-            <Route path="menu/settings/allergens" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <MenuAllergens />
-              </RoleGuard>
-            } />
+            {/* Combos and Allergens removed - advanced features not needed */}
             
             {/* Management Routes (Admin only) */}
             <Route path="manage/users" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.user_management">
                 <ManageUsers />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
             <Route path="manage/roles" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.role_management">
                 <ManageRoles />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
             <Route path="manage/branches" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.edit">
                 <ManageBranches />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
-            <Route path="manage/more" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <ManageMore />
-              </RoleGuard>
+            {/* More page route removed - not essential */}
+            <Route path="manage/item-types" element={
+              <DynamicRoleGuard requiredPermission="settings.edit">
+                <ItemTypes />
+              </DynamicRoleGuard>
             } />
             
-            {/* Marketing Routes (Admin only) */}
-            <Route path="marketing/loyalty" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
-                <MarketingLoyalty />
-              </RoleGuard>
-            } />
-
+            {/* Marketing routes removed - not essential for core restaurant operations */}
+            
             {/* Account Routes (Admin only) */}
             <Route path="account" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.view">
                 <AccountLayout />
-              </RoleGuard>
+              </DynamicRoleGuard>
             }>
               <Route index element={<Navigate to="/account/profile" replace />} />
               <Route path="profile" element={<ProfilePage />} />
@@ -354,30 +357,38 @@ function AppContent() {
             
             {/* Settings Routes */}
             <Route path="settings" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.view">
                 <Settings />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
             <Route path="settings/menu" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.view">
                 <MenuManagement />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
             <Route path="settings/tax" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.edit">
                 <TaxSettings />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
             <Route path="settings/system" element={
-              <RoleGuard requiredRole={Role.BUSINESS_OWNER}>
+              <DynamicRoleGuard requiredPermission="settings.system_config">
                 <SystemSettings />
-              </RoleGuard>
+              </DynamicRoleGuard>
             } />
+            <Route path="settings/item-types" element={
+              <DynamicRoleGuard requiredPermission="settings.edit">
+                <ItemTypesSettings />
+              </DynamicRoleGuard>
+            } />
+            {/* Catch-all within protected layout */}
+            <Route path="*" element={<NotFound />} />
           </Route>
           <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </Router>
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </AppRouter>
       <PersistenceDebugger />
     </div>
   );
@@ -392,3 +403,5 @@ function App() {
 }
 
 export default App
+
+

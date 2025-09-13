@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 import type { InputHTMLAttributes } from 'react';
 import { cn } from '../lib/utils';
 
@@ -27,6 +27,14 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     const errorId = error ? `${checkboxId}-error` : undefined;
     const describedBy = [descriptionId, errorId].filter(Boolean).join(' ') || undefined;
     
+    const internalRef = useRef<HTMLInputElement | null>(null);
+
+    useEffect(() => {
+      if (internalRef.current) {
+        internalRef.current.indeterminate = Boolean(indeterminate);
+      }
+    }, [indeterminate]);
+
     return (
       <div className="space-y-field">
         <div className="flex items-start space-x-3">
@@ -36,7 +44,7 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
               type="checkbox"
               className={cn(
                 // Base styles
-                'h-6 w-6 rounded border-2 border-border-primary',
+                'peer h-6 w-6 rounded border-2 border-border-primary',
                 'bg-surface text-brand focus:ring-2 focus:ring-brand focus:ring-offset-2',
                 'transition-colors duration-200',
                 // States
@@ -46,7 +54,11 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
                 error && 'border-error focus:ring-error',
                 className
               )}
-              ref={ref}
+              ref={(node) => {
+                internalRef.current = node;
+                if (typeof ref === 'function') ref(node as HTMLInputElement);
+                else if (ref) (ref as any).current = node;
+              }}
               disabled={disabled}
               required={required}
               aria-invalid={error ? 'true' : 'false'}

@@ -54,24 +54,10 @@ export interface LotInfo {
   receivedDate: string;
   quantity: number;
   unit: string;
-  supplierId?: string;
   notes?: string;
   isConsumed: boolean;
 }
 
-// Supplier Information
-export interface SupplierInfo {
-  id: string;
-  name: string;
-  contactPerson?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  rating?: number; // 1-5 stars
-  paymentTerms?: string;
-  isPreferred: boolean;
-  isActive: boolean;
-}
 
 // Enhanced Inventory Item
 export interface InventoryItem {
@@ -80,6 +66,7 @@ export interface InventoryItem {
   name: string;
   description?: string;
   categoryId: string;
+  itemTypeId?: string;
   
   // Unit of Measure Configuration
   uom: {
@@ -149,12 +136,6 @@ export interface InventoryItem {
     };
   };
   
-  // Supplier Information
-  suppliers: {
-    primary?: SupplierInfo;
-    alternatives?: SupplierInfo[];
-    preferredSupplier?: string;
-  };
   
   // Lots and Batches (for lot-tracked items)
   lots?: LotInfo[];
@@ -251,7 +232,6 @@ export interface ReorderAlert {
   urgency: 'low' | 'medium' | 'high' | 'critical';
   suggestedAction: string;
   suggestedQuantity?: number;
-  suggestedSupplier?: string;
   createdAt: string;
   isResolved: boolean;
   resolvedAt?: string;
@@ -340,7 +320,6 @@ export interface InventoryItemQuery {
   categoryId?: string;
   status?: InventoryItem['status'];
   locationId?: string;
-  supplierId?: string;
   isLotTracked?: boolean;
   isExpiring?: boolean; // Items expiring within X days
   isBelowMin?: boolean;

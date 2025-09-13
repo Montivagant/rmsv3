@@ -144,7 +144,7 @@ export default function ItemTypesPage() {
             <Checkbox
               id="isActive"
               checked={currentItemType?.isActive ?? true}
-              onCheckedChange={(checked) => setCurrentItemType(prev => ({ ...prev, isActive: !!checked }))}
+              onChange={(e) => setCurrentItemType(prev => ({ ...prev, isActive: e.currentTarget.checked }))}
             />
             <label htmlFor="isActive" className="text-sm">Active</label>
           </div>

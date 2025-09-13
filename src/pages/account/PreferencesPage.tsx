@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
+import { useNotifications } from '../../components/feedback/NotificationSystem';
 import type { Preferences } from '../../types/account';
-import { TIME_ZONES } from '../../types/account';
+import { TIME_ZONES, LANGUAGES } from '../../types/account';
 import SettingCard from '../../settings/ui/SettingCard';
 import SettingRow from '../../settings/ui/SettingRow';
 import { Select } from '../../components/Select';
 import Toggle from '../../settings/ui/Toggle';
 import FormActions from '../../components/ui/FormActions';
 import { Button } from '../../components/Button';
+import { useApi } from '../../hooks/useApi';
 
 export default function PreferencesPage() {
   const [preferences, setPreferences] = useState<Preferences | null>(null);
@@ -18,6 +20,8 @@ export default function PreferencesPage() {
   const [isSaving, setSaving] = useState(false);
   
   const { showToast } = useToast();
+  const { showSuccess, showError } = useNotifications();
+  const { data: branches = [] } = useApi<Array<{ id: string; name: string }>>('/api/manage/branches', []);
 
   // Check if form has unsaved changes
   const isDirty = preferences && formData && JSON.stringify(preferences) !== JSON.stringify(formData);
@@ -39,6 +43,7 @@ export default function PreferencesPage() {
     } catch (error) {
       console.error('Failed to load preferences:', error);
       showToast('Failed to load preferences', 'error');
+      showError('Preferences', 'Failed to load preferences');
     } finally {
       setIsLoading(false);
     }
@@ -53,9 +58,12 @@ export default function PreferencesPage() {
       setPreferences(updatedPreferences);
       setFormData(updatedPreferences);
       showToast('Preferences updated successfully', 'success');
+      showSuccess('Preferences', 'Preferences updated successfully');
     } catch (error: any) {
       console.error('Failed to save preferences:', error);
-      showToast(error.message || 'Failed to update preferences', 'error');
+      const msg = error.message || 'Failed to update preferences';
+      showToast(msg, 'error');
+      showError('Preferences', msg);
     } finally {
       setSaving(false);
     }
@@ -124,6 +132,39 @@ export default function PreferencesPage() {
             </SettingRow>
 
             <SettingRow 
+              label="Locale" 
+              htmlFor="preferences-locale"
+              description="Set your preferred language and regional format"
+            >
+              <Select
+                id="preferences-locale"
+                value={formData.locale || ''}
+                onValueChange={(value) => updateField('locale', value)}
+                options={LANGUAGES.map(lang => ({
+                  value: lang.value,
+                  label: `${lang.label} (${lang.nativeLabel})`
+                }))}
+              />
+            </SettingRow>
+
+            <SettingRow 
+              label="Default Branch" 
+              htmlFor="preferences-default-branch"
+              description="The default branch for your operations"
+            >
+              <Select
+                id="preferences-default-branch"
+                value={formData.defaultBranchId || ''}
+                onValueChange={(value) => updateField('defaultBranchId', value)}
+                options={branches.map(branch => ({
+                  value: branch.id,
+                  label: branch.name
+                }))}
+                placeholder="Select a default branch"
+              />
+            </SettingRow>
+
+            <SettingRow 
               label="Enable Localization" 
               description="Show localized content and formats based on your region"
             >
@@ -153,16 +194,6 @@ export default function PreferencesPage() {
               />
             </SettingRow>
 
-            <SettingRow 
-              label="Restrict Purchased Items to Supplier" 
-              description="Only allow purchasing items from their designated suppliers"
-            >
-              <Toggle
-                checked={formData.restrictPurchasedItemsToSupplier}
-                onChange={(checked) => updateField('restrictPurchasedItemsToSupplier', checked)}
-                id="preferences-restrict-suppliers"
-              />
-            </SettingRow>
           </div>
         </SettingCard>
 

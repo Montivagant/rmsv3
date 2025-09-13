@@ -4,454 +4,350 @@
  * Service for managing dynamic roles and permissions with admin interface support
  */
 
-import { eventStore } from '../events/store';
 import { SYSTEM_ROLES, SYSTEM_PERMISSIONS, PermissionChecker } from './permissions';
-import type { DynamicRole, Permission } from './permissions';
+import type { DynamicRole, Permission, PermissionScope } from './permissions';
 import { getCurrentUser } from './roles';
-import { auditLogger } from './audit';
 
-// Events for role management
-interface RoleCreatedEvent {
-  roleId: string;
-  roleName: string;
-  permissions: string[];
-  createdBy: string;
-}
-
-interface RoleUpdatedEvent {
-  roleId: string;
-  changes: {
-    name?: string;
-    description?: string;
-    permissions?: string[];
-  };
-  updatedBy: string;
-}
-
-interface RoleDeletedEvent {
-  roleId: string;
-  deletedBy: string;
-}
-
-interface UserRoleAssignedEvent {
+interface RoleAssignment {
   userId: string;
   roleId: string;
+  assignedAt: number;
   assignedBy: string;
+  expiresAt?: number;
+  scope?: {
+    branches?: string[];
+    departments?: string[];
+  };
 }
 
-/**
- * Dynamic RBAC Service for managing roles and permissions
- */
-export class DynamicRBACService {
-  private static instance: DynamicRBACService;
-  private roles: Map<string, DynamicRole> = new Map();
-  private userRoles: Map<string, string[]> = new Map(); // userId -> roleIds
+class DynamicRBACService {
+  private customRoles: Map<string, DynamicRole> = new Map();
+  private roleAssignments: Map<string, RoleAssignment[]> = new Map();
+  private permissionOverrides: Map<string, Permission[]> = new Map();
 
-  private constructor() {
-    // Initialize with system roles
+  constructor() {
+    this.initializeSystemRoles();
+  }
+  
+  // Initialize/refresh system roles with latest permissions
+  private initializeSystemRoles(): void {
     SYSTEM_ROLES.forEach(role => {
-      this.roles.set(role.id, role);
-    });
-    
-    // Load any custom roles from events
-    this.loadRolesFromEvents();
-  }
-
-  static getInstance(): DynamicRBACService {
-    if (!DynamicRBACService.instance) {
-      DynamicRBACService.instance = new DynamicRBACService();
-    }
-    return DynamicRBACService.instance;
-  }
-
-  /**
-   * Load custom roles from event store
-   */
-  private loadRolesFromEvents() {
-    // Get all events and filter for role-related types
-    const allEvents = eventStore.getAll();
-    const roleEvents = allEvents.filter(event => 
-      ['role.created', 'role.updated', 'role.deleted'].includes(event.type)
-    );
-
-    // Apply events in order to reconstruct current state
-    roleEvents.forEach(event => {
-      switch (event.type) {
-        case 'role.created':
-          this.applyRoleCreatedEvent(event.payload as RoleCreatedEvent);
-          break;
-        case 'role.updated':
-          this.applyRoleUpdatedEvent(event.payload as RoleUpdatedEvent);
-          break;
-        case 'role.deleted':
-          this.applyRoleDeletedEvent(event.payload as RoleDeletedEvent);
-          break;
-      }
-    });
-
-    // Load user role assignments
-    const userRoleEvents = eventStore.getByType('user.role.assigned');
-
-    userRoleEvents.forEach(event => {
-      const payload = event.payload as UserRoleAssignedEvent;
-      const userRoles = this.userRoles.get(payload.userId) || [];
-      if (!userRoles.includes(payload.roleId)) {
-        userRoles.push(payload.roleId);
-        this.userRoles.set(payload.userId, userRoles);
+      this.customRoles.set(role.id, role);
+      
+      // RBAC logging disabled by default to prevent console noise and DevTools serialization issues
+      if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGGING === 'true' && role.id === 'business_owner' && !globalThis.__RMS_RBAC_LOGGED) {
+        const menuPermissions = role.permissions.filter(p => p.module === 'menu');
+        console.log(`🔑 RBAC: Loaded ${role.permissions.length} permissions, ${menuPermissions.length} menu permissions`);
+        globalThis.__RMS_RBAC_LOGGED = true;
       }
     });
   }
+  
+  // Force refresh of system roles (for development)
+  public refreshSystemRoles(): void {
+    this.initializeSystemRoles();
+  }
 
-  /**
-   * Create a new custom role
-   */
-  async createRole(roleData: {
-    name: string;
-    description: string;
-    permissionIds: string[];
-    inheritsFrom?: string[];
-  }): Promise<DynamicRole> {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error('Authentication required');
-    }
-
-    // Check if user has permission to manage roles
-    if (!this.hasPermission(currentUser.id, 'settings.role_management')) {
-      throw new Error('Insufficient permissions to create roles');
-    }
-
-    const roleId = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Validate permissions exist
-    const permissions = roleData.permissionIds.map(id => {
-      const permission = SYSTEM_PERMISSIONS.find(p => p.id === id);
-      if (!permission) {
-        throw new Error(`Permission not found: ${id}`);
-      }
-      return permission;
-    });
-
+  // Role Management
+  public createRole(name: string, description: string, basePermissions: Permission[] = []): DynamicRole {
+    const roleId = `role_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const newRole: DynamicRole = {
       id: roleId,
-      name: roleData.name,
-      description: roleData.description,
-      permissions,
-      inheritsFrom: roleData.inheritsFrom,
+      name,
+      description,
+      permissions: basePermissions,
       isSystem: false,
-      createdBy: currentUser.id,
+      createdBy: getCurrentUser()?.id || 'system',
       createdAt: Date.now(),
-      modifiedBy: currentUser.id,
+      modifiedBy: getCurrentUser()?.id || 'system',
       modifiedAt: Date.now()
     };
-
-    // Store role
-    this.roles.set(roleId, newRole);
-
-    // Create event
-    const eventPayload: RoleCreatedEvent = {
-      roleId,
-      roleName: roleData.name,
-      permissions: roleData.permissionIds,
-      createdBy: currentUser.id
-    };
-
-    await eventStore.append('role.created', eventPayload, {
-      aggregate: { id: roleId, type: 'role' },
-      params: { roleId, roleName: roleData.name }
-    });
-
-    // Audit log
-    auditLogger.log({
-      action: 'role_created',
-      resource: `roles.${roleId}`,
-      details: { roleName: roleData.name, permissionCount: permissions.length }
-    });
-
+    
+    this.customRoles.set(roleId, newRole);
     return newRole;
   }
 
-  /**
-   * Update an existing role
-   */
-  async updateRole(roleId: string, updates: {
-    name?: string;
-    description?: string;
-    permissionIds?: string[];
-  }): Promise<DynamicRole> {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error('Authentication required');
-    }
+  public updateRole(roleId: string, updates: Partial<DynamicRole>): DynamicRole | null {
+    const role = this.customRoles.get(roleId);
+    if (!role || role.isSystem) return null;
 
-    if (!this.hasPermission(currentUser.id, 'settings.role_management')) {
-      throw new Error('Insufficient permissions to update roles');
-    }
-
-    const role = this.roles.get(roleId);
-    if (!role) {
-      throw new Error('Role not found');
-    }
-
-    if (role.isSystem) {
-      throw new Error('Cannot modify system roles');
-    }
-
-    // Validate new permissions if provided
-    let newPermissions = role.permissions;
-    if (updates.permissionIds) {
-      newPermissions = updates.permissionIds.map(id => {
-        const permission = SYSTEM_PERMISSIONS.find(p => p.id === id);
-        if (!permission) {
-          throw new Error(`Permission not found: ${id}`);
-        }
-        return permission;
-      });
-    }
-
-    // Update role
     const updatedRole: DynamicRole = {
       ...role,
-      name: updates.name || role.name,
-      description: updates.description || role.description,
-      permissions: newPermissions,
-      modifiedBy: currentUser.id,
+      ...updates,
+      id: role.id, // Ensure ID cannot be changed
+      isSystem: role.isSystem, // Ensure system flag cannot be changed
+      modifiedBy: getCurrentUser()?.id || 'system',
       modifiedAt: Date.now()
     };
 
-    this.roles.set(roleId, updatedRole);
-
-    // Create event
-    const eventPayload: RoleUpdatedEvent = {
-      roleId,
-      changes: {
-        ...updates,
-        permissions: updates.permissionIds
-      },
-      updatedBy: currentUser.id
-    };
-
-    await eventStore.append('role.updated', eventPayload, {
-      aggregate: { id: roleId, type: 'role' },
-      params: { roleId, changes: updates }
-    });
-
-    // Audit log
-    auditLogger.log({
-      action: 'role_updated',
-      resource: `roles.${roleId}`,
-      details: { roleName: updatedRole.name, changes: Object.keys(updates) }
-    });
-
+    this.customRoles.set(roleId, updatedRole);
     return updatedRole;
   }
 
-  /**
-   * Delete a custom role
-   */
-  async deleteRole(roleId: string): Promise<void> {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error('Authentication required');
+  public deleteRole(roleId: string): boolean {
+    const role = this.customRoles.get(roleId);
+    if (!role || role.isSystem) return false;
+
+    // Remove all assignments of this role
+    this.roleAssignments.forEach((assignments, userId) => {
+      const filtered = assignments.filter(a => a.roleId !== roleId);
+      if (filtered.length === 0) {
+        this.roleAssignments.delete(userId);
+      } else {
+        this.roleAssignments.set(userId, filtered);
+      }
+    });
+
+    this.customRoles.delete(roleId);
+    return true;
+  }
+
+  public getAllRoles(): DynamicRole[] {
+    return Array.from(this.customRoles.values());
+  }
+
+  public getRole(roleId: string): DynamicRole | null {
+    return this.customRoles.get(roleId) || null;
+  }
+
+  // Permission Management
+  public enablePermissionForRole(roleId: string, permissionId: string): boolean {
+    const role = this.customRoles.get(roleId);
+    if (!role || role.isSystem) return false;
+
+    const permission = SYSTEM_PERMISSIONS.find(p => p.id === permissionId);
+    if (!permission) return false;
+
+    if (!role.permissions.some(p => p.id === permissionId)) {
+      role.permissions.push(permission);
+      this.updateRole(roleId, { permissions: role.permissions });
     }
 
-    if (!this.hasPermission(currentUser.id, 'settings.role_management')) {
-      throw new Error('Insufficient permissions to delete roles');
-    }
+    return true;
+  }
 
-    const role = this.roles.get(roleId);
-    if (!role) {
-      throw new Error('Role not found');
-    }
+  public disablePermissionForRole(roleId: string, permissionId: string): boolean {
+    const role = this.customRoles.get(roleId);
+    if (!role || role.isSystem) return false;
 
-    if (role.isSystem) {
-      throw new Error('Cannot delete system roles');
-    }
+    role.permissions = role.permissions.filter(p => p.id !== permissionId);
+    this.updateRole(roleId, { permissions: role.permissions });
+    return true;
+  }
 
-    // Check if role is assigned to any users
-    const usersWithRole = Array.from(this.userRoles.entries())
-      .filter(([_, roles]) => roles.includes(roleId));
+  public setPermissionScope(roleId: string, permissionId: string, scope: PermissionScope): boolean {
+    const role = this.customRoles.get(roleId);
+    if (!role || role.isSystem) return false;
+
+    const permission = role.permissions.find(p => p.id === permissionId);
+    if (!permission) return false;
+
+    permission.scope = scope;
+    this.updateRole(roleId, { permissions: role.permissions });
+    return true;
+  }
+
+  // User Assignment
+  public assignUserToRole(userId: string, roleId: string, scope?: RoleAssignment['scope']): boolean {
+    const role = this.customRoles.get(roleId);
+    if (!role) return false;
+
+    const userAssignments = this.roleAssignments.get(userId) || [];
     
-    if (usersWithRole.length > 0) {
-      throw new Error(`Cannot delete role: assigned to ${usersWithRole.length} user(s)`);
+    // Check if already assigned
+    if (userAssignments.some(a => a.roleId === roleId)) {
+      return false;
     }
 
-    // Remove role
-    this.roles.delete(roleId);
-
-    // Create event
-    const eventPayload: RoleDeletedEvent = {
+    const assignment: RoleAssignment = {
+      userId,
       roleId,
-      deletedBy: currentUser.id
+      assignedAt: Date.now(),
+      assignedBy: getCurrentUser()?.id || 'system',
+      scope
     };
 
-    await eventStore.append('role.deleted', eventPayload, {
-      aggregate: { id: roleId, type: 'role' }
-    });
-
-    // Audit log
-    auditLogger.log({
-      action: 'role_deleted',
-      resource: `roles.${roleId}`,
-      details: { roleName: role.name }
-    });
+    userAssignments.push(assignment);
+    this.roleAssignments.set(userId, userAssignments);
+    return true;
   }
 
-  /**
-   * Assign role to user
-   */
-  async assignRole(userId: string, roleId: string): Promise<void> {
+  public removeUserFromRole(userId: string, roleId: string): boolean {
+    const userAssignments = this.roleAssignments.get(userId);
+    if (!userAssignments) return false;
+
+    const filtered = userAssignments.filter(a => a.roleId !== roleId);
+    if (filtered.length === userAssignments.length) return false;
+
+    if (filtered.length === 0) {
+      this.roleAssignments.delete(userId);
+    } else {
+      this.roleAssignments.set(userId, filtered);
+    }
+
+    return true;
+  }
+
+  public getUserRoles(userId: string): DynamicRole[] {
+    const assignments = this.roleAssignments.get(userId) || [];
+    const roles: DynamicRole[] = [];
+
+    // Check for legacy getCurrentUser role
     const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error('Authentication required');
+    if (currentUser && currentUser.id === userId && currentUser.role) {
+      // Convert BUSINESS_OWNER to business_owner for lookup
+      const roleKey = currentUser.role === 'BUSINESS_OWNER' ? 'business_owner' : currentUser.role.toLowerCase();
+      const legacyRole = this.customRoles.get(roleKey);
+      if (legacyRole) {
+        roles.push(legacyRole);
+      }
     }
 
-    if (!this.hasPermission(currentUser.id, 'settings.user_management')) {
-      throw new Error('Insufficient permissions to assign roles');
+    // Add assigned roles
+    assignments.forEach(assignment => {
+      const role = this.customRoles.get(assignment.roleId);
+      if (role) {
+        roles.push(role);
+      }
+    });
+
+    return roles;
+  }
+
+  public getUsersWithRole(roleId: string): string[] {
+    const users: string[] = [];
+    
+    this.roleAssignments.forEach((assignments, userId) => {
+      if (assignments.some(a => a.roleId === roleId)) {
+        users.push(userId);
+      }
+    });
+
+    return users;
+  }
+
+  // Permission Checking (Enhanced)
+  public hasPermission(userId: string, permissionId: string, context: any = {}): boolean {
+    const userRoles = this.getUserRoles(userId);
+    
+    // Permission check logging disabled to reduce console noise
+    
+    // Check all user roles
+    for (const role of userRoles) {
+      if (PermissionChecker.hasPermission(role, permissionId)) {
+        const permission = role.permissions.find(p => p.id === permissionId);
+        if (permission && PermissionChecker.isPermissionValidInContext(permission, context)) {
+          return true;
+        }
+      }
     }
 
-    const role = this.roles.get(roleId);
-    if (!role) {
-      throw new Error('Role not found');
+    // Check permission overrides
+    const overrides = this.permissionOverrides.get(userId);
+    if (overrides) {
+      const override = overrides.find(p => p.id === permissionId);
+      if (override && PermissionChecker.isPermissionValidInContext(override, context)) {
+        return true;
+      }
     }
 
-    const userRoles = this.userRoles.get(userId) || [];
-    if (!userRoles.includes(roleId)) {
-      userRoles.push(roleId);
-      this.userRoles.set(userId, userRoles);
+    return false;
+  }
 
-      // Create event
-      const eventPayload: UserRoleAssignedEvent = {
-        userId,
-        roleId,
-        assignedBy: currentUser.id
+  public hasModuleAccess(userId: string, module: string, action: string, context: any = {}): boolean {
+    const userRoles = this.getUserRoles(userId);
+    
+    for (const role of userRoles) {
+      if (PermissionChecker.hasModuleAccess(role, module, action)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Permission Overrides (for temporary permissions)
+  public grantTemporaryPermission(userId: string, permission: Permission, durationMinutes?: number): void {
+    const overrides = this.permissionOverrides.get(userId) || [];
+    
+    if (durationMinutes) {
+      // Add expiration to permission scope
+      const expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+      permission = {
+        ...permission,
+        scope: {
+          ...permission.scope,
+          conditions: {
+            ...permission.scope?.conditions,
+            expiresAt: expiresAt.toISOString()
+          }
+        }
       };
+    }
 
-      await eventStore.append('user.role.assigned', eventPayload, {
-        aggregate: { id: userId, type: 'user' }
+    overrides.push(permission);
+    this.permissionOverrides.set(userId, overrides);
+  }
+
+  public revokeTemporaryPermission(userId: string, permissionId: string): boolean {
+    const overrides = this.permissionOverrides.get(userId);
+    if (!overrides) return false;
+
+    const filtered = overrides.filter(p => p.id !== permissionId);
+    if (filtered.length === overrides.length) return false;
+
+    if (filtered.length === 0) {
+      this.permissionOverrides.delete(userId);
+    } else {
+      this.permissionOverrides.set(userId, filtered);
+    }
+
+    return true;
+  }
+
+  // Utility Methods
+  public exportRoles(): string {
+    const roles = this.getAllRoles().filter(r => !r.isSystem);
+    return JSON.stringify(roles, null, 2);
+  }
+
+  public importRoles(rolesJson: string): number {
+    try {
+      const roles = JSON.parse(rolesJson) as DynamicRole[];
+      let imported = 0;
+
+      roles.forEach(role => {
+        if (!role.isSystem && !this.customRoles.has(role.id)) {
+          this.customRoles.set(role.id, {
+            ...role,
+            modifiedAt: Date.now(),
+            modifiedBy: getCurrentUser()?.id || 'system'
+          });
+          imported++;
+        }
       });
 
-      // Audit log
-      auditLogger.log({
-        action: 'role_assigned',
-        resource: `users.${userId}`,
-        details: { roleId, roleName: role.name }
-      });
+      return imported;
+    } catch (error) {
+      throw new Error('Invalid roles JSON format');
     }
-  }
-
-  /**
-   * Check if user has specific permission
-   */
-  hasPermission(userId: string, permissionId: string, context: any = {}): boolean {
-    const userRoles = this.getUserRoles(userId);
-    
-    for (const role of userRoles) {
-      const validPermissions = PermissionChecker.getValidPermissions(role, context);
-      if (validPermissions.some(p => p.id === permissionId)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-
-  /**
-   * Check if user has module access
-   */
-  hasModuleAccess(userId: string, module: string, action: string, context: any = {}): boolean {
-    const userRoles = this.getUserRoles(userId);
-    
-    for (const role of userRoles) {
-      const validPermissions = PermissionChecker.getValidPermissions(role, context);
-      if (validPermissions.some(p => p.module === module && p.action === action)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-
-  /**
-   * Get user's roles
-   */
-  getUserRoles(userId: string): DynamicRole[] {
-    const roleIds = this.userRoles.get(userId) || [];
-    return roleIds.map(id => this.roles.get(id)).filter(Boolean) as DynamicRole[];
-  }
-
-  /**
-   * Get all available roles
-   */
-  getAllRoles(): DynamicRole[] {
-    return Array.from(this.roles.values());
-  }
-
-  /**
-   * Get all available permissions
-   */
-  getAllPermissions(): Permission[] {
-    return SYSTEM_PERMISSIONS;
-  }
-
-  /**
-   * Apply role created event
-   */
-  private applyRoleCreatedEvent(event: RoleCreatedEvent) {
-    const permissions = event.permissions.map(id => 
-      SYSTEM_PERMISSIONS.find(p => p.id === id)
-    ).filter(Boolean) as Permission[];
-
-    const role: DynamicRole = {
-      id: event.roleId,
-      name: event.roleName,
-      description: '',
-      permissions,
-      isSystem: false,
-      createdBy: event.createdBy,
-      createdAt: Date.now(),
-      modifiedBy: event.createdBy,
-      modifiedAt: Date.now()
-    };
-
-    this.roles.set(event.roleId, role);
-  }
-
-  /**
-   * Apply role updated event
-   */
-  private applyRoleUpdatedEvent(event: RoleUpdatedEvent) {
-    const role = this.roles.get(event.roleId);
-    if (!role) return;
-
-    if (event.changes.permissions) {
-      const permissions = event.changes.permissions.map(id => 
-        SYSTEM_PERMISSIONS.find(p => p.id === id)
-      ).filter(Boolean) as Permission[];
-      role.permissions = permissions;
-    }
-
-    if (event.changes.name) {
-      role.name = event.changes.name;
-    }
-
-    if (event.changes.description) {
-      role.description = event.changes.description;
-    }
-
-    role.modifiedBy = event.updatedBy;
-    role.modifiedAt = Date.now();
-
-    this.roles.set(event.roleId, role);
-  }
-
-  /**
-   * Apply role deleted event
-   */
-  private applyRoleDeletedEvent(event: RoleDeletedEvent) {
-    this.roles.delete(event.roleId);
   }
 }
 
-// Export singleton instance
-export const dynamicRBACService = DynamicRBACService.getInstance();
+export const dynamicRBACService = new DynamicRBACService();
+
+// Force refresh system roles in development to pick up new permissions
+if (import.meta.env.DEV) {
+  // Clear any cached permission data that might be stale
+  const permissionCacheKeys = Object.keys(localStorage).filter(key => 
+    key.includes('rbac') || key.includes('permission') || key.includes('role')
+  );
+  permissionCacheKeys.forEach(key => localStorage.removeItem(key));
+  
+  // Refresh system roles with new permissions
+  dynamicRBACService.refreshSystemRoles();
+  
+  if (import.meta.env.VITE_DEBUG_LOGGING === 'true') {
+    console.log('🔄 RBAC: System roles refreshed');
+  }
+}

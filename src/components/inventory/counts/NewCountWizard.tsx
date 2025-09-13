@@ -22,13 +22,14 @@ interface NewCountWizardProps {
   categories?: Array<{ id: string; name: string }>;
   itemTypes?: Array<{ id: string; name: string }>;
   storageAreas?: Array<{ id: string; name: string }>;
+  suppliers?: Array<{ id: string; name: string }>;
   loading?: boolean;
   /** When true, render single-step UI (branch + scope together) */
   simpleMode?: boolean;
 }
 
 type WizardStep = 'branch' | 'scope' | 'confirmation';
-type ScopeType = 'all' | 'categories' | 'itemTypes';
+type ScopeType = 'all' | 'categories' | 'importList';
 
 export default function NewCountWizard({
   isOpen,
@@ -38,6 +39,7 @@ export default function NewCountWizard({
   categories = [],
   itemTypes = [],
   storageAreas = [],
+  suppliers = [],
   loading = false,
   simpleMode = false
 }: NewCountWizardProps) {
@@ -75,9 +77,10 @@ export default function NewCountWizard({
         break;
         
       case 'scope':
-        if (scopeType === 'categories' && 
-            (!formData.scope.filters?.categoryIds || formData.scope.filters.categoryIds.length === 0)) {
-          newErrors.categoryIds = 'At least one category must be selected';
+        if (scopeType === 'categories') {
+          const f: any = formData.scope.filters || {};
+          const hasAny = Boolean((f.categoryIds && f.categoryIds.length > 0) || (f.supplierIds && f.supplierIds.length > 0) || (f.storageAreaIds && f.storageAreaIds.length > 0));
+          if (!hasAny) newErrors.filters = 'At least one filter must be selected';
         }
         
         if (scopeType === 'itemTypes' && 
@@ -172,13 +175,8 @@ export default function NewCountWizard({
           } 
         };
         break;
-      case 'itemTypes':
-        newScope = { 
-          byItemType: true,
-          filters: { 
-            itemTypeIds: [] 
-          } 
-        };
+      case 'importList':
+        newScope = { all: false };
         break;
     }
     
@@ -208,8 +206,8 @@ export default function NewCountWizard({
           return true;
         } else if (scopeType === 'categories') {
           return formData.scope.filters?.categoryIds && formData.scope.filters.categoryIds.length > 0;
-        } else if (scopeType === 'itemTypes') {
-          return formData.scope.filters?.itemTypeIds && formData.scope.filters.itemTypeIds.length > 0;
+        } else if (scopeType === 'importList') {
+          return true;
         }
         return false;
       case 'confirmation':
@@ -226,9 +224,7 @@ export default function NewCountWizard({
     if (scopeType === 'categories') {
       return Boolean(formData.scope.filters?.categoryIds && formData.scope.filters.categoryIds.length > 0);
     }
-    if (scopeType === 'itemTypes') {
-      return Boolean(formData.scope.filters?.itemTypeIds && formData.scope.filters.itemTypeIds.length > 0);
-    }
+    // importList proceeds without additional selection in simple mode
     return false;
   };
 
@@ -241,6 +237,7 @@ export default function NewCountWizard({
         title="Create New Inventory Audit"
         description="Choose a branch and scope to start auditing"
         size="lg"
+        showCloseButton={false}
         closeOnOverlayClick={!isSubmitting}
       >
         <div className="space-y-8 p-6">
@@ -317,7 +314,8 @@ export default function NewCountWizard({
                             id={`cat-${category.id}`}
                             checked={(formData.scope.filters?.categoryIds || []).includes(category.id)}
                             disabled={!formData.branchId}
-                            onCheckedChange={(checked) => {
+                            onChange={(e) => {
+                              const checked = e.currentTarget.checked;
                               const categoryIds = [...(formData.scope.filters?.categoryIds || [])];
                               if (checked) {
                                 if (!categoryIds.includes(category.id)) categoryIds.push(category.id);
@@ -373,7 +371,8 @@ export default function NewCountWizard({
                             id={`type-${t.id}`}
                             checked={(formData.scope.filters?.itemTypeIds || []).includes(t.id)}
                             disabled={!formData.branchId}
-                            onCheckedChange={(checked) => {
+                            onChange={(e) => {
+                              const checked = e.currentTarget.checked;
                               const itemTypeIds = [...(formData.scope.filters?.itemTypeIds || [])];
                               if (checked) {
                                 if (!itemTypeIds.includes(t.id)) itemTypeIds.push(t.id);
@@ -437,10 +436,11 @@ export default function NewCountWizard({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => { if (!isSubmitting) onClose(); }}
       title="Create New Inventory Audit"
       description="Set up a new audit session to reconcile stock levels"
       size="lg"
+      showCloseButton={false}
       closeOnOverlayClick={!isSubmitting}
     >
       <div className="space-y-6 p-6">
@@ -503,6 +503,25 @@ export default function NewCountWizard({
                 />
               </div>
 
+              <div>
+                <Label htmlFor="estimated-duration" required>
+                  Estimated Duration (minutes)
+                </Label>
+                <Input
+                  id="estimated-duration"
+                  type="number"
+                  min={15}
+                  max={480}
+                  value={formData.estimatedDurationMinutes}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value || '0', 10);
+                    setFormData(prev => ({ ...prev, estimatedDurationMinutes: v }));
+                  }}
+                  error={errors.estimatedDurationMinutes}
+                  aria-label="Estimated Duration (minutes)"
+                />
+              </div>
+
               <div className="bg-surface-secondary/30 p-4 rounded-md border border-border">
                 <div className="text-sm text-text-primary">
                   <p>This will create a snapshot of the inventory at the time of audit creation.</p>
@@ -535,10 +554,10 @@ export default function NewCountWizard({
                       description="Select specific inventory categories to audit"
                     />
                   </RadioOption>
-                  <RadioOption value="itemTypes">
+                  <RadioOption value="importList">
                     <RadioOptionContent
-                      title="By Item Type"
-                      description="Select specific item types to audit"
+                      title="Import Item List"
+                      description="Upload a CSV or paste SKUs to audit specific items"
                     />
                   </RadioOption>
                 </RadioGroup>
@@ -559,16 +578,15 @@ export default function NewCountWizard({
                               id={`cat-${category.id}`}
                               checked={(formData.scope.filters?.categoryIds || []).includes(category.id)}
                               disabled={!formData.branchId}
-                              onCheckedChange={(checked) => {
+                              onChange={(e) => {
+                                const isChecked = e.currentTarget.checked;
                                 const categoryIds = [...(formData.scope.filters?.categoryIds || [])];
-                                
-                                if (checked) {
-                                  categoryIds.push(category.id);
+                                if (isChecked) {
+                                  if (!categoryIds.includes(category.id)) categoryIds.push(category.id);
                                 } else {
                                   const index = categoryIds.indexOf(category.id);
                                   if (index !== -1) categoryIds.splice(index, 1);
                                 }
-                                
                                 setFormData(prev => ({
                                   ...prev,
                                   scope: {
@@ -579,7 +597,6 @@ export default function NewCountWizard({
                                     }
                                   }
                                 }));
-                                
                                 if (errors.categoryIds && categoryIds.length > 0) {
                                   setErrors(prev => ({ ...prev, categoryIds: '' }));
                                 }
@@ -597,35 +614,32 @@ export default function NewCountWizard({
                     ) : (
                       <p className="text-sm text-text-muted">No categories available.</p>
                     ))}
-                                  </div>
+                  </div>
                   {errors.categoryIds && (
                     <p className="text-destructive text-sm mt-1">{errors.categoryIds}</p>
-                                  )}
-                                </div>
-              )}
+                  )}
 
-              {/* Item Type Selection */}
-              {scopeType === 'itemTypes' && (
-                <div className="space-y-3">
-                  <Label required>Item Types</Label>
+                  {/* Suppliers */}
+                  <Label>Suppliers</Label>
                   <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
                     {!formData.branchId ? (
                       <p className="text-sm text-text-muted">Select a branch first.</p>
-                    ) : (itemTypes.length > 0 ? (
+                    ) : (suppliers.length > 0 ? (
                       <div className="max-h-56 overflow-y-auto space-y-2">
-                        {itemTypes.map(t => (
-                          <div key={t.id} className="flex items-center space-x-2">
-                            <Checkbox 
-                              id={`type-${t.id}`}
-                              checked={(formData.scope.filters?.itemTypeIds || []).includes(t.id)}
+                        {suppliers.map(s => (
+                          <div key={s.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`sup-${s.id}`}
+                              checked={(formData.scope.filters?.supplierIds || []).includes(s.id)}
                               disabled={!formData.branchId}
-                              onCheckedChange={(checked) => {
-                                const itemTypeIds = [...(formData.scope.filters?.itemTypeIds || [])];
-                                if (checked) {
-                                  if (!itemTypeIds.includes(t.id)) itemTypeIds.push(t.id);
+                              onChange={(e) => {
+                                const isChecked = e.currentTarget.checked;
+                                const supplierIds = [...(formData.scope.filters?.supplierIds || [])];
+                                if (isChecked) {
+                                  if (!supplierIds.includes(s.id)) supplierIds.push(s.id);
                                 } else {
-                                  const index = itemTypeIds.indexOf(t.id);
-                                  if (index !== -1) itemTypeIds.splice(index, 1);
+                                  const index = supplierIds.indexOf(s.id);
+                                  if (index !== -1) supplierIds.splice(index, 1);
                                 }
                                 setFormData(prev => ({
                                   ...prev,
@@ -633,31 +647,77 @@ export default function NewCountWizard({
                                     ...prev.scope,
                                     filters: {
                                       ...(prev.scope.filters || {}),
-                                      itemTypeIds
+                                      supplierIds
                                     }
                                   }
                                 }));
-                                if (errors.itemTypeIds && itemTypeIds.length > 0) {
-                                  setErrors(prev => ({ ...prev, itemTypeIds: '' }));
-                                }
                               }}
                             />
-                            <label 
-                              htmlFor={`type-${t.id}`}
-                              className="text-sm cursor-pointer"
-                            >
-                              {t.name}
-                            </label>
+                            <label htmlFor={`sup-${s.id}`} className="text-sm cursor-pointer">{s.name}</label>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-text-muted">No item types available.</p>
+                      <p className="text-sm text-text-muted">No suppliers available.</p>
                     ))}
                   </div>
-                  {errors.itemTypeIds && (
-                    <p className="text-destructive text-sm mt-1">{errors.itemTypeIds}</p>
+
+                  {/* Storage Areas */}
+                  <Label>Storage Areas</Label>
+                  <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
+                    {!formData.branchId ? (
+                      <p className="text-sm text-text-muted">Select a branch first.</p>
+                    ) : (storageAreas.length > 0 ? (
+                      <div className="max-h-56 overflow-y-auto space-y-2">
+                        {storageAreas.map(a => (
+                          <div key={a.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`area-${a.id}`}
+                              checked={(formData.scope.filters?.storageAreaIds || []).includes(a.id)}
+                              disabled={!formData.branchId}
+                              onChange={(e) => {
+                                const isChecked = e.currentTarget.checked;
+                                const storageAreaIds = [...(formData.scope.filters?.storageAreaIds || [])];
+                                if (isChecked) {
+                                  if (!storageAreaIds.includes(a.id)) storageAreaIds.push(a.id);
+                                } else {
+                                  const index = storageAreaIds.indexOf(a.id);
+                                  if (index !== -1) storageAreaIds.splice(index, 1);
+                                }
+                                setFormData(prev => ({
+                                  ...prev,
+                                  scope: {
+                                    ...prev.scope,
+                                    filters: {
+                                      ...(prev.scope.filters || {}),
+                                      storageAreaIds
+                                    }
+                                  }
+                                }));
+                              }}
+                            />
+                            <label htmlFor={`area-${a.id}`} className="text-sm cursor-pointer">{a.name}</label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-text-muted">No storage areas available.</p>
+                    ))}
+                  </div>
+
+                  {errors.filters && (
+                    <p className="text-destructive text-sm mt-1">{errors.filters}</p>
                   )}
+                </div>
+              )}
+
+              {/* Import Item List placeholder */}
+              {scopeType === 'importList' && (
+                <div className="space-y-3">
+                  <Label>Import Items</Label>
+                  <div className="p-4 bg-surface-secondary/30 rounded-md border border-border text-sm text-text-muted">
+                    Paste SKUs or upload a CSV file to audit a specific set of items. (Coming soon)
+                  </div>
                 </div>
               )}
 
@@ -700,6 +760,12 @@ export default function NewCountWizard({
                     <dt className="text-text-secondary">Inventory:</dt>
                     <dd className="text-text-primary">
                       Snapshot at creation time
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-text-secondary">Estimated Duration:</dt>
+                    <dd className="text-text-primary">
+                      {formData.estimatedDurationMinutes} minutes
                     </dd>
                   </div>
                   
@@ -770,7 +836,7 @@ export default function NewCountWizard({
               <Button
                 variant="primary"
                 onClick={handleNext}
-                disabled={loading || !canProceed(currentStep)}
+                disabled={loading || isSubmitting}
               >
                 Next
               </Button>

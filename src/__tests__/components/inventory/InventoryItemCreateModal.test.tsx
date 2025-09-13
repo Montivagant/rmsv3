@@ -24,8 +24,8 @@ vi.mock('../../../hooks/useToast', () => ({
 // Mock fetch for API calls
 global.fetch = vi.fn();
 
-const mockUseApi = vi.mocked(require('../../../hooks/useApi').useApi);
-const mockUseToast = vi.mocked(require('../../../hooks/useToast').useToast);
+const mockUseApi = vi.mocked((await import('../../../hooks/useApi')).useApi as any);
+const mockUseToast = vi.mocked((await import('../../../hooks/useToast')).useToast as any);
 
 // Mock data
 const mockCategories = [
@@ -301,8 +301,8 @@ describe('InventoryItemCreateModal', () => {
       const generateButton = screen.getByRole('button', { name: /generate/i });
       await user.click(generateButton);
 
-      const skuInput = screen.getByLabelText(/sku/i);
-      expect(skuInput).toHaveValue(expect.stringMatching(/^ITM-TES\d{3}$/));
+      const skuInput = screen.getByLabelText(/sku/i) as HTMLInputElement;
+      expect(skuInput.value).toMatch(/^ITM-TES\d{3}$/);
       
       expect(mockShowToast).toHaveBeenCalledWith(
         'SKU generated successfully',

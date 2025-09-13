@@ -33,7 +33,6 @@ const DropdownMenu = ({
   disabled = false 
 }: DropdownMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuIdRef = useRef<string>(`dropdown-menu-${Math.random().toString(36).slice(2)}`);
@@ -46,57 +45,7 @@ const DropdownMenu = ({
     triggerRef
   });
 
-  // Calculate position
-  const updatePosition = () => {
-    if (!triggerRef.current) return;
-    
-    const triggerRect = triggerRef.current.getBoundingClientRect();
-    const scrollX = window.pageXOffset;
-    const scrollY = window.pageYOffset;
-    
-    let top = 0;
-    let left = 0;
-    
-    // Calculate vertical position
-    switch (side) {
-      case 'top':
-        top = triggerRect.top + scrollY - 8;
-        break;
-      case 'bottom':
-        top = triggerRect.bottom + scrollY + 8;
-        break;
-      case 'left':
-      case 'right':
-        top = triggerRect.top + scrollY;
-        break;
-    }
-    
-    // Calculate horizontal position
-    switch (side) {
-      case 'left':
-        left = triggerRect.left + scrollX - 8;
-        break;
-      case 'right':
-        left = triggerRect.right + scrollX + 8;
-        break;
-      case 'top':
-      case 'bottom':
-        switch (align) {
-          case 'start':
-            left = triggerRect.left + scrollX;
-            break;
-          case 'center':
-            left = triggerRect.left + scrollX + triggerRect.width / 2;
-            break;
-          case 'end':
-            left = triggerRect.right + scrollX;
-            break;
-        }
-        break;
-    }
-    
-    setPosition({ top, left });
-  };
+  // No pixel positioning; rely on anchored placement with relative wrapper
 
   // Dismiss behavior handled by useDismissableLayer
 
@@ -150,10 +99,7 @@ const DropdownMenu = ({
 
   const handleTriggerClick = () => {
     if (disabled) return;
-    
-    if (!isOpen) {
-      updatePosition();
-    }
+    // Using anchored absolute positioning via CSS; no JS positioning needed
     setIsOpen(!isOpen);
   };
 
@@ -161,13 +107,18 @@ const DropdownMenu = ({
     <div
       ref={(node) => { menuRef.current = node; (layerRef as any).current = node; }}
       className={cn(
-        'menu-position z-dropdown min-w-[12rem] rounded-lg border border-border bg-surface shadow-lg',
+        'z-dropdown min-w-[12rem] rounded-lg border border-border bg-surface shadow-lg',
+        'absolute mt-2',
         'py-2 animate-fade-in',
-        align === 'center' && 'transform -translate-x-1/2',
-        align === 'end' && 'transform -translate-x-full',
+        align === 'center' && 'left-1/2 -translate-x-1/2',
+        align === 'end' && 'right-0',
+        align === 'start' && 'left-0',
+        side === 'top' && 'bottom-full',
+        side === 'bottom' && 'top-full',
+        side === 'left' && 'right-full',
+        side === 'right' && 'left-full',
         className
       )}
-      style={{ ['--menu-top' as any]: `${position.top}px`, ['--menu-left' as any]: `${position.left}px` }}
       id={menuIdRef.current}
       role="menu"
       aria-orientation="vertical"
@@ -180,15 +131,12 @@ const DropdownMenu = ({
     if (disabled) return;
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      if (!isOpen) updatePosition();
       setIsOpen(true);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (!isOpen) updatePosition();
       setIsOpen(true);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (!isOpen) updatePosition();
       setIsOpen(true);
       setTimeout(() => {
         const items = menuRef.current?.querySelectorAll('[role="menuitem"]:not([disabled])');

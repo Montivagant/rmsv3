@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Enhanced Error Handling System
  * User-friendly error messages with recovery options and error boundaries
  */
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react'
-import { cn } from '../../utils/cn'
+import { cn } from '../../lib/utils'
 
 // Error types for different scenarios
 export interface AppError {
@@ -130,16 +130,16 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
       message: 'text-error'
     },
     warning: {
-      container: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800',
-      icon: 'text-yellow-400',
-      title: 'text-yellow-800 dark:text-yellow-200',
-      message: 'text-yellow-700 dark:text-yellow-300'
+      container: 'bg-warning-50 bg-warning-50 border-warning-200 border-warning-200',
+      icon: 'text-warning-600',
+      title: 'text-warning-700 text-warning-600',
+      message: 'text-warning-600 text-warning-600'
     },
     info: {
       container: 'bg-brand-50 border-brand-200',
-      icon: 'text-blue-400',
-      title: 'text-blue-800 dark:text-blue-200',
-      message: 'text-blue-700 dark:text-blue-300'
+      icon: 'text-brand-400',
+      title: 'text-brand-700 text-brand-600',
+      message: 'text-brand-600 text-brand-600'
     }
   }
 
@@ -279,7 +279,7 @@ export const SuccessMessage: React.FC<SuccessMessageProps> = ({
     )}>
       <div className="flex items-center">
         {showIcon && (
-          <svg className="h-5 w-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="h-5 w-5 text-success-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
         )}
@@ -410,3 +410,6 @@ export default {
   useErrorHandler,
   errorMessages
 }
+
+
+

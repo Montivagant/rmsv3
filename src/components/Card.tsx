@@ -1,6 +1,6 @@
-import { forwardRef } from 'react';
+﻿import { forwardRef } from 'react';
 import type { HTMLAttributes } from 'react';
-import { cn } from '../utils/cn';
+import { cn } from '../lib/utils';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'outlined' | 'elevated';
@@ -43,14 +43,23 @@ const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 );
 CardHeader.displayName = 'CardHeader';
 
-const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3
-      ref={ref}
-      className={cn('text-lg font-semibold leading-none tracking-tight', className)}
-      {...props}
-    />
-  )
+type HeadingTag = 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+
+interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> {
+  as?: HeadingTag;
+}
+
+const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
+  ({ className, as = 'h2', ...props }, ref) => {
+    const Tag = as as HeadingTag;
+    return (
+      <Tag
+        ref={ref}
+        className={cn('text-lg font-semibold leading-none tracking-tight', className)}
+        {...props}
+      />
+    );
+  }
 );
 CardTitle.displayName = 'CardTitle';
 

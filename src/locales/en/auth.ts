@@ -71,7 +71,7 @@ export const AUTH_STRINGS = {
   },
   success: {
     title: 'Thank you for signing up!',
-    body: 'You’ll receive an email with your account details within a few minutes.',
+    body: "You'll receive an email with your account details within a few minutes.",
     gotoLogin: 'Go to Login',
   },
   email: {

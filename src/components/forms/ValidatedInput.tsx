@@ -1,11 +1,11 @@
-/**
+﻿/**
  * ValidatedInput Component
  * Enhanced input component with real-time validation, accessibility, and UX improvements
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import type { ValidationRule } from './validation'
+import type { ValidationRule, ValidationResult } from './validation'
 
 export interface ValidatedInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'onBlur'> {
   name: string
@@ -76,7 +76,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
     isValidating: false,
   })
 
-  // Debounced validation
+  // Debounced validation (sync + async)
   useEffect(() => {
     if (!hasBeenTouched && !isFocused) return
 
@@ -89,17 +89,48 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
       const warnings: string[] = []
       const info: string[] = []
 
+      // Run sync validations first
       for (const rule of validationRules) {
         try {
-          const isValid = await rule.validate(internalValue)
-          if (!isValid) {
+          const result: ValidationResult = rule.validate(internalValue)
+          if (!result.isValid) {
+            const message = result.message || rule.message
             const severity = rule.severity || 'error'
-            if (severity === 'error') errors.push(rule.message)
-            else if (severity === 'warning') warnings.push(rule.message)
-            else if (severity === 'info') info.push(rule.message)
+            if (severity === 'error') errors.push(message)
+            else if (severity === 'warning') warnings.push(message)
+            else if (severity === 'info') info.push(message)
+          }
+          if (result.warnings && result.warnings.length) {
+            warnings.push(...result.warnings)
+          }
+          if (result.info && result.info.length) {
+            info.push(...result.info)
           }
         } catch (error) {
           console.error(`Validation rule ${rule.id} failed:`, error)
+          errors.push('Validation error occurred')
+        }
+      }
+
+      // Run async validations in parallel
+      const asyncRules = validationRules.filter(r => typeof r.validateAsync === 'function')
+      if (asyncRules.length > 0) {
+        try {
+          const asyncResults = await Promise.all(asyncRules.map(r => r.validateAsync!(internalValue)))
+          asyncResults.forEach((res, idx) => {
+            const rule = asyncRules[idx]
+            if (!res.isValid) {
+              const message = res.message || rule.message
+              const severity = rule.severity || 'error'
+              if (severity === 'error') errors.push(message)
+              else if (severity === 'warning') warnings.push(message)
+              else if (severity === 'info') info.push(message)
+            }
+            if (res.warnings && res.warnings.length) warnings.push(...res.warnings)
+            if (res.info && res.info.length) info.push(...res.info)
+          })
+        } catch (error) {
+          console.error('Async validation failed:', error)
           errors.push('Validation error occurred')
         }
       }
@@ -239,7 +270,7 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
       >
         {label}
         {required && (
-          <span className="text-red-500 ml-1" aria-label="required">*</span>
+          <span className="text-error-600 ml-1" aria-label="required">*</span>
         )}
       </label>
 
@@ -319,3 +350,4 @@ export const ValidatedInput: React.FC<ValidatedInputProps> = ({
 }
 
 export default ValidatedInput
+

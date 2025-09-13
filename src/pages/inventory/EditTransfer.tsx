@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
 import { Input } from '../../components/Input';
 import { Select } from '../../components/Select';
 import { Label } from '../../components/Label';
+import { FormField } from '../../components/FormField';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import { useApi } from '../../hooks/useApi';
@@ -284,7 +285,7 @@ export default function EditTransfer() {
           variant="outline"
           onClick={handleBack}
         >
-          ← Back
+          â† Back
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
@@ -304,7 +305,7 @@ export default function EditTransfer() {
           <CardContent className="space-y-6">
             {/* Location Selection */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
+            <FormField required error={touched.sourceLocation ? errors.sourceLocation : undefined}>
                 <Label htmlFor="source-location" required>
                   Source Location
                 </Label>
@@ -328,12 +329,8 @@ export default function EditTransfer() {
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
                   ))}
                 </Select>
-                {touched.sourceLocation && errors.sourceLocation && (
-                  <p className="text-sm text-error mt-1">{errors.sourceLocation}</p>
-                )}
-              </div>
-
-              <div>
+          </FormField>
+            <FormField required error={touched.destinationLocation ? errors.destinationLocation : undefined}>
                 <Label htmlFor="destination-location" required>
                   Destination Location
                 </Label>
@@ -354,10 +351,7 @@ export default function EditTransfer() {
                       <option key={loc.id} value={loc.id}>{loc.name}</option>
                     ))}
                 </Select>
-                {touched.destinationLocation && errors.destinationLocation && (
-                  <p className="text-sm text-error mt-1">{errors.destinationLocation}</p>
-                )}
-              </div>
+          </FormField>
             </div>
 
             {/* Transfer Summary */}
@@ -404,7 +398,7 @@ export default function EditTransfer() {
                             <div>
                               <div className="font-medium text-text-primary">{item.name}</div>
                               <div className="text-sm text-text-muted">
-                                {item.sku} · {item.unit}
+                                {item.sku} Â· {item.unit}
                               </div>
                             </div>
                             {item.availableQty !== undefined && (
@@ -427,9 +421,9 @@ export default function EditTransfer() {
                         <div className="flex-1">
                           <div className="font-medium text-text-primary">{line.name}</div>
                           <div className="text-sm text-text-muted">
-                            {line.sku} · {line.unit}
+                            {line.sku} Â· {line.unit}
                             {line.availableQty !== undefined && (
-                              <span className="ml-2">· Available: {line.availableQty}</span>
+                              <span className="ml-2">Â· Available: {line.availableQty}</span>
                             )}
                           </div>
                         </div>
@@ -462,7 +456,7 @@ export default function EditTransfer() {
                   </div>
                 ) : (
                   touched.items && errors.items ? (
-                    <div className="mt-4 p-3 bg-error/10 border border-error/20 rounded-md text-error text-sm">
+                    <div className="mt-4 p-3 bg-error/10 border border-error/20 rounded-md text-error text-sm" role="alert" aria-live="polite">
                       {errors.items}
                     </div>
                   ) : (
@@ -475,7 +469,7 @@ export default function EditTransfer() {
             )}
 
             {/* Notes */}
-            <div>
+          <FormField>
               <Label htmlFor="notes">Notes (Optional)</Label>
               <Input
                 id="notes"
@@ -485,7 +479,7 @@ export default function EditTransfer() {
                 onChange={(e) => setNotes(e.target.value)}
                 className="mt-1"
               />
-            </div>
+          </FormField>
 
             {/* Actions */}
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
@@ -512,3 +506,4 @@ export default function EditTransfer() {
     </div>
   );
 }
+

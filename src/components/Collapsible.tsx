@@ -63,19 +63,16 @@ export function Collapsible({
         </div>
       </button>
 
-      <div
-        id={regionId}
-        role="region"
-        aria-labelledby={headerId}
-        aria-hidden={!isOpen}
-        className={cn(
-          'px-3 pb-3',
-          isOpen ? 'block' : 'hidden',
-          panelClassName
-        )}
-      >
-        <div className="text-body-sm text-text-secondary">{children}</div>
-      </div>
+      {isOpen && (
+        <div
+          id={regionId}
+          role="region"
+          aria-labelledby={headerId}
+          className={cn('px-3 pb-3', panelClassName)}
+        >
+          <div className="text-body-sm text-text-secondary">{children}</div>
+        </div>
+      )}
     </div>
   );
 }

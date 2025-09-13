@@ -20,8 +20,8 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
       error,
       helpText,
       leftIcon,
-      showLabel = 'Show password',
-      hideLabel = 'Hide password',
+      showLabel = 'Show',
+      hideLabel = 'Hide',
       variant = 'default',
       id,
       disabled,
@@ -93,6 +93,7 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
               )}
               aria-pressed={visible}
               aria-label={visible ? hideLabel : showLabel}
+              tabIndex={-1}
               onClick={() => setVisible((v) => !v)}
             >
               {visible ? (

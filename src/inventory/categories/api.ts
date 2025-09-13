@@ -7,8 +7,12 @@
 import { http, HttpResponse } from 'msw';
 import type { CategoryCreateInput, CategoryUpdateInput } from './types';
 
-// Mock data store for MSW
-const mockCategories = new Map();
+// Mock data store for MSW, now branch-specific
+const mockCategoriesByBranch: Record<string, Map<string, any>> = {
+  'main-restaurant': new Map(),
+  'downtown-location': new Map(),
+  'warehouse': new Map(),
+};
 let nextId = 1;
 
 // Helper to generate category ID
@@ -39,13 +43,19 @@ export const categoryApiHandlers = [
     const includeInactive = url.searchParams.get('includeInactive') === 'true';
     const sortBy = url.searchParams.get('sortBy') || 'sortOrder';
     const sortOrder = url.searchParams.get('sortOrder') || 'asc';
+    const branchId = url.searchParams.get('branchId') || 'main-restaurant';
 
-    // Initialize with default categories if empty
-    if (mockCategories.size === 0) {
-      await initializeMockCategories();
+    const branchCategories = mockCategoriesByBranch[branchId];
+    if (!branchCategories) {
+      return HttpResponse.json([]);
     }
 
-    let categories = Array.from(mockCategories.values());
+    // Initialize with default categories if empty
+    if (branchCategories.size === 0) {
+      await initializeMockCategories(branchId);
+    }
+
+    let categories = Array.from(branchCategories.values());
 
     // Apply filters
     if (parentId) {
@@ -93,12 +103,20 @@ export const categoryApiHandlers = [
   }),
 
   // GET /api/inventory/categories/hierarchy - Get category hierarchy
-  http.get('/api/inventory/categories/hierarchy', async () => {
-    if (mockCategories.size === 0) {
-      await initializeMockCategories();
+  http.get('/api/inventory/categories/hierarchy', async ({ request }) => {
+    const url = new URL(request.url);
+    const branchId = url.searchParams.get('branchId') || 'main-restaurant';
+    const branchCategories = mockCategoriesByBranch[branchId];
+
+    if (!branchCategories) {
+      return HttpResponse.json([]);
     }
 
-    const categories = Array.from(mockCategories.values()).filter(cat => cat.isActive);
+    if (branchCategories.size === 0) {
+      await initializeMockCategories(branchId);
+    }
+
+    const categories = Array.from(branchCategories.values()).filter(cat => cat.isActive);
     const hierarchy = buildCategoryHierarchy(categories);
     
     console.log('🌳 MSW: Category hierarchy API called');
@@ -107,11 +125,11 @@ export const categoryApiHandlers = [
 
   // GET /api/inventory/categories/stats - Get category statistics
   http.get('/api/inventory/categories/stats', async () => {
-    if (mockCategories.size === 0) {
-      await initializeMockCategories();
+    if (mockCategoriesByBranch['main-restaurant'].size === 0) {
+      await initializeMockCategories('main-restaurant');
     }
 
-    const categories = Array.from(mockCategories.values());
+    const categories = Array.from(mockCategoriesByBranch['main-restaurant'].values());
     const stats = {
       totalCategories: categories.length,
       activeCategories: categories.filter(cat => cat.isActive).length,
@@ -126,9 +144,11 @@ export const categoryApiHandlers = [
   }),
 
   // GET /api/inventory/categories/:id - Get category by ID
-  http.get('/api/inventory/categories/:id', async ({ params }) => {
+  http.get('/api/inventory/categories/:id', async ({ params, request }) => {
     const { id } = params;
-    const category = mockCategories.get(id);
+    const url = new URL(request.url);
+    const branchId = url.searchParams.get('branchId') || 'main-restaurant';
+    const category = mockCategoriesByBranch[branchId]?.get(id as string);
     
     if (!category) {
       return new HttpResponse(null, { 
@@ -144,7 +164,7 @@ export const categoryApiHandlers = [
   // GET /api/inventory/categories/:id/path - Get category path/breadcrumb
   http.get('/api/inventory/categories/:id/path', async ({ params }) => {
     const { id } = params;
-    const category = mockCategories.get(id);
+    const category = mockCategoriesByBranch['main-restaurant']?.get(id); // Assuming default branch for path
     
     if (!category) {
       return new HttpResponse(null, { 
@@ -181,7 +201,7 @@ export const categoryApiHandlers = [
     }
 
     // Check if parent exists
-    if (input.parentId && !mockCategories.has(input.parentId)) {
+    if (input.parentId && !mockCategoriesByBranch['main-restaurant']?.has(input.parentId)) {
       return new HttpResponse(JSON.stringify({ 
         error: 'Parent category not found' 
       }), { 
@@ -191,7 +211,7 @@ export const categoryApiHandlers = [
     }
 
     // Check for name conflicts at the same level
-    const siblings = Array.from(mockCategories.values()).filter(cat => 
+    const siblings = Array.from(mockCategoriesByBranch['main-restaurant']?.values() || []).filter(cat => 
       cat.parentId === input.parentId && cat.isActive
     );
     const nameExists = siblings.some(cat => 
@@ -209,7 +229,7 @@ export const categoryApiHandlers = [
 
     // Create category
     const categoryId = generateId();
-    const parentCategory = input.parentId ? mockCategories.get(input.parentId) : null;
+    const parentCategory = input.parentId ? mockCategoriesByBranch['main-restaurant']?.get(input.parentId) : null;
     const path = parentCategory ? `${parentCategory.path}/${input.name}` : input.name;
     const level = parentCategory ? parentCategory.level + 1 : 0;
     const sortOrder = input.sortOrder ?? getNextSortOrder(siblings);
@@ -233,8 +253,8 @@ export const categoryApiHandlers = [
       }
     };
 
-    mockCategories.set(categoryId, category);
-    updateParentChildCounts();
+    mockCategoriesByBranch['main-restaurant']?.set(categoryId, category);
+    updateParentChildCounts('main-restaurant');
 
     console.log('📁 MSW: Created new category:', category.name);
     return HttpResponse.json(category, { status: 201 });
@@ -245,7 +265,7 @@ export const categoryApiHandlers = [
     const { id } = params;
     const input = await request.json() as CategoryUpdateInput;
     
-    const category = mockCategories.get(id);
+    const category = mockCategoriesByBranch['main-restaurant']?.get(id);
     if (!category) {
       return new HttpResponse(null, { 
         status: 404,
@@ -297,7 +317,7 @@ export const categoryApiHandlers = [
 
     // Update path if parent changed
     if (input.parentId !== undefined && input.parentId !== category.parentId) {
-      const newParent = input.parentId ? mockCategories.get(input.parentId) : null;
+      const newParent = input.parentId ? mockCategoriesByBranch['main-restaurant']?.get(input.parentId) : null;
       updatedCategory.path = newParent ? `${newParent.path}/${updatedCategory.name}` : updatedCategory.name;
       updatedCategory.level = newParent ? newParent.level + 1 : 0;
       
@@ -305,8 +325,8 @@ export const categoryApiHandlers = [
       updateDescendantPaths(id, updatedCategory.path, updatedCategory.level);
     }
 
-    mockCategories.set(id, updatedCategory);
-    updateParentChildCounts();
+    mockCategoriesByBranch['main-restaurant']?.set(id, updatedCategory);
+    updateParentChildCounts('main-restaurant');
 
     console.log('📁 MSW: Updated category:', updatedCategory.name);
     return HttpResponse.json(updatedCategory);
@@ -318,7 +338,7 @@ export const categoryApiHandlers = [
     const body = await request.json().catch(() => ({}));
     const reason = body.reason;
     
-    const category = mockCategories.get(id);
+    const category = mockCategoriesByBranch['main-restaurant']?.get(id);
     if (!category) {
       return new HttpResponse(null, { 
         status: 404,
@@ -336,7 +356,7 @@ export const categoryApiHandlers = [
     }
 
     // Check if category has active children
-    const children = Array.from(mockCategories.values()).filter(cat => 
+    const children = Array.from(mockCategoriesByBranch['main-restaurant']?.values() || []).filter(cat => 
       cat.parentId === id && cat.isActive
     );
     
@@ -359,8 +379,8 @@ export const categoryApiHandlers = [
       }
     };
     
-    mockCategories.set(id, archivedCategory);
-    updateParentChildCounts();
+    mockCategoriesByBranch['main-restaurant']?.set(id, archivedCategory);
+    updateParentChildCounts('main-restaurant');
 
     console.log('📁 MSW: Archived category:', category.name, reason ? `(${reason})` : '');
     return HttpResponse.json({ message: 'Category archived successfully' });
@@ -368,7 +388,10 @@ export const categoryApiHandlers = [
 ];
 
 // Helper functions
-async function initializeMockCategories() {
+async function initializeMockCategories(branchId: string) {
+  const branchCategories = mockCategoriesByBranch[branchId];
+  if (!branchCategories || branchCategories.size > 0) return;
+
   const defaultCategories = [
     {
       id: 'food',
@@ -455,10 +478,10 @@ async function initializeMockCategories() {
         childCount: 0
       }
     };
-    mockCategories.set(category.id, fullCategory);
+    branchCategories?.set(category.id, fullCategory);
   }
 
-  updateParentChildCounts();
+  updateParentChildCounts(branchId);
 }
 
 function getNextSortOrder(siblings: any[]): number {
@@ -471,7 +494,7 @@ function wouldCreateCircularReference(categoryId: string, newParentId: string): 
   
   const getDescendants = (id: string): string[] => {
     const descendants: string[] = [];
-    const children = Array.from(mockCategories.values()).filter(cat => cat.parentId === id);
+    const children = Array.from(mockCategoriesByBranch['main-restaurant']?.values() || []).filter(cat => cat.parentId === id);
     
     for (const child of children) {
       descendants.push(child.id);
@@ -485,12 +508,12 @@ function wouldCreateCircularReference(categoryId: string, newParentId: string): 
 }
 
 function updateDescendantPaths(categoryId: string, newPath: string, newLevel: number) {
-  const descendants = Array.from(mockCategories.values()).filter(cat => 
-    cat.path.startsWith(mockCategories.get(categoryId)?.path + '/')
+  const descendants = Array.from(mockCategoriesByBranch['main-restaurant']?.values() || []).filter(cat => 
+    cat.path.startsWith(mockCategoriesByBranch['main-restaurant']?.get(categoryId)?.path + '/')
   );
 
   for (const descendant of descendants) {
-    const oldPath = mockCategories.get(categoryId)?.path || '';
+    const oldPath = mockCategoriesByBranch['main-restaurant']?.get(categoryId)?.path || '';
     const relativePath = descendant.path.substring(oldPath.length + 1);
     const updatedDescendant = {
       ...descendant,
@@ -501,24 +524,26 @@ function updateDescendantPaths(categoryId: string, newPath: string, newLevel: nu
         updatedAt: new Date().toISOString()
       }
     };
-    mockCategories.set(descendant.id, updatedDescendant);
+    mockCategoriesByBranch['main-restaurant']?.set(descendant.id, updatedDescendant);
   }
 }
 
-function updateParentChildCounts() {
+function updateParentChildCounts(branchId: string) {
+  const branchCategories = mockCategoriesByBranch[branchId];
+  if (!branchCategories) return;
   // Reset all child counts
-  for (const [id, category] of mockCategories) {
+  for (const [id, category] of branchCategories) {
     category.metadata.childCount = 0;
-    mockCategories.set(id, category);
+    branchCategories.set(id, category);
   }
 
   // Count children for each category
-  for (const category of mockCategories.values()) {
+  for (const category of branchCategories.values()) {
     if (category.parentId) {
-      const parent = mockCategories.get(category.parentId);
+      const parent = branchCategories.get(category.parentId);
       if (parent) {
         parent.metadata.childCount = (parent.metadata.childCount || 0) + 1;
-        mockCategories.set(category.parentId, parent);
+        branchCategories.set(category.parentId, parent);
       }
     }
   }
@@ -559,8 +584,10 @@ function buildCategoryHierarchy(categories: any[], rootId?: string) {
 }
 
 function buildCategoryPath(categoryId: string) {
+  // This needs to be branch aware, but for mock, we assume IDs are unique enough.
+  const allCategories = Object.values(mockCategoriesByBranch).flatMap(m => Array.from(m.values()));
   const path = [];
-  let current = mockCategories.get(categoryId);
+  let current = allCategories.find(c => c.id === categoryId);
 
   while (current) {
     path.unshift({
@@ -570,7 +597,7 @@ function buildCategoryPath(categoryId: string) {
     });
 
     if (current.parentId) {
-      current = mockCategories.get(current.parentId);
+      current = allCategories.find(c => c.id === current.parentId);
     } else {
       current = null;
     }

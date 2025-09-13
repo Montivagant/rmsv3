@@ -145,6 +145,12 @@ export default function Signup() {
     }
   }
 
+  function validateAndSetErrors() {
+    const e = validate();
+    setErrors(e);
+    return e;
+  }
+
   return (
     <main role="main" className="min-h-screen flex items-center justify-center bg-background py-12 px-4">
       <div className="w-full max-w-xl">
@@ -155,7 +161,7 @@ export default function Signup() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-center">{t.signup.title}</CardTitle>
+            <CardTitle as="h2" className="text-center">{t.signup.title}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} noValidate className="space-y-4" role="form">
@@ -171,6 +177,7 @@ export default function Signup() {
                 placeholder={t.signup.fields.name.placeholder}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onBlur={validateAndSetErrors}
                 error={errors.name}
                 required
                 autoComplete="name"
@@ -183,6 +190,7 @@ export default function Signup() {
                 helpText={t.signup.fields.phone.help}
                 value={phoneLocal}
                 onChange={setPhoneLocal}
+                onBlur={validateAndSetErrors}
                 error={errors.phone}
                 required
                 aria-label={t.signup.fields.phone.label}
@@ -195,6 +203,7 @@ export default function Signup() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={validateAndSetErrors}
                 error={errors.email}
                 required
                 autoComplete="email"
@@ -208,6 +217,7 @@ export default function Signup() {
                 helpText={t.signup.fields.password.help}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onBlur={validateAndSetErrors}
                 error={errors.password}
                 required
                 autoComplete="new-password"
@@ -220,6 +230,7 @@ export default function Signup() {
                 placeholder={t.signup.fields.businessName.placeholder}
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
+                onBlur={validateAndSetErrors}
                 error={errors.businessName}
                 required
                 aria-label={t.signup.fields.businessName.label}
@@ -235,9 +246,11 @@ export default function Signup() {
                   placeholder={t.signup.fields.businessType.placeholder}
                   required
                   error={errors.businessType}
-                  allowCustomValue={false}
+                  allowCustomValue={true}
                   emptyMessage="No types found"
                   helpText="Start typing to search business types"
+                  onBlur={validateAndSetErrors}
+                  config={{ debounceMs: 0, minSearchLength: 0 }}
                 />
               </div>
 

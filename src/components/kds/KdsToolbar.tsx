@@ -9,6 +9,7 @@ interface KdsToolbarProps {
   isFullscreen: boolean;
   onFullscreenToggle: () => void;
   orderCount?: number;
+  overdueCount?: number;
   className?: string;
 }
 
@@ -20,6 +21,7 @@ export function KdsToolbar({
   isFullscreen,
   onFullscreenToggle,
   orderCount = 0,
+  overdueCount = 0,
   className,
 }: KdsToolbarProps) {
   return (
@@ -39,6 +41,11 @@ export function KdsToolbar({
         {orderCount > 0 && (
           <span className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
             {orderCount} active {orderCount === 1 ? 'order' : 'orders'}
+          </span>
+        )}
+        {overdueCount > 0 && (
+          <span className="px-3 py-1 rounded-full bg-error/10 text-error text-sm font-medium">
+            {overdueCount} overdue
           </span>
         )}
       </div>

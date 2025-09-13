@@ -37,7 +37,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const selectId = id || `select-${Math.random().toString(36).slice(2, 11)}`;
     const helpId = helpText ? `${selectId}-help` : undefined;
     const errorId = error ? `${selectId}-error` : undefined;
-    const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+    const describedBy = errorId || helpId || undefined;
     const hasError = Boolean(error);
     
     return (
@@ -68,11 +68,21 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
             ref={ref}
             disabled={disabled}
             required={required}
+            aria-required={required ? 'true' : undefined}
             aria-invalid={hasError ? 'true' : 'false'}
             aria-describedby={describedBy}
+            aria-labelledby={label ? `${selectId}-label` : undefined}
+            aria-label={label ? label : undefined}
             onChange={(e) => {
               onChange?.(e);
               onValueChange?.(e.target.value);
+            }}
+            onClick={(e) => {
+              const target = e.target as HTMLElement | null;
+              if (target && target.tagName === 'OPTION') {
+                const opt = target as HTMLOptionElement;
+                onValueChange?.(opt.value);
+              }
             }}
             {...props}
           >
@@ -87,6 +97,7 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
                 <option
                   key={option.value}
                   value={option.value}
+                  onClick={() => onValueChange?.(option.value)}
                   disabled={option.disabled}
                 >
                   {option.label}

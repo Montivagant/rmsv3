@@ -128,6 +128,7 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? 'modal-title' : undefined}
+          aria-label={title || undefined}
           aria-describedby={description ? 'modal-description' : undefined}
           tabIndex={-1}
           onClick={(e) => e.stopPropagation()}

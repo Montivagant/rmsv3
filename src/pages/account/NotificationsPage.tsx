@@ -14,14 +14,14 @@ type NotificationCategory = 'inventory' | 'purchasing' | 'transfers' | 'alerts';
 
 const CATEGORY_LABELS: Record<NotificationCategory, string> = {
   inventory: 'Inventory Management',
-  purchasing: 'Purchasing & Suppliers',
+  purchasing: 'Purchasing & Orders',
   transfers: 'Stock Transfers',
   alerts: 'System Alerts'
 };
 
 const CATEGORY_DESCRIPTIONS: Record<NotificationCategory, string> = {
-  inventory: 'Notifications related to inventory counts, adjustments, and production',
-  purchasing: 'Notifications about purchase orders, supplier returns, and approvals',
+  inventory: 'Notifications related to inventory audits, adjustments, and production',
+  purchasing: 'Notifications about purchase orders and approvals',
   transfers: 'Notifications for stock transfers between locations',
   alerts: 'Important alerts about stock levels and system events'
 };

@@ -1,14 +1,14 @@
-/**
+﻿/**
  * Advanced Inventory Management Module
  * 
  * Comprehensive inventory system with reorder management,
- * supplier integration, batch tracking, and multi-location support
+ * batch tracking, and multi-location support
  */
 
 // Core Services
 export { AdvancedInventoryService, createAdvancedInventoryService } from './advancedInventoryService';
 export { ReorderManager, createReorderManager } from './reorderManager';
-export { SupplierManager, createSupplierManager } from './supplierManager';
+
 export { BatchTracker, createBatchTracker } from './batchTracker';
 
 // Enhanced Inventory Items System
@@ -56,7 +56,6 @@ export type {
   UOMConversion,
   StorageLocation,
   LotInfo,
-  SupplierInfo,
   InventoryMovement,
   StockCount,
   StockCountItem,
@@ -95,14 +94,6 @@ export type {
   CancelCountRequest,
   VarianceAnalysis,
   
-  // Supplier Management
-  Supplier,
-  PaymentTerms,
-  DayOfWeek,
-  PurchaseOrder,
-  PurchaseOrderStatus,
-  PurchaseOrderItem,
-  
   // Stock Transfer
   StockTransfer,
   TransferStatus,
@@ -129,7 +120,6 @@ export type {
   
   // Event Types
   ReorderAlertCreatedEvent,
-  PurchaseOrderCreatedEvent,
   InventoryReceivedEvent,
   StockTransferInitiatedEvent,
   ExpirationAlertCreatedEvent,
@@ -137,9 +127,6 @@ export type {
   BatchConsumedEvent,
   BatchExpiredEvent,
   BatchWastedEvent,
-  SupplierCreatedEvent,
-  SupplierUpdatedEvent,
-  DeliveryReceivedEvent,
   
   // Legacy Types (maintain compatibility)
   ComponentRequirement,
@@ -180,7 +167,7 @@ export const InventoryUtils = {
   },
 
   /**
-   * Calculate reorder point using formula: (average daily usage × lead time) + safety stock
+   * Calculate reorder point using formula: (average daily usage Ã— lead time) + safety stock
    */
   calculateReorderPoint(
     averageDailyUsage: number,
@@ -275,7 +262,8 @@ export function initializeAdvancedInventory(eventStore: any) {
   // Start monitoring services
   inventoryService.startAdvancedTracking();
   
-  console.log('🚀 Advanced inventory management initialized');
+  console.log('ðŸš€ Advanced inventory management initialized');
   
   return inventoryService;
 }
+

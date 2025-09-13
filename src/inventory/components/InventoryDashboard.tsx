@@ -107,7 +107,7 @@ export function InventoryDashboard() {
                 className="px-6 py-4 text-sm font-medium text-text-muted hover:text-text-secondary"
                 aria-selected="false"
               >
-                Supplier Performance
+                Inventory Health
               </button>
               <button
                 role="tab"

@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useApi, apiPatch } from '../hooks/useApi';
-import { getRole, Role } from '../rbac/roles';
+import { useEventStore } from '../events/context';
+import { getDeviceId } from '../lib/device';
+import { getCurrentBranchId } from '../lib/branch';
+import { getRole, Role, getCurrentUser } from '../rbac/roles';
 import { cn } from '../lib/utils';
-import {
-  RoleBadge,
-  StatusColumn,
-  TicketCard,
-  KdsToolbar,
-} from '../components/kds';
+import { RoleBadge, StatusColumn, TicketCard, KdsToolbar } from '../components/kds';
+import { getKdsSettings } from '../settings/kds';
 
 interface OrderItem {
   id: string;
@@ -41,23 +40,29 @@ const STORAGE_KEYS = {
 };
 
 function KDS() {
-  const { data: orders, loading, error, refetch } = useApi<Order[]>('/api/orders');
-  const { data: menuItems } = useApi<MenuItem[]>('/api/menu');
+  const store = useEventStore();
+  const deviceId = getDeviceId();
+  const kdsSettings = getKdsSettings();
+  const branchId = getCurrentBranchId();
+  const { data: orders, loading, error, refetch } = useApi<Order[]>(`/api/orders?branchId=${encodeURIComponent(branchId)}`);
+  const { data: menuItems } = useApi<MenuItem[]>(`/api/menu?branchId=${encodeURIComponent(branchId)}`);
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
   
-  // View preferences with localStorage persistence
+  // View preferences with localStorage persistence (seeded from settings)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.VIEW_MODE);
-    return (saved as 'grid' | 'list') || 'grid';
+    return (saved as 'grid' | 'list') || kdsSettings.defaultView;
   });
   
   const [density, setDensity] = useState<'compact' | 'comfortable'>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.DENSITY);
-    return (saved as 'compact' | 'comfortable') || 'comfortable';
+    return (saved as 'compact' | 'comfortable') || kdsSettings.defaultDensity;
   });
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [clock, setClock] = useState(0);
+  const [localMeta, setLocalMeta] = useState<Map<string, { preparingAt?: number; readyAt?: number; servedAt?: number; preparedBy?: string }>>(new Map());
 
   // Persist preferences
   useEffect(() => {
@@ -88,11 +93,18 @@ function KDS() {
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Auto-refresh every 30 seconds
+  // Tick every second to update overdue counters and timers ordering
   useEffect(() => {
+    const id = setInterval(() => setClock((c) => c + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Auto-refresh based on settings
+  useEffect(() => {
+    const refreshMs = Math.max(5, getKdsSettings().autoRefreshSeconds) * 1000;
     const interval = setInterval(() => {
       refetch();
-    }, 30000);
+    }, refreshMs);
     return () => clearInterval(interval);
   }, [refetch]);
 
@@ -123,6 +135,41 @@ function KDS() {
     setUpdatingOrder(orderId);
     try {
       await apiPatch(`/api/orders/${orderId}`, { status: newStatus });
+      // Local immediate meta to avoid UI race with event store
+      const now = Date.now();
+      setLocalMeta(prev => {
+        const next = new Map(prev);
+        const entry = next.get(orderId) || {};
+        if (newStatus === 'ready' && !entry.readyAt) {
+          entry.readyAt = now;
+          const u = getCurrentUser();
+          if (u?.name) entry.preparedBy = u.name;
+        }
+        if (newStatus === 'served' && !entry.servedAt) {
+          entry.servedAt = now;
+        }
+        next.set(orderId, entry);
+        return next;
+      });
+      // Log event for audit/reporting
+      try {
+        const user = getCurrentUser();
+        const payload = {
+          orderId,
+          status: newStatus,
+          actorRole: getRole(),
+          actorId: user?.id,
+          actorName: user?.name,
+          branchId,
+          deviceId,
+        } as const;
+        store.append('kds.status.changed', payload, {
+          aggregate: { id: orderId, type: 'order' },
+        });
+        // Optional: lightweight UI feedback
+        // Note: Avoid noisy toasts in KDS; uncomment if desired
+        // showSuccess(`KDS: ${newStatus.toUpperCase()}`, `Order ${orderId} marked ${newStatus}`);
+      } catch {}
       await refetch();
     } catch (error) {
       console.error('Failed to update order status:', error);
@@ -130,6 +177,63 @@ function KDS() {
       setUpdatingOrder(null);
     }
   };
+
+  // Derive per-order timing metadata from events
+  const kdsMetaByOrder = useMemo(() => {
+    const meta = new Map<string, { preparingAt?: number; readyAt?: number; servedAt?: number; preparedBy?: string }>();
+    const events = store.getAll();
+    for (const e of events) {
+      if (e.type !== 'kds.status.changed') continue;
+      const p: any = e.payload || {};
+      const entry = meta.get(p.orderId) || {};
+      if (p.status === 'preparing') {
+        if (!entry.preparingAt) entry.preparingAt = e.at;
+      }
+      if (p.status === 'ready') {
+        if (!entry.readyAt) entry.readyAt = e.at;
+        if (p.actorName) entry.preparedBy = p.actorName;
+      } else if (p.status === 'served') {
+        if (!entry.servedAt) entry.servedAt = e.at;
+      }
+      meta.set(p.orderId, entry);
+    }
+    // Merge local overrides for immediate UI responsiveness
+    for (const [orderId, entry] of localMeta.entries()) {
+      const base = meta.get(orderId) || {};
+      meta.set(orderId, { ...base, ...entry });
+    }
+    return meta;
+  }, [orders, store, clock, localMeta]);
+
+  // Seed missing anchors for orders without events (first render)
+  useEffect(() => {
+    if (!orders || orders.length === 0) return;
+    setLocalMeta(prev => {
+      const next = new Map(prev);
+      const now = Date.now();
+      for (const o of orders) {
+        const base = kdsMetaByOrder.get(o.id) || {};
+        const entry = next.get(o.id) || {};
+        if (o.status === 'preparing') {
+          if (!base.preparingAt && !entry.preparingAt) entry.preparingAt = now;
+          next.set(o.id, entry);
+        } else if (o.status === 'ready') {
+          if (!base.preparingAt && !entry.preparingAt) entry.preparingAt = now;
+          if (!base.readyAt && !entry.readyAt) {
+            entry.readyAt = now;
+            next.set(o.id, entry);
+          }
+        } else if (o.status === 'served') {
+          if (!base.preparingAt && !entry.preparingAt) entry.preparingAt = now;
+          if (!base.readyAt && !entry.readyAt) entry.readyAt = now;
+          if (!base.servedAt && !entry.servedAt) entry.servedAt = now;
+          next.set(o.id, entry);
+        }
+      }
+      return next;
+    });
+    // We intentionally depend on orders and derived meta
+  }, [orders, kdsMetaByOrder]);
 
   // Undo status change (move back one status)
   const undoStatusChange = async (order: Order) => {
@@ -173,6 +277,12 @@ function KDS() {
 
   // Calculate active order count
   const activeOrderCount = (ordersByStatus.preparing?.length || 0) + (ordersByStatus.ready?.length || 0);
+  const overdueCount = (() => {
+    const dangerMs = 12 * 60 * 1000;
+    const list = [...(ordersByStatus.preparing || []), ...(ordersByStatus.ready || [])];
+    const now = Date.now();
+    return list.filter(o => (now - new Date(o.timestamp).getTime()) > dangerMs).length;
+  })();
 
   if (loading) {
     return (
@@ -225,6 +335,7 @@ function KDS() {
         isFullscreen={isFullscreen}
         onFullscreenToggle={toggleFullscreen}
         orderCount={activeOrderCount}
+        overdueCount={overdueCount}
       />
 
       {/* Main Content */}
@@ -250,6 +361,8 @@ function KDS() {
                   customerName={order.customerName}
                   total={order.total}
                   density={density}
+                  readyAt={undefined}
+                  servedAt={undefined}
                   onStatusChange={(newStatus) => updateOrderStatus(order.id, newStatus)}
                   onUndo={() => undoStatusChange(order)}
                   isUpdating={updatingOrder === order.id}
@@ -275,6 +388,8 @@ function KDS() {
                   customerName={order.customerName}
                   total={order.total}
                   density={density}
+                  readyAt={kdsMetaByOrder.get(order.id)?.readyAt}
+                  preparedBy={kdsMetaByOrder.get(order.id)?.preparedBy}
                   onStatusChange={(newStatus) => updateOrderStatus(order.id, newStatus)}
                   onUndo={() => undoStatusChange(order)}
                   isUpdating={updatingOrder === order.id}
@@ -288,7 +403,7 @@ function KDS() {
               status="served"
               count={ordersByStatus.served?.length || 0}
             >
-              {sortOrders(ordersByStatus.served || []).slice(0, 10).map(order => (
+              {(kdsSettings.showOnlyActive ? [] : sortOrders(ordersByStatus.served || []).slice(0, 10)).map(order => (
                 <TicketCard
                   key={order.id}
                   orderId={order.id}
@@ -300,6 +415,9 @@ function KDS() {
                   customerName={order.customerName}
                   total={order.total}
                   density={density}
+                  readyAt={kdsMetaByOrder.get(order.id)?.readyAt}
+                  servedAt={kdsMetaByOrder.get(order.id)?.servedAt}
+                  preparedBy={kdsMetaByOrder.get(order.id)?.preparedBy}
                   onStatusChange={(newStatus) => updateOrderStatus(order.id, newStatus)}
                   onUndo={() => undoStatusChange(order)}
                   isUpdating={updatingOrder === order.id}
@@ -313,8 +431,8 @@ function KDS() {
             <div className="max-w-7xl mx-auto space-y-6">
               {['preparing', 'ready', 'served'].map((status) => {
                 const statusOrders = ordersByStatus[status as Order['status']] || [];
-                const displayOrders = status === 'served' 
-                  ? sortOrders(statusOrders).slice(0, 10)
+                const displayOrders = status === 'served'
+                  ? (kdsSettings.showOnlyActive ? [] : sortOrders(statusOrders).slice(0, 10))
                   : sortOrders(statusOrders);
 
                 if (displayOrders.length === 0) return null;

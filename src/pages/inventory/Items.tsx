@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
@@ -29,7 +29,6 @@ interface InventoryItem {
   cost?: number;
   price?: number;
   location?: string;
-  supplier?: string;
   lastReceived?: string;
   expiryDate?: string;
   lotNumber?: string;
@@ -73,6 +72,9 @@ export default function Items() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<InventoryItem | null>(null);
+  // Pagination state
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
   
   // API calls
   const { data: itemsResponse, loading, error, refetch } = useApi<{ items: InventoryItem[], total: number }>('/api/inventory/items', { items: [], total: 0 });
@@ -97,6 +99,10 @@ export default function Items() {
   // Get existing SKUs for uniqueness check
   const existingSKUs = safeItems.map(item => item.sku);
   
+  // Reset page on filter/search change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, selectedCategory, selectedStatus]);
   // Filter items
   const filteredItems = useMemo(() => {
     return safeItems.filter(item => {
@@ -171,7 +177,14 @@ export default function Items() {
         const quantity = item.quantity !== undefined ? item.quantity : (item.levels?.current || 0);
         const unit = item.unit || item.uom?.base || '';
         const reorderPoint = item.reorderPoint !== undefined ? item.reorderPoint : (item.levels?.par?.reorderPoint || 0);
-        
+
+
+
+
+
+
+
+
         return (
           <div>
             <p className="font-medium">{quantity} {unit}</p>
@@ -248,6 +261,13 @@ export default function Items() {
       align: 'center' as const,
     },
   ];
+  // Pagination calculations
+  const total = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const pageItems = filteredItems.slice(start, start + pageSize);
+
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -318,7 +338,7 @@ export default function Items() {
           />
           
           <DataTable
-            data={filteredItems}
+            data={pageItems}
             columns={columns}
             keyExtractor={(item) => item.id}
             onRowClick={handleEditItem}
@@ -340,6 +360,29 @@ export default function Items() {
               },
             }}
           />
+          <div className="flex items-center justify-between px-2 py-3">
+            <div className="text-sm text-text-secondary">
+              Page {currentPage} of {totalPages} - {total.toLocaleString()} total
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm">
+                <span className="sr-only">Rows per page</span>
+                <select
+                  className="ml-2 border border-border rounded-md bg-surface px-2 py-1 text-sm"
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setPage(1); }}
+                >
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                </select>
+              </label>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" onClick={() => setPage(Math.max(1, currentPage - 1))} disabled={currentPage <= 1}>Prev</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage >= totalPages}>Next</Button>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -407,3 +450,5 @@ export default function Items() {
     </div>
   );
 }
+
+

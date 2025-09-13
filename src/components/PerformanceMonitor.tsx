@@ -106,8 +106,8 @@ export function PerformanceMonitor({
               <div
                 className={`h-2 rounded-full transition-all duration-300 ${
                   hitRate >= 80 ? 'bg-success' : hitRate >= 60 ? 'bg-warning' : 'bg-error'
-                }`}
-                style={{ width: `${hitRate}%` }}
+                } w-[--progress-width]`}
+                style={{ ['--progress-width' as any]: `${hitRate}%` }}
               />
             </div>
           </div>

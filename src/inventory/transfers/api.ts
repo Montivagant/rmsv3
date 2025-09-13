@@ -155,7 +155,7 @@ function initializeMockData() {
     mockTransfers.set(transfer.id, transfer);
   });
 
-  console.log(`📊 MSW: Initialized ${sampleTransfers.length} sample transfers`);
+  if (import.meta.env.DEV) console.log(`📊 MSW: Initialized ${sampleTransfers.length} sample transfers`);
 }
 
 // Initialize on module load

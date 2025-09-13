@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
+import { useNotifications } from '../../components/feedback/NotificationSystem';
 import type { BusinessDetails } from '../../types/account';
 import { COUNTRIES } from '../../types/account';
 import SettingCard from '../../settings/ui/SettingCard';
@@ -19,6 +20,7 @@ export default function BusinessPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const { showToast } = useToast();
+  const { showSuccess, showError } = useNotifications();
 
   // Check if form has unsaved changes
   const isDirty = business && formData && JSON.stringify(business) !== JSON.stringify(formData);
@@ -40,6 +42,7 @@ export default function BusinessPage() {
     } catch (error) {
       console.error('Failed to load business details:', error);
       showToast('Failed to load business details', 'error');
+      showError('Business', 'Failed to load business details');
     } finally {
       setIsLoading(false);
     }
@@ -79,9 +82,12 @@ export default function BusinessPage() {
       setFormData(updatedBusiness);
       setErrors({});
       showToast('Business details updated successfully', 'success');
+      showSuccess('Business', 'Business details updated successfully');
     } catch (error: any) {
       console.error('Failed to save business details:', error);
-      showToast(error.message || 'Failed to update business details', 'error');
+      const msg = error.message || 'Failed to update business details';
+      showToast(msg, 'error');
+      showError('Business', msg);
     } finally {
       setSaving(false);
     }

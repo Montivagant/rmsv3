@@ -11,7 +11,6 @@ export interface InventoryItem {
   avgCostPerUnit?: number // Weighted average cost
   lastOrderDate?: string
   lastOrderCost?: number
-  primarySupplierId?: string
   category?: InventoryCategory
   isActive?: boolean
   notes?: string
@@ -65,7 +64,6 @@ export interface BatchInfo {
   quantity: number
   expirationDate?: string
   receivedDate: string
-  supplierId: string
   costPerUnit: number
   lotNumber?: string
   isExpired?: boolean
@@ -115,92 +113,6 @@ export interface TimeRange {
   close: string // "HH:MM" format
 }
 
-export interface Supplier {
-  id: string
-  name: string
-  contactPerson?: string
-  email?: string
-  phone?: string
-  address?: LocationAddress
-  paymentTerms?: PaymentTerms
-  leadTimeDays?: number
-  minimumOrderAmount?: number
-  deliveryDays?: DayOfWeek[]
-  notes?: string
-  isActive: boolean
-  rating?: number // 1-5 scale
-  // Performance metrics
-  averageLeadTime?: number
-  onTimeDeliveryRate?: number // percentage
-  qualityRating?: number // 1-5 scale
-  lastOrderDate?: string
-  totalOrdersCount?: number
-  totalOrderValue?: number
-}
-
-export type PaymentTerms = 
-  | 'cash_on_delivery'
-  | 'net_15'
-  | 'net_30'
-  | 'net_60'
-  | 'prepaid'
-  | 'credit_terms';
-
-export type DayOfWeek = 
-  | 'monday'
-  | 'tuesday'
-  | 'wednesday'
-  | 'thursday'
-  | 'friday'
-  | 'saturday'
-  | 'sunday';
-
-export interface PurchaseOrder {
-  id: string
-  supplierId: string
-  locationId: string
-  status: PurchaseOrderStatus
-  orderDate: string
-  expectedDeliveryDate?: string
-  actualDeliveryDate?: string
-  totalAmount: number
-  subtotal: number
-  taxAmount?: number
-  shippingCost?: number
-  items: PurchaseOrderItem[]
-  notes?: string
-  createdBy: string
-  approvedBy?: string
-  receivedBy?: string
-  // Tracking
-  trackingNumber?: string
-  shippingMethod?: string
-}
-
-export type PurchaseOrderStatus = 
-  | 'draft'
-  | 'pending_approval'
-  | 'approved'
-  | 'sent_to_supplier'
-  | 'confirmed_by_supplier'
-  | 'in_transit'
-  | 'partially_received'
-  | 'fully_received'
-  | 'cancelled'
-  | 'returned';
-
-export interface PurchaseOrderItem {
-  sku: string
-  name: string
-  quantityOrdered: number
-  quantityReceived?: number
-  unitCost: number
-  totalCost: number
-  unit: string
-  notes?: string
-  expirationDate?: string
-  batchId?: string
-}
 
 export interface StockTransfer {
   id: string
@@ -320,6 +232,8 @@ export interface InventoryCount {
   supervisedBy?: string
   notes?: string
   totalVarianceValue?: number
+  snapshotTimestamp: string // When the snapshot was taken
+  inventoryMovements?: InventoryMovement[] // Movements during the audit
 }
 
 export type CountStatus = 
