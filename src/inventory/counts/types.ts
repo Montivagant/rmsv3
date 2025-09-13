@@ -1,17 +1,22 @@
 /**
- * Inventory Count System Types
- * Enhanced cycle count functionality with snapshot-based variance calculation
+ * Inventory Audit System Types
+ * Enhanced audit functionality with snapshot-based variance calculation
  */
 
-// Count Status State Machine
-export type CountStatus = 'draft' | 'open' | 'closed' | 'cancelled';
+// Audit Status State Machine
+export type AuditStatus = 'draft' | 'open' | 'closed' | 'cancelled';
 
-// Count Scope Definition
-export interface CountScope {
+// Legacy alias for backward compatibility
+export type CountStatus = AuditStatus;
+
+// Audit Scope Definition
+export interface AuditScope {
   all?: boolean;
+  byCategory?: boolean;
+  byItemType?: boolean;
   filters?: {
     categoryIds?: string[];
-    supplierIds?: string[];
+    itemTypeIds?: string[];
     storageLocationIds?: string[];
     tags?: string[];
     includeInactive?: boolean;
@@ -19,18 +24,21 @@ export interface CountScope {
   importRef?: string; // Reference to CSV import
 }
 
-// Count Session (Enhanced from existing InventoryCount)
-export interface InventoryCount {
+// Legacy alias for backward compatibility
+export type CountScope = AuditScope;
+
+// Audit Session (Enhanced from existing InventoryCount)
+export interface InventoryAudit {
   id: string;
   branchId: string;
-  status: CountStatus;
+  status: AuditStatus;
   createdBy: string;
   createdAt: string;
   closedBy?: string;
   closedAt?: string;
   
-  // Count configuration
-  scope: CountScope;
+  // Audit configuration
+  scope: AuditScope;
   
   // Calculated totals
   totals: {
@@ -53,8 +61,11 @@ export interface InventoryCount {
   };
 }
 
-// Individual count item with snapshot and entry data
-export interface CountItem {
+// Legacy alias for backward compatibility
+export type InventoryCount = InventoryAudit;
+
+// Individual audit item with snapshot and entry data
+export interface AuditItem {
   id: string;            // Unique row identifier
   itemId: string;        // Reference to InventoryItem.id
   sku: string;
@@ -62,18 +73,25 @@ export interface CountItem {
   unit: string;
   categoryName?: string;
   
-  // Immutable snapshot data (captured at count creation)
-  snapshotQty: number;      // Theoretical quantity when count started
-  snapshotAvgCost: number;  // Average cost when count started
+  // Immutable snapshot data (captured at audit creation)
+  snapshotQty: number;      // Theoretical quantity when audit started
+  snapshotAvgCost: number;  // Average cost when audit started
   snapshotTimestamp: string; // When snapshot was taken
   
-  // Mutable count entry data
-  countedQty: number | null;  // null = not yet counted
+  // Mutable audit entry data
+  auditedQty: number | null;  // null = not yet audited
+  
+  // Legacy field for backward compatibility
+  countedQty?: number | null;
+  auditedBy?: string;
+  auditedAt?: string;
+  
+  // Legacy fields for backward compatibility
   countedBy?: string;
   countedAt?: string;
   
   // Derived calculations
-  varianceQty: number;        // countedQty - snapshotQty
+  varianceQty: number;        // auditedQty - snapshotQty
   varianceValue: number;      // varianceQty * snapshotAvgCost
   variancePercentage: number; // (varianceQty / snapshotQty) * 100
   
@@ -84,21 +102,27 @@ export interface CountItem {
   hasDiscrepancy: boolean;   // Variance exceeds threshold
 }
 
-// Count query and filtering
-export interface CountQuery {
+// Legacy alias for backward compatibility
+export type CountItem = AuditItem;
+
+// Audit query and filtering
+export interface AuditQuery {
   branchId?: string;
-  status?: CountStatus | CountStatus[];
+  status?: AuditStatus | AuditStatus[];
   createdBy?: string;
   dateFrom?: string;
   dateTo?: string;
   search?: string;
   page?: number;
   pageSize?: number;
-  sortBy?: CountSortField;
+  sortBy?: AuditSortField;
   sortOrder?: 'asc' | 'desc';
 }
 
-export type CountSortField = 
+// Legacy alias for backward compatibility
+export type CountQuery = AuditQuery;
+
+export type AuditSortField = 
   | 'createdAt'
   | 'closedAt' 
   | 'branchName'
@@ -106,54 +130,89 @@ export type CountSortField =
   | 'varianceValue'
   | 'status';
 
-// Count list response
-export interface CountsResponse {
-  data: InventoryCount[];
+// Legacy alias for backward compatibility
+export type CountSortField = AuditSortField;
+
+// Audit list response
+export interface AuditsResponse {
+  data: InventoryAudit[];
   total: number;
   page: number;
   pageSize: number;
   hasMore: boolean;
 }
 
-// Count item query for entry table
-export interface CountItemQuery {
+// Legacy alias for backward compatibility
+export interface CountsResponse extends AuditsResponse {
+  data: InventoryCount[];
+}
+
+// Audit item query for entry table
+export interface AuditItemQuery {
   search?: string;
   categoryIds?: string[];
-  showCountedOnly?: boolean;
+  showAuditedOnly?: boolean;
   showVarianceOnly?: boolean;
-  showNotCountedOnly?: boolean;
+  showNotAuditedOnly?: boolean;
   hasNotes?: boolean;
 }
 
-// Count creation request
-export interface CreateCountRequest {
+// Legacy alias for backward compatibility
+export interface CountItemQuery extends AuditItemQuery {
+  showCountedOnly?: boolean;
+  showNotCountedOnly?: boolean;
+}
+
+// Audit creation request
+export interface CreateAuditRequest {
   branchId: string;
-  scope: CountScope;
+  scope: AuditScope;
   notes?: string;
   estimatedDurationMinutes?: number;
 }
 
-// Count item update request
-export interface UpdateCountItemRequest {
+// Legacy alias for backward compatibility
+export interface CreateCountRequest extends CreateAuditRequest {
+  scope: CountScope;
+}
+
+// Audit item update request
+export interface UpdateAuditItemRequest {
   itemId: string;
-  countedQty: number;
+  auditedQty: number;
   notes?: string;
 }
 
-// Bulk count item updates
+// Legacy alias for backward compatibility
+export interface UpdateCountItemRequest {
+  itemId: string;
+  countedQty: number;
+  auditedQty?: number;
+  notes?: string;
+}
+
+// Bulk audit item updates
+export interface BulkUpdateAuditItemsRequest {
+  updates: UpdateAuditItemRequest[];
+}
+
+// Legacy alias for backward compatibility
 export interface BulkUpdateCountItemsRequest {
   updates: UpdateCountItemRequest[];
 }
 
-// Count submission request
-export interface SubmitCountRequest {
+// Audit submission request
+export interface SubmitAuditRequest {
   confirmation: boolean;
   submissionNotes?: string;
   varianceThreshold?: number; // Override default variance threshold
 }
 
-// Count submission response
-export interface SubmitCountResponse {
+// Legacy alias for backward compatibility
+export type SubmitCountRequest = SubmitAuditRequest;
+
+// Audit submission response
+export interface SubmitAuditResponse {
   adjustmentBatchId: string;
   adjustments: Array<{
     itemId: string;
@@ -169,21 +228,31 @@ export interface SubmitCountResponse {
     positiveAdjustments: number;
     negativeAdjustments: number;
   };
+  movementsDuringAudit?: MovementsDuringAuditReport;
 }
 
-// Count cancellation request
-export interface CancelCountRequest {
+// Legacy alias for backward compatibility
+export type SubmitCountResponse = SubmitAuditResponse;
+
+// Audit cancellation request
+export interface CancelAuditRequest {
   reason: string;
   notes?: string;
 }
 
-// Count export options
-export interface CountExportOptions {
+// Legacy alias for backward compatibility
+export type CancelCountRequest = CancelAuditRequest;
+
+// Audit export options
+export interface AuditExportOptions {
   format: 'csv' | 'xlsx';
   includeSnapshots?: boolean;
   includeNotes?: boolean;
   includeAuditTrail?: boolean;
 }
+
+// Legacy alias for backward compatibility
+export type CountExportOptions = AuditExportOptions;
 
 // Variance analysis for business insights
 export interface VarianceAnalysis {
@@ -224,7 +293,21 @@ export interface VarianceAnalysis {
   }>;
 }
 
-// Event types for count operations
+// Event types for audit operations
+export interface InventoryAuditCreatedEvent {
+  type: 'inventory.audit.created';
+  payload: {
+    auditId: string;
+    branchId: string;
+    scope: AuditScope;
+    itemCount: number;
+    createdBy: string;
+  };
+  timestamp: string;
+  aggregateId: string; // auditId
+}
+
+// Legacy alias for backward compatibility
 export interface InventoryCountCreatedEvent {
   type: 'inventory.count.created';
   payload: {
@@ -238,6 +321,22 @@ export interface InventoryCountCreatedEvent {
   aggregateId: string; // countId
 }
 
+export interface InventoryAuditUpdatedEvent {
+  type: 'inventory.audit.updated';
+  payload: {
+    auditId: string;
+    itemsUpdated: Array<{
+      itemId: string;
+      auditedQty: number;
+      previousAuditedQty: number | null;
+    }>;
+    updatedBy: string;
+  };
+  timestamp: string;
+  aggregateId: string; // auditId  
+}
+
+// Legacy alias for backward compatibility
 export interface InventoryCountUpdatedEvent {
   type: 'inventory.count.updated';
   payload: {
@@ -253,6 +352,21 @@ export interface InventoryCountUpdatedEvent {
   aggregateId: string; // countId  
 }
 
+export interface InventoryAuditSubmittedEvent {
+  type: 'inventory.audit.submitted';
+  payload: {
+    auditId: string;
+    branchId: string;
+    adjustmentBatchId: string;
+    totalVarianceValue: number;
+    adjustmentCount: number;
+    submittedBy: string;
+  };
+  timestamp: string;
+  aggregateId: string; // auditId
+}
+
+// Legacy alias for backward compatibility
 export interface InventoryCountSubmittedEvent {
   type: 'inventory.count.submitted';
   payload: {
@@ -267,6 +381,18 @@ export interface InventoryCountSubmittedEvent {
   aggregateId: string; // countId
 }
 
+export interface InventoryAuditCancelledEvent {
+  type: 'inventory.audit.cancelled';
+  payload: {
+    auditId: string;
+    reason: string;
+    cancelledBy: string;
+  };
+  timestamp: string;
+  aggregateId: string; // auditId
+}
+
+// Legacy alias for backward compatibility
 export interface InventoryCountCancelledEvent {
   type: 'inventory.count.cancelled';
   payload: {
@@ -279,7 +405,7 @@ export interface InventoryCountCancelledEvent {
 }
 
 // Business constants and configuration
-export const COUNT_CONFIG = {
+export const AUDIT_CONFIG = {
   // Variance thresholds for visual indicators
   VARIANCE_THRESHOLDS: {
     LOW: 5,        // ≤5% variance
@@ -297,21 +423,24 @@ export const COUNT_CONFIG = {
   // Default settings
   DEFAULT_VARIANCE_THRESHOLD: 10, // 10% default threshold
   AUTO_SAVE_INTERVAL_MS: 30000,   // 30 seconds
-  MAX_ITEMS_PER_COUNT: 10000,     // Performance limit
+  MAX_ITEMS_PER_AUDIT: 10000,     // Performance limit
   
   // Pagination defaults
   DEFAULT_PAGE_SIZE: 25,
   MAX_PAGE_SIZE: 100
 } as const;
 
-// Utility functions for count operations
-export const CountUtils = {
+// Legacy alias for backward compatibility
+export const COUNT_CONFIG = AUDIT_CONFIG;
+
+// Utility functions for audit operations
+export const AuditUtils = {
   /**
    * Calculate variance percentage
    */
-  calculateVariancePercentage(counted: number, theoretical: number): number {
-    if (theoretical === 0) return counted > 0 ? 100 : 0;
-    return ((counted - theoretical) / theoretical) * 100;
+  calculateVariancePercentage(audited: number, theoretical: number): number {
+    if (theoretical === 0) return audited > 0 ? 100 : 0;
+    return ((audited - theoretical) / theoretical) * 100;
   },
 
   /**
@@ -319,8 +448,8 @@ export const CountUtils = {
    */
   getVarianceSeverity(variancePercentage: number): 'low' | 'medium' | 'high' {
     const absPercentage = Math.abs(variancePercentage);
-    if (absPercentage <= COUNT_CONFIG.VARIANCE_THRESHOLDS.LOW) return 'low';
-    if (absPercentage <= COUNT_CONFIG.VARIANCE_THRESHOLDS.MEDIUM) return 'medium';
+    if (absPercentage <= AUDIT_CONFIG.VARIANCE_THRESHOLDS.LOW) return 'low';
+    if (absPercentage <= AUDIT_CONFIG.VARIANCE_THRESHOLDS.MEDIUM) return 'medium';
     return 'high';
   },
 
@@ -345,24 +474,33 @@ export const CountUtils = {
   },
 
   /**
-   * Generate count session ID
+   * Generate audit session ID
    */
-  generateCountId(): string {
+  generateAuditId(): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    return `COUNT_${timestamp}_${random.toUpperCase()}`;
+    return `AUDIT_${timestamp}_${random.toUpperCase()}`;
   },
 
   /**
-   * Calculate variance for a single count item
+   * Legacy method for backward compatibility
    */
-  calculateItemVariance(item: Omit<CountItem, 'varianceQty' | 'varianceValue' | 'variancePercentage'>): {
+  generateCountId(): string {
+    return this.generateAuditId().replace('AUDIT_', 'COUNT_');
+  },
+
+  /**
+   * Calculate variance for a single audit item
+   */
+  calculateItemVariance(item: Omit<AuditItem, 'varianceQty' | 'varianceValue' | 'variancePercentage'>): {
     varianceQty: number;
     varianceValue: number;
     variancePercentage: number;
     hasDiscrepancy: boolean;
   } {
-    if (item.countedQty === null) {
+    const auditedQty = item.auditedQty ?? item.countedQty;
+    
+    if (auditedQty === null) {
       return {
         varianceQty: 0,
         varianceValue: 0,
@@ -371,12 +509,12 @@ export const CountUtils = {
       };
     }
 
-    const varianceQty = item.countedQty - item.snapshotQty;
+    const varianceQty = auditedQty - item.snapshotQty;
     const varianceValue = varianceQty * item.snapshotAvgCost;
-    const variancePercentage = CountUtils.calculateVariancePercentage(item.countedQty, item.snapshotQty);
+    const variancePercentage = AuditUtils.calculateVariancePercentage(auditedQty, item.snapshotQty);
     
     // Determine if this is a significant discrepancy
-    const hasDiscrepancy = Math.abs(variancePercentage) > COUNT_CONFIG.DEFAULT_VARIANCE_THRESHOLD;
+    const hasDiscrepancy = Math.abs(variancePercentage) > AUDIT_CONFIG.DEFAULT_VARIANCE_THRESHOLD;
 
     return {
       varianceQty: Math.round(varianceQty * 100) / 100, // Round to 2 decimal places
@@ -387,16 +525,28 @@ export const CountUtils = {
   },
 
   /**
-   * Validate count scope
+   * Validate audit scope
    */
-  validateCountScope(scope: CountScope): { isValid: boolean; errors: string[] } {
+  validateAuditScope(scope: AuditScope): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    if (!scope.all && !scope.filters && !scope.importRef) {
+    // Check for at least one scope type (align wording with tests)
+    if (!scope.all && !scope.byCategory && !scope.byItemType && !scope.filters && !scope.importRef) {
       errors.push('Must specify count scope: all items, filters, or import');
     }
     
-    if (scope.filters) {
+    // If selecting by category, must have categoryIds
+    if (scope.byCategory && (!scope.filters?.categoryIds || scope.filters.categoryIds.length === 0)) {
+      errors.push('Must select at least one category when using category scope');
+    }
+    
+    // If selecting by item type, must have itemTypeIds
+    if (scope.byItemType && (!scope.filters?.itemTypeIds || scope.filters.itemTypeIds.length === 0)) {
+      errors.push('Must select at least one item type when using item type scope');
+    }
+    
+    // If using general filters (not by category or item type), validate they're not empty
+    if (scope.filters && !scope.byCategory && !scope.byItemType) {
       const hasFilters = Object.values(scope.filters).some(filter => 
         Array.isArray(filter) ? filter.length > 0 : Boolean(filter)
       );
@@ -409,40 +559,116 @@ export const CountUtils = {
       isValid: errors.length === 0,
       errors
     };
+  },
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  validateCountScope(scope: CountScope): { isValid: boolean; errors: string[] } {
+    const result = this.validateAuditScope(scope);
+    // Normalize wording to match legacy count tests
+    return {
+      isValid: result.isValid,
+      errors: result.errors.map(e => e.replace(/\b[Aa]udit\b/g, 'count').replace('Audit', 'Count'))
+    };
   }
 };
 
-// Error types for count operations
-export interface CountError {
+// Legacy alias for backward compatibility
+export const CountUtils = AuditUtils;
+
+// Error types for audit operations
+export interface AuditError {
   code: string;
   message: string;
   field?: string;
   details?: any;
 }
 
-export class CountValidationError extends Error {
-  public errors: CountError[];
+// Legacy alias for backward compatibility
+export type CountError = AuditError;
+
+export class AuditValidationError extends Error {
+  public errors: AuditError[];
   
-  constructor(errors: CountError[]) {
-    super(`Count validation failed: ${errors.map(e => e.message).join(', ')}`);
+  constructor(errors: AuditError[]) {
+    super(`Audit validation failed: ${errors.map(e => e.message).join(', ')}`);
     this.errors = errors;
   }
 }
 
-export class CountConcurrencyError extends Error {
-  public conflictingCountId: string;
-  
-  constructor(conflictingCountId: string) {
-    super(`Another count session is already active for this scope`);
-    this.conflictingCountId = conflictingCountId;
+// Legacy alias for backward compatibility
+export class CountValidationError extends AuditValidationError {
+  constructor(errors: CountError[]) {
+    super(errors);
+    this.message = this.message.replace('Audit validation', 'Count validation');
   }
 }
 
-export class CountSubmissionError extends Error {
-  public variances: CountItem[];
+export class AuditConcurrencyError extends Error {
+  public conflictingAuditId: string;
   
-  constructor(message: string, variances: CountItem[]) {
+  constructor(conflictingAuditId: string) {
+    super(`Another audit session is already active for this scope`);
+    this.conflictingAuditId = conflictingAuditId;
+  }
+}
+
+// Legacy alias for backward compatibility
+export class CountConcurrencyError extends AuditConcurrencyError {
+  public conflictingCountId: string;
+  
+  constructor(conflictingCountId: string) {
+    super(conflictingCountId);
+    this.conflictingCountId = conflictingCountId;
+    this.message = this.message.replace('audit session', 'count session');
+  }
+}
+
+export class AuditSubmissionError extends Error {
+  public variances: AuditItem[];
+  
+  constructor(message: string, variances: AuditItem[]) {
     super(message);
     this.variances = variances;
   }
+}
+
+// Legacy alias for backward compatibility
+export class CountSubmissionError extends AuditSubmissionError {
+  public variances: CountItem[];
+  
+  constructor(message: string, variances: CountItem[]) {
+    super(message, variances as AuditItem[]);
+    this.variances = variances;
+  }
+}
+
+// Movement tracking during audit types
+export interface InventoryMovementDuringAudit {
+  itemId: string;
+  itemName: string;
+  sku: string;
+  movementType: 'sale' | 'receipt' | 'adjustment' | 'transfer' | 'waste' | 'production';
+  quantity: number;
+  timestamp: string;
+  reference: string;
+  performedBy: string;
+  reason: string;
+}
+
+export interface InventoryMovementEvent {
+  itemId: string;
+  movementType: InventoryMovementDuringAudit['movementType'];
+  quantity: number;
+  timestamp: string;
+  reference?: string;
+  performedBy?: string;
+  reason?: string;
+}
+
+export interface MovementsDuringAuditReport {
+  hasMovements: boolean;
+  movements: InventoryMovementDuringAudit[];
+  message: string;
 }

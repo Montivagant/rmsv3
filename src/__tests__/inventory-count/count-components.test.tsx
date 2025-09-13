@@ -114,7 +114,7 @@ describe('Count Components', () => {
       );
       
       // Low variance should have success styling
-      expect(screen.getByRole('generic')).toHaveClass('text-success');
+      expect(screen.getByTestId('variance-indicator')).toHaveClass('text-success');
       
       rerender(
         <VarianceIndicator
@@ -126,7 +126,7 @@ describe('Count Components', () => {
       );
       
       // Medium variance should have warning styling
-      expect(screen.getByRole('generic')).toHaveClass('text-warning');
+      expect(screen.getByTestId('variance-indicator')).toHaveClass('text-warning');
       
       rerender(
         <VarianceIndicator
@@ -138,7 +138,7 @@ describe('Count Components', () => {
       );
       
       // High variance should have error styling
-      expect(screen.getByRole('generic')).toHaveClass('text-error');
+      expect(screen.getByTestId('variance-indicator')).toHaveClass('text-error');
     });
   });
 

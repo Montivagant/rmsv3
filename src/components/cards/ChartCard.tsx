@@ -43,10 +43,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
             </div>
             {action && <div className="h-4 bg-surface-secondary rounded w-20"></div>}
           </div>
-          <div 
-            className="bg-surface-secondary rounded" 
-            style={{ '--chart-height': `${height}px`, height: 'var(--chart-height)' } as React.CSSProperties}
-          ></div>
+          <div className="bg-surface-secondary rounded h-52"></div>
         </div>
       </div>
     );
@@ -59,10 +56,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     const maxValue = Math.max(...data.map(d => d.value));
     
     return (
-      <div 
-        className="flex items-end justify-between space-x-2" 
-        style={{ '--chart-height': `${height}px`, height: 'var(--chart-height)' } as React.CSSProperties}
-      >
+      <div className="flex items-end justify-between space-x-2 h-52">
         {data.map((point, index) => {
           const heightPercentage = (point.value / maxValue) * 100;
           return (
@@ -74,10 +68,8 @@ export const ChartCard: React.FC<ChartCardProps> = ({
                 {point.value}
               </span>
               <div
-                className="w-full bg-primary-500 dark:bg-primary-600 rounded-t transition-all duration-300 hover:bg-primary-600 dark:hover:bg-primary-500"
-                style={{
-                  height: `${heightPercentage}%`,
-                }}
+                className="w-full bg-primary-500 dark:bg-primary-600 rounded-t transition-all duration-300 hover:bg-primary-600 dark:hover:bg-primary-500 h-[--bar-h]"
+                style={{ ['--bar-h' as any]: `${heightPercentage}%` }}
                 title={`${point.label}: ${point.value}`}
               />
               <span className="text-xs text-tertiary mt-2 truncate w-full text-center">
@@ -102,7 +94,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     }).join(' ');
     
     return (
-      <div className="relative" style={{ height: `${height}px` }}>
+      <div className="relative h-52">
         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           <polyline
             points={points}
@@ -175,7 +167,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     });
     
     return (
-      <div className="flex items-center justify-center" style={{ height: `${height}px` }}>
+      <div className="flex items-center justify-center h-52">
         <svg className="w-full h-full max-w-xs" viewBox="0 0 100 100">
           {slices}
         </svg>
@@ -221,7 +213,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
       </div>
 
       {data.length === 0 && !children ? (
-        <div className="flex items-center justify-center" style={{ height: `${height}px` }}>
+        <div className="flex items-center justify-center h-52">
           <div className="text-center">
             <svg
               className="w-12 h-12 mx-auto text-tertiary mb-3"
@@ -261,10 +253,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
               const colorClass = pieColorClasses[index % pieColorClasses.length];
               return (
                 <div key={index} className="flex items-center space-x-2">
-                  <div
-                    className={`w-3 h-3 rounded-full ${colorClass}`}
-                    style={{ backgroundColor: 'currentColor' }}
-                  />
+                  <div className={`w-3 h-3 rounded-full ${colorClass}`} />
                   <span className="text-xs text-secondary truncate">
                     {point.label}: {point.value}
                   </span>

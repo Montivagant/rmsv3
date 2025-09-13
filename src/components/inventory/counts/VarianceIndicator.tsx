@@ -55,34 +55,34 @@ export function VarianceIndicator({
   const formattedValue = CountUtils.formatVarianceValue(varianceValue);
 
   return (
-    <div className={cn(
+    <div role="generic" data-testid="variance-indicator" className={cn(
       'inline-flex items-center gap-1 rounded-md border font-medium',
       severityClasses[severity],
       sizeClasses[size],
       className
     )}>
       {/* Variance direction icon */}
-      <span className="text-current">
+      <span role="presentation" className="text-current">
         {isPositive ? '↑' : '↓'}
       </span>
       
       {/* Quantity variance */}
-      <span>
+      <span role="presentation">
         {formattedQty} {unit}
       </span>
       
       {/* Value variance (if requested) */}
       {showValue && (
         <>
-          <span className="text-text-muted">•</span>
-          <span className="font-semibold">
+          <span role="presentation" className="text-text-muted">•</span>
+          <span role="presentation" className="font-semibold">
             {formattedValue}
           </span>
         </>
       )}
       
       {/* Percentage */}
-      <span className="text-xs opacity-80">
+      <span role="presentation" className="text-xs opacity-80">
         ({CountUtils.formatVariance(variancePercentage, true)}%)
       </span>
     </div>

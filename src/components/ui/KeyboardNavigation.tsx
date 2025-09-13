@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Advanced Keyboard Navigation and Focus Management
  * Provides comprehensive keyboard navigation patterns and focus management utilities
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { cn } from '../../utils/cn'
+import { cn } from '../../lib/utils'
 
 // Roving tabindex hook for complex navigation patterns
 export function useRovingTabIndex<T extends HTMLElement>(
@@ -247,7 +247,7 @@ export function useFocusTrap(
       ref={sentinelStartRef}
       tabIndex={active ? 0 : -1}
       onFocus={focusLast}
-      style={{ position: 'fixed', top: 0, left: 0, width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+      className="fixed top-0 left-0 w-px h-px opacity-0 pointer-events-none"
       aria-hidden="true"
     />
   )
@@ -257,7 +257,7 @@ export function useFocusTrap(
       ref={sentinelEndRef}
       tabIndex={active ? 0 : -1}
       onFocus={focusFirst}
-      style={{ position: 'fixed', bottom: 0, right: 0, width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+      className="fixed bottom-0 right-0 w-px h-px opacity-0 pointer-events-none"
       aria-hidden="true"
     />
   )
@@ -498,7 +498,7 @@ export const AccessibleTabs: React.FC<AccessibleTabsProps> = ({
         role="tablist"
         aria-orientation={orientation}
         className={cn(
-          'flex border-b border-gray-200 dark:border-gray-700',
+          'flex border-b border-border border-border',
           orientation === 'vertical' ? 'flex-col border-b-0 border-r' : 'flex-row'
         )}
         onKeyDown={(e) => handleKeyDown(e.nativeEvent)}
@@ -521,7 +521,7 @@ export const AccessibleTabs: React.FC<AccessibleTabsProps> = ({
                 'flex items-center space-x-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
                 orientation === 'vertical' && 'border-b-0 border-r-2 justify-start',
                 isActive
-                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  ? 'border-brand-500 text-brand-600 text-brand-400'
                   : 'border-transparent text-text-muted hover:text-text-secondary hover:border-border',
                 tab.disabled && 'opacity-50 cursor-not-allowed'
               )}
@@ -560,3 +560,4 @@ export default {
   AccessibleMenu,
   AccessibleTabs
 }
+

@@ -5,7 +5,6 @@
  * - Items
  * - Categories
  * - Counts
- * - Count Sheets
  * - Transfers
  */
 
@@ -52,31 +51,13 @@ const mockItems = [
   }
 ];
 
-// Mock count sheets
-const mockCountSheets = [
-  {
-    id: 'sheet-1',
-    name: 'Produce Check',
-    branchScope: { type: 'all' },
-    criteria: { categoryIds: ['food-vegetables'] },
-    isArchived: false
-  },
-  {
-    id: 'sheet-2',
-    name: 'Protein Check',
-    branchScope: { type: 'all' },
-    criteria: { categoryIds: ['food-proteins'] },
-    isArchived: false
-  }
-];
-
-// Mock counts
+// Mock audits
 const mockCounts = [
   {
     id: 'count-1',
     status: 'draft',
     branchId: 'main-branch',
-    scope: { countSheetId: 'sheet-1' },
+    scope: { all: true },
     totals: { totalItemsCount: 1 }
   }
 ];
@@ -111,49 +92,11 @@ beforeEach(() => {
       } as Response);
     }
     
-    // Count sheets endpoint
-    if (url === '/api/inventory/count-sheets') {
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({ data: mockCountSheets, total: mockCountSheets.length })
-      } as Response);
-    }
-    
-    // Counts endpoint
+    // Audits endpoint
     if (url === '/api/inventory/counts') {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ data: mockCounts, total: mockCounts.length })
-      } as Response);
-    }
-    
-    // Count sheet preview endpoint
-    if (url.match(/\/api\/inventory\/count-sheets\/sheet-\d+\/preview/)) {
-      const sheetId = url.split('/')[4];
-      const isVegetables = sheetId === 'sheet-1';
-      const filteredItems = mockItems.filter(item => 
-        isVegetables 
-          ? item.categoryId === 'food-vegetables'
-          : item.categoryId === 'food-proteins'
-      );
-      
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({
-          totalItems: filteredItems.length,
-          items: filteredItems.map(item => ({
-            itemId: item.id,
-            sku: item.sku,
-            name: item.name,
-            unit: item.uom.base,
-            categoryName: item.categoryId,
-            currentStock: item.levels.current,
-            isActive: item.status === 'active'
-          })),
-          page: 1,
-          pageSize: 25,
-          totalPages: 1
-        })
       } as Response);
     }
     
@@ -197,38 +140,8 @@ describe('Inventory System Integration', () => {
     expect(data.items[0].name).toBe('Fresh Tomatoes');
   });
   
-  // Test count sheets API
-  it('should fetch count sheets', async () => {
-    const response = await fetch('/api/inventory/count-sheets');
-    const data = await response.json();
-    
-    expect(response.ok).toBe(true);
-    expect(data.data).toHaveLength(2);
-    expect(data.data[0].name).toBe('Produce Check');
-  });
-  
-  // Test count sheets preview
-  it('should preview count sheet items correctly', async () => {
-    const response = await fetch('/api/inventory/count-sheets/sheet-1/preview');
-    const data = await response.json();
-    
-    expect(response.ok).toBe(true);
-    expect(data.items).toHaveLength(1);
-    expect(data.items[0].name).toBe('Fresh Tomatoes');
-  });
-  
-  // Test count sheets filtering by category
-  it('should filter count sheet items by category', async () => {
-    const response = await fetch('/api/inventory/count-sheets/sheet-2/preview');
-    const data = await response.json();
-    
-    expect(response.ok).toBe(true);
-    expect(data.items).toHaveLength(1);
-    expect(data.items[0].name).toBe('Chicken Breast');
-  });
-  
-  // Test counts API
-  it('should fetch inventory counts', async () => {
+  // Test audits API
+  it('should fetch inventory audits', async () => {
     const response = await fetch('/api/inventory/counts');
     const data = await response.json();
     

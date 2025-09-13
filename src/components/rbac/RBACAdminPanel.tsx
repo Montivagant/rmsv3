@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Button, 
   Input, 
@@ -8,7 +8,7 @@ import {
   useNotifications 
 } from '../index';
 import type { FormField } from '../forms/SmartForm';
-import { DynamicRBACService } from '../../rbac/dynamicRBACService';
+import { dynamicRBACService } from '../../rbac/dynamicRBACService';
 import { 
   SYSTEM_PERMISSIONS 
 } from '../../rbac/permissions';
@@ -48,11 +48,11 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState<'roles' | 'permissions' | 'assignments'>('roles');
 
-  const rbacService = DynamicRBACService.getInstance();
+  const rbacService = dynamicRBACService;
 
   // Check if user has permission to manage RBAC
-  const canManageRoles = hasPermission('settings.role_management');
-  const canManageUsers = hasPermission('settings.user_management');
+  const { hasPermission: canManageRoles } = usePermissions();
+  const { hasPermission: canManageUsers } = usePermissions();
 
   // Load roles on component mount
   useEffect(() => {
@@ -219,9 +219,9 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
       <div className="border-b border-border">
         <nav className="flex space-x-8">
           {[
-            { id: 'roles', label: 'Roles', icon: '👥' },
-            { id: 'permissions', label: 'Permissions', icon: '🔐' },
-            { id: 'assignments', label: 'User Assignments', icon: '📋' }
+            { id: 'roles', label: 'Roles', icon: 'ðŸ‘¥' },
+            { id: 'permissions', label: 'Permissions', icon: 'ðŸ”' },
+            { id: 'assignments', label: 'User Assignments', icon: 'ðŸ“‹' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -348,7 +348,7 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
                         setIsDeleteModalOpen(true);
                       }}
                       disabled={role.isSystem}
-                      className="text-red-600 hover:text-red-700"
+                      className="text-error-600 hover:text-error-700"
                     >
                       Delete
                     </Button>

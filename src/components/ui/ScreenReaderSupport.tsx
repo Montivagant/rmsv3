@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Screen Reader Optimization and Assistive Technology Support
  * Provides comprehensive optimization for screen readers and assistive technologies
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react'
-import { cn } from '../../utils/cn'
+import { cn } from '../../lib/utils'
 
 // Screen reader announcement hook
 export function useAnnouncement() {
@@ -192,9 +192,9 @@ export const StatusUpdates: React.FC<{
     >
       {visibleUpdates.map(update => {
         const typeStyles = {
-          success: 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200',
-          error: 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200',
-          warning: 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-200',
+          success: 'bg-success-50 border-success-200 text-success-700   ',
+          error: 'bg-error-50 border-error-200 text-error-700 bg-error-50 border-error-200 text-error-600',
+          warning: 'bg-warning-50 border-warning-200 text-warning-700 bg-warning-50 border-warning-200 text-warning-600',
         info: 'bg-brand-50 border-brand-200 text-brand-800'
         }
 
@@ -360,8 +360,8 @@ export const AccessibleDataTable: React.FC<AccessibleDataTableProps> = ({
                   {header.sortable && (
                     <span aria-hidden="true" className="text-text-tertiary">
                       {sortColumn === header.id ? (
-                        sortDirection === 'asc' ? '↑' : '↓'
-                      ) : '↕'}
+                        sortDirection === 'asc' ? 'â†‘' : 'â†“'
+                      ) : 'â†•'}
                     </span>
                   )}
                 </div>
@@ -471,11 +471,11 @@ export const ScreenReaderOptimizedForm: React.FC<{
           </p>
         )}
         {errorCount > 0 && (
-          <div role="alert" className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-            <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+          <div role="alert" className="mt-2 p-3 bg-error-50 bg-error-50 border border-error-200 border-error-200 rounded-md">
+            <h3 className="text-sm font-medium text-error-700 text-error-600">
               Please correct the following errors:
             </h3>
-            <ul className="mt-1 list-disc list-inside text-sm text-red-700 dark:text-red-300">
+            <ul className="mt-1 list-disc list-inside text-sm text-error-700 text-error-600">
               {Object.entries(errors).map(([field, error]) => (
                 <li key={field}>{error}</li>
               ))}
@@ -486,7 +486,7 @@ export const ScreenReaderOptimizedForm: React.FC<{
 
       {children}
 
-      <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex justify-end space-x-3 pt-6 border-t border-border border-border">
         <button
           type="submit"
           disabled={isSubmitting}
@@ -523,3 +523,5 @@ export default {
   AccessibleDataTable,
   ScreenReaderOptimizedForm
 }
+
+

@@ -25,11 +25,7 @@ export class LocalStoragePersistedEventStore implements EventStore {
    * Load events from localStorage into memory store
    */
   async hydrateFromLocalStorage(): Promise<void> {
-    console.log('Attempting to hydrate from localStorage...');
-    console.log('Current localStorage keys:', Object.keys(localStorage));
-    
-    console.log('Attempting to hydrate from localStorage...');
-    console.log('Current localStorage keys:', Object.keys(localStorage));
+    // Hydration logging simplified to prevent console noise
     
     try {
       const result = await this.db.allDocs();
@@ -40,10 +36,7 @@ export class LocalStoragePersistedEventStore implements EventStore {
       // Sort by sequence to maintain order
       events.sort((a, b) => a.seq - b.seq);
 
-      // Only log hydration once per session to avoid React StrictMode duplicate messages
-      if (!globalThis.__RMS_HYDRATION_LOGGED) {
-        console.log(`💧 Hydrating ${events.length} events from localStorage...`);
-      }
+      // Hydration logging simplified
       
       // Reset memory store and add events one by one to maintain consistency
       this.memoryStore.reset();
@@ -53,16 +46,17 @@ export class LocalStoragePersistedEventStore implements EventStore {
           // Bypass idempotency for hydration - these are already committed events
           this.memoryStore.addEventDirectly(event);
         } catch (error) {
-          console.warn('Failed to hydrate event:', event.id, error);
+          console.warn(`⚠️ Failed to hydrate event: ${event.id}`);
         }
       }
 
+      // Only log hydration status once per session
       if (!globalThis.__RMS_HYDRATION_LOGGED) {
-        console.log(`✅ Hydrated ${this.memoryStore.getAll().length} events successfully`);
+        console.log(`✅ Hydrated ${this.memoryStore.getAll().length} events`);
         globalThis.__RMS_HYDRATION_LOGGED = true;
       }
     } catch (error) {
-      console.error('Failed to hydrate from localStorage:', error);
+      console.error('❌ Failed to hydrate from localStorage');
       throw error;
     }
   }

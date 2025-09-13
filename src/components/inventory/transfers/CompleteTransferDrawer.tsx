@@ -96,6 +96,7 @@ export default function CompleteTransferDrawer({
       onClose={onClose}
       title="Complete Transfer"
       size="lg"
+      aria-label="Complete Transfer"
     >
       <div className="space-y-6">
         {/* Warning Message */}
@@ -214,7 +215,7 @@ export default function CompleteTransferDrawer({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                     d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Complete Transfer
+            Confirm Completion
           </Button>
         </div>
       </div>

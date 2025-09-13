@@ -1,6 +1,7 @@
-import React from 'react';
+﻿import React, { useEffect, useRef } from 'react';
 import { cn } from '../../lib/utils';
 import { TicketTimer } from './TicketTimer';
+import { Duration } from './utils';
 
 interface OrderItem {
   id: string;
@@ -19,6 +20,9 @@ interface TicketCardProps {
   customerName?: string;
   total?: number;
   density?: 'compact' | 'comfortable';
+  readyAt?: number;
+  servedAt?: number;
+  preparedBy?: string;
   onStatusChange?: (newStatus: 'preparing' | 'ready' | 'served') => void;
   onUndo?: () => void;
   isUpdating?: boolean;
@@ -38,6 +42,9 @@ export function TicketCard({
   customerName,
   total,
   density = 'comfortable',
+  readyAt,
+  servedAt,
+  preparedBy,
   onStatusChange,
   onUndo,
   isUpdating = false,
@@ -80,10 +87,45 @@ export function TicketCard({
   };
 
   const statusColors = {
-    preparing: 'border-amber-300 dark:border-amber-700',
-    ready: 'border-green-300 dark:border-green-700',
-    served: 'border-gray-300 dark:border-gray-700',
+    preparing: 'border-warning-200 border-warning-700',
+    ready: 'border-success-200 border-success-700',
+    served: 'border-border border-border',
   };
+
+  // Stable fallbacks to avoid resetting timers if readyAt/servedAt not yet available
+  const readyFallbackRef = useRef<number | undefined>(undefined);
+  const servedFallbackRef = useRef<number | undefined>(undefined);
+
+  // When status switches to ready and no readyAt yet, capture a one-time local anchor
+  useEffect(() => {
+    if (status === 'ready' && !readyAt && !readyFallbackRef.current) {
+      readyFallbackRef.current = Date.now();
+    }
+  }, [status, readyAt]);
+
+  // If a real readyAt arrives later, prefer it
+  useEffect(() => {
+    if (readyAt) {
+      readyFallbackRef.current = readyAt;
+    }
+  }, [readyAt]);
+
+  // When status switches to served and no servedAt yet, capture local anchor
+  useEffect(() => {
+    if (status === 'served' && !servedAt && !servedFallbackRef.current) {
+      servedFallbackRef.current = Date.now();
+    }
+  }, [status, servedAt]);
+
+  // Prefer real servedAt when available
+  useEffect(() => {
+    if (servedAt) {
+      servedFallbackRef.current = servedAt;
+    }
+  }, [servedAt]);
+
+  const displayReadyAt = readyAt ?? readyFallbackRef.current;
+  const displayServedAt = servedAt ?? servedFallbackRef.current;
 
   return (
     <article
@@ -115,13 +157,71 @@ export function TicketCard({
                 {customerName}
               </span>
             )}
+            {(() => {
+              const started = new Date(timestamp).getTime();
+              const mins = Math.floor((Date.now() - started) / 60000);
+              return mins >= 12 ? (
+                <span
+                  className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-error/10 text-error"
+                  aria-label="Overdue order"
+                >
+                  Overdue
+                </span>
+              ) : null;
+            })()}
           </div>
         </div>
-        <TicketTimer 
-          startTime={timestamp} 
-          className="ml-2"
-          showPulse={status === 'preparing'}
-        />
+        {status === 'preparing' && (
+          <TicketTimer 
+            startTime={timestamp} 
+            className="ml-2"
+            showPulse
+          />
+        )}
+        {status === 'ready' && (
+          <div className="ml-2 text-sm text-muted-foreground">
+            <div>
+              Prepared in{' '}
+              <Duration from={new Date(timestamp).getTime()} to={displayReadyAt} />
+            </div>
+            {preparedBy && (
+              <div>Prepared by {preparedBy}</div>
+            )}
+            <div>
+              Now ready for{' '}
+              {displayReadyAt ? (
+                <Duration from={displayReadyAt} />
+              ) : (
+                <span className="font-mono">00:00</span>
+              )}
+            </div>
+            <div>
+              Total{' '}
+              <Duration from={new Date(timestamp).getTime()} />
+            </div>
+          </div>
+        )}
+        {status === 'served' && (
+          <div className="ml-2 text-sm text-muted-foreground">
+            <div>
+              <Duration from={new Date(timestamp).getTime()} to={displayReadyAt} />
+            </div>
+            {preparedBy && (
+              <div>Prepared by {preparedBy}</div>
+            )}
+            <div>
+              {displayReadyAt && (
+                <Duration from={displayReadyAt} to={displayServedAt} />
+              )}
+            </div>
+            <div>
+              Served at {displayServedAt ? new Date(displayServedAt).toLocaleTimeString() : '—'}
+            </div>
+            <div>
+              <Duration from={new Date(timestamp).getTime()} to={displayServedAt} />
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Body - Item List */}
@@ -238,3 +338,4 @@ export function TicketCard({
     </article>
   );
 }
+

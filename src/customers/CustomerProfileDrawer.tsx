@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Drawer, Button, Card, CardHeader, CardTitle, CardContent, EmptyState, Modal, FormField, Label, Input, Textarea } from '../components';
 import type { Customer } from './types';
-import { StatusPill } from './StatusPill';
 import { apiPost } from '../hooks/useApi';
 import { Role, getRole, hasPermission } from '../rbac/roles';
 
@@ -81,7 +80,6 @@ export function CustomerProfileDrawer({ open, onClose, customer }: Props) {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Summary</span>
-                <StatusPill status={customer.status} />
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -94,38 +92,20 @@ export function CustomerProfileDrawer({ open, onClose, customer }: Props) {
                   <div className="text-sm text-text-secondary">Phone</div>
                   <div className="font-medium">{customer.phone}</div>
                 </div>
-                <div>
-                  <div className="text-sm text-text-secondary">Orders</div>
-                  <div className="font-medium">{customer.orders}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-text-secondary">Total Spent</div>
-                  <div className="font-medium">${customer.totalSpent.toFixed(2)}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-text-secondary">Visits</div>
-                  <div className="font-medium">{customer.visits}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-text-secondary">Last Visit</div>
-                  <div className="font-medium">{new Date(customer.lastVisit).toLocaleDateString()}</div>
-                </div>
-              </div>
-              {customer.tags && customer.tags.length > 0 && (
-                <div className="mt-3">
-                  <div className="text-sm text-text-secondary mb-1">Tags</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {customer.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="px-2 py-0.5 rounded text-xs font-medium border border-border bg-surface-secondary"
-                      >
-                        {t}
-                      </span>
-                    ))}
+                {typeof customer.orders === 'number' && (
+                  <div>
+                    <div className="text-sm text-text-secondary">Orders</div>
+                    <div className="font-medium">{customer.orders}</div>
                   </div>
-                </div>
-              )}
+                )}
+                {typeof customer.totalSpent === 'number' && (
+                  <div>
+                    <div className="text-sm text-text-secondary">Total Spent</div>
+                    <div className="font-medium">${customer.totalSpent.toFixed(2)}</div>
+                  </div>
+                )}
+              </div>
+              {/* Tags removed in simplified model */}
             </CardContent>
           </Card>
 

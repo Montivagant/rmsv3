@@ -23,35 +23,12 @@ export function EmptyState({
 }: EmptyStateProps) {
 
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center py-12 px-4 text-center',
-        className
-      )}
-    >
-      {icon && (
-        <div className="mb-4 p-3 rounded-full bg-surface-secondary">
-          <div className="w-8 h-8 text-tertiary">
-            {icon}
-          </div>
-        </div>
-      )}
-      
-      <h3 className="text-lg font-semibold text-primary mb-2">
-        {title}
-      </h3>
-      
-      {description && (
-        <p className="text-sm text-tertiary max-w-sm mb-6">
-          {description}
-        </p>
-      )}
-      
+    <div className={cn('empty-state', className)}>
+      {icon && <div className="empty-state-icon">{icon}</div>}
+      <h3 className="empty-state-title">{title}</h3>
+      {description && <p className="empty-state-description">{description}</p>}
       {action && (
-        <Button
-          onClick={action.onClick}
-          variant={action.variant || 'primary'}
-        >
+        <Button onClick={action.onClick} variant={action.variant || 'primary'}>
           {action.label}
         </Button>
       )}

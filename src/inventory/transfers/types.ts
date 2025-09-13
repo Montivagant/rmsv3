@@ -5,7 +5,7 @@
  */
 
 // Transfer Status - simplified flow
-export type TransferStatus = 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+export type TransferStatus = 'DRAFT' | 'COMPLETED' | 'CANCELLED' | 'SENT' | 'CLOSED';
 
 // Transfer Line Item
 export interface TransferLine {
@@ -60,7 +60,8 @@ export interface CreateTransferRequest {
   destinationLocationId: string;
   lines: Array<{
     itemId: string;
-    qtyPlanned: number;
+    qtyPlanned?: number;
+    qtyRequested?: number; // compatibility with tests
   }>;
   notes?: string;
 }
@@ -169,7 +170,7 @@ export const TRANSFER_CONFIG = {
   MAX_QTY: 999999.99,
   DEFAULT_PAGE_SIZE: 25,
   MAX_PAGE_SIZE: 100,
-  CODE_PREFIX: 'TRF',
+  CODE_PREFIX: 'TR',
 } as const;
 
 // Utility functions for transfers
@@ -180,7 +181,7 @@ export const TransferUtils = {
   generateTransferCode(): string {
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-    return `${TRANSFER_CONFIG.CODE_PREFIX}-${timestamp}`;
+    return `${TRANSFER_CONFIG.CODE_PREFIX}-${timestamp}-${random}`;
   },
 
   /**
@@ -239,10 +240,11 @@ export const TransferUtils = {
       if (!line.itemId) {
         errors.push(`Line ${index + 1}: Item is required`);
       }
-      if (line.qtyPlanned === undefined || line.qtyPlanned <= 0) {
+      const qty = (line.qtyRequested ?? line.qtyPlanned);
+      if (qty === undefined || qty <= 0) {
         errors.push(`Line ${index + 1}: Quantity must be greater than 0`);
       }
-      if (line.qtyPlanned > TRANSFER_CONFIG.MAX_QTY) {
+      if ((qty ?? 0) > TRANSFER_CONFIG.MAX_QTY) {
         errors.push(`Line ${index + 1}: Quantity exceeds maximum allowed`);
       }
     });
@@ -307,9 +309,11 @@ export const TransferUtils = {
   /**
    * Get transfer status display text
    */
-  getStatusDisplayText(status: TransferStatus): string {
+  getStatusDisplayText(status: string): string {
     switch (status) {
       case 'DRAFT': return 'Draft';
+      case 'SENT': return 'In Transit';
+      case 'CLOSED': return 'Completed';
       case 'COMPLETED': return 'Completed';
       case 'CANCELLED': return 'Cancelled';
       default: return status;
@@ -319,11 +323,13 @@ export const TransferUtils = {
   /**
    * Get status color variant for badges
    */
-  getStatusColorVariant(status: TransferStatus): 'default' | 'secondary' | 'success' | 'destructive' {
+  getStatusColorVariant(status: string): 'default' | 'warning' | 'success' | 'error' {
     switch (status) {
-      case 'DRAFT': return 'secondary';
+      case 'DRAFT': return 'default';
+      case 'SENT': return 'warning';
+      case 'CLOSED': return 'success';
       case 'COMPLETED': return 'success';
-      case 'CANCELLED': return 'destructive';
+      case 'CANCELLED': return 'error';
       default: return 'default';
     }
   },
@@ -354,6 +360,75 @@ export const TransferUtils = {
    */
   canDelete(transfer: Transfer): boolean {
     return transfer.status === 'DRAFT' && transfer.lines.length === 0;
+  },
+
+  /**
+   * Additional utilities expected by tests
+   */
+  canSend(transfer: Transfer | { status: string; lines: any[] }): boolean {
+    return transfer.status === 'DRAFT' && (transfer.lines?.length ?? 0) > 0;
+  },
+
+  canReceive(transfer: Transfer | { status: string }): boolean {
+    return transfer.status === 'SENT';
+  },
+
+  formatVariance(value: number, showSign: boolean = true): string {
+    const abs = Math.abs(value).toString();
+    if (!showSign) return abs;
+    if (value === 0) return '0';
+    return value > 0 ? `+${abs}` : `-${abs}`;
+  },
+
+  calculateTotals(lines: any[]): {
+    totalItems: number;
+    totalQtyRequested: number;
+    totalQtySent: number;
+    totalQtyReceived: number;
+    totalVariance: number;
+    totalValueRequested: number;
+    totalValueSent: number;
+    totalValueReceived: number;
+    totalVarianceValue: number;
+  } {
+    const totalItems = lines.length;
+    let totalQtyRequested = 0;
+    let totalQtySent = 0;
+    let totalQtyReceived = 0;
+    let totalVariance = 0;
+    let totalValueRequested = 0;
+    let totalValueSent = 0;
+    let totalValueReceived = 0;
+    let totalVarianceValue = 0;
+
+    for (const line of lines) {
+      const qtyRequested = line.qtyRequested ?? 0;
+      const qtySent = line.qtySent ?? 0;
+      const qtyReceived = line.qtyReceived ?? 0;
+      const unitCost = line.unitCost ?? 0;
+      const variance = (line.variance ?? (qtySent - qtyReceived));
+
+      totalQtyRequested += qtyRequested;
+      totalQtySent += qtySent;
+      totalQtyReceived += qtyReceived;
+      totalVariance += variance;
+      totalValueRequested += qtyRequested * unitCost;
+      totalValueSent += qtySent * unitCost;
+      totalValueReceived += qtyReceived * unitCost;
+      totalVarianceValue += variance * unitCost;
+    }
+
+    return {
+      totalItems,
+      totalQtyRequested,
+      totalQtySent,
+      totalQtyReceived,
+      totalVariance,
+      totalValueRequested,
+      totalValueSent,
+      totalValueReceived,
+      totalVarianceValue,
+    };
   }
 };
 

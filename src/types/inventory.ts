@@ -3,14 +3,12 @@ export interface CreateCountRequest {
   scope: CountScope;
   notes?: string;
   estimatedDurationMinutes?: number;
-  freezeInventory?: boolean;
 }
 
 export interface CountScope {
   all?: boolean;
   filters?: {
     categoryIds?: string[];
-    supplierIds?: string[];
     storageLocationIds?: string[];
     tags?: string[];
     includeInactive?: boolean;
@@ -23,6 +21,7 @@ export interface InventoryItemFormData {
   sku: string;
   description?: string;
   categoryId: string;
+  itemTypeId?: string;
   // Support both naming conventions for compatibility
   storageUnit?: string;
   storageUnitId?: string;

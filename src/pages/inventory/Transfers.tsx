@@ -21,6 +21,7 @@ import type {
   CancelTransferRequest
 } from '../../inventory/transfers/types';
 import { TransferUtils } from '../../inventory/transfers/types';
+import { transferApiService } from '../../inventory/transfers/api';
 
 export default function Transfers() {
   const navigate = useNavigate();
@@ -149,16 +150,7 @@ export default function Transfers() {
     
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/inventory/transfers/${selectedTransfer.id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details?.join('\n') || error.error || 'Failed to complete transfer');
-      }
+      await transferApiService.completeTransfer(selectedTransfer.id, request);
 
       showToast({
         title: 'Transfer Completed',
@@ -198,15 +190,7 @@ export default function Transfers() {
     
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/inventory/transfers/${selectedTransfer.id}/cancel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: 'Cancelled by user' })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to cancel transfer');
-      }
+      await transferApiService.cancelTransfer(selectedTransfer.id, { reason: 'Cancelled by user' });
 
       showToast({
         title: 'Transfer Cancelled',
@@ -472,12 +456,7 @@ export default function Transfers() {
                 if (!pendingDelete) return;
                 setIsSubmitting(true);
                 try {
-                  const response = await fetch(`/api/inventory/transfers/${pendingDelete.id}`, {
-                    method: 'DELETE'
-                  });
-                  if (!response.ok) {
-                    throw new Error('Failed to delete transfer');
-                  }
+                  await transferApiService.deleteTransfer(pendingDelete.id);
                   showToast({
                     title: 'Transfer Deleted',
                     description: 'The transfer has been deleted successfully.',

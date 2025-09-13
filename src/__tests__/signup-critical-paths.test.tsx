@@ -170,7 +170,7 @@ describe('DashUp Signup Critical Paths', () => {
 
       expect(screen.getByText('DashUp')).toBeInTheDocument();
       expect(screen.getByText('Restaurant Management System')).toBeInTheDocument();
-      expect(screen.getByText('Sign In')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Sign In' })).toBeInTheDocument();
     });
   });
 

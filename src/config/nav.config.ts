@@ -1,4 +1,4 @@
-// Navigation item type definition
+﻿// Navigation item type definition
 export interface NavItem {
   id: string;
   label: string;
@@ -39,7 +39,7 @@ export const navigationConfig: NavItem[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
-    path: '/',
+    path: '/dashboard',
     icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
     roles: ['staff', 'owner', 'tech_admin'],
     order: 1,
@@ -79,7 +79,6 @@ export const navigationConfig: NavItem[] = [
         label: 'Kitchen Display',
         path: '/kds',
         roles: ['staff', 'owner', 'tech_admin'],
-        featureFlag: 'kds',
         order: 3,
       },
     ],
@@ -100,39 +99,46 @@ export const navigationConfig: NavItem[] = [
     order: 5,
     children: [
       {
-        id: 'main-reports',
-        label: 'Business Reports',
-        path: '/reports',
-        roles: ['owner', 'tech_admin'],
-        order: 1,
-      },
-      {
         id: 'sales-reports',
         label: 'Sales Reports',
         path: '/reports/sales',
         roles: ['owner', 'tech_admin'],
-        order: 2,
+        order: 1,
       },
       {
         id: 'inventory-reports',
         label: 'Inventory Reports',
         path: '/reports/inventory',
         roles: ['owner', 'tech_admin'],
+        order: 2,
+      },
+      {
+        id: 'payments-reports',
+        label: 'Payments Reports',
+        path: '/reports/payments',
+        roles: ['owner', 'tech_admin'],
         order: 3,
       },
       {
-        id: 'customer-reports',
-        label: 'Customer Analytics',
-        path: '/reports/customers',
+        id: 'transfers-reports',
+        label: 'Transfers Report',
+        path: '/reports/transfers',
         roles: ['owner', 'tech_admin'],
         order: 4,
       },
       {
-        id: 'z-reports',
-        label: 'Z-Reports',
-        path: '/reports/z-reports',
+        id: 'voids-returns',
+        label: 'Voids & Returns',
+        path: '/reports/voids-returns',
         roles: ['owner', 'tech_admin'],
         order: 5,
+      },
+      {
+        id: 'activity-log',
+        label: 'Activity Log',
+        path: '/reports/activity-log',
+        roles: ['owner', 'tech_admin'],
+        order: 6,
       },
     ],
   },
@@ -145,27 +151,14 @@ export const navigationConfig: NavItem[] = [
     order: 6,
     children: [
       {
-        id: 'stock-levels',
+        id: 'items',
         label: 'Items',
-        path: '/inventory',
+        path: '/inventory/items',
         roles: ['staff', 'owner', 'tech_admin'],
         order: 1,
       },
-      {
-        id: 'items-management',
-        label: 'Items Management',
-        path: '/inventory/items',
-        roles: ['owner', 'tech_admin'],
-        order: 2,
-      },
-      {
-        id: 'suppliers',
-        label: 'Suppliers',
-        path: '/inventory/suppliers',
-        roles: ['owner', 'tech_admin'],
-        order: 3,
-      },
-      {
+      
+            {
         id: 'transfers',
         label: 'Transfers',
         path: '/inventory/transfers',
@@ -173,49 +166,21 @@ export const navigationConfig: NavItem[] = [
         order: 4,
       },
       {
-        id: 'counts',
-        label: 'Inventory Counts',
-        path: '/inventory/counts',
+        id: 'audit',
+        label: 'Inventory Audit',
+        path: '/inventory/audit',
         roles: ['owner', 'tech_admin'],
         order: 5,
       },
-      {
-        id: 'count-sheets',
-        label: 'Count Sheets',
-        path: '/inventory/count-sheets',
-        roles: ['owner', 'tech_admin'],
-        order: 6,
-      },
-      {
-        id: 'purchase-orders',
-        label: 'Purchase Orders',
-        path: '/inventory/purchase-orders',
-        roles: ['owner', 'tech_admin'],
-        order: 6,
-      },
-      {
-        id: 'cost-adjustments',
-        label: 'Cost Adjustments',
-        path: '/inventory/cost-adjustments',
-        roles: ['owner', 'tech_admin'],
-        order: 7,
-        stub: true,
-      },
+            // Purchase Orders and Cost Adjustments removed - not essential for core operations
       {
         id: 'inventory-history',
         label: 'History',
         path: '/inventory/history',
         roles: ['owner', 'tech_admin'],
-        order: 8,
-        stub: true,
+        order: 6,
       },
-      {
-        id: 'recipes',
-        label: 'Recipes',
-        path: '/recipes',
-        roles: ['staff', 'owner', 'tech_admin'],
-        order: 8,
-      },
+      
     ],
   },
   {
@@ -226,11 +191,18 @@ export const navigationConfig: NavItem[] = [
     order: 7,
     children: [
       {
-        id: 'menu-management',
-        label: 'Menu Builder',
-        path: '/settings/menu',
+        id: 'menu-categories',
+        label: 'Categories',
+        path: '/menu/categories',
         roles: ['owner', 'tech_admin'],
         order: 1,
+      },
+      {
+        id: 'menu-items',
+        label: 'Menu Items',
+        path: '/menu/items',
+        roles: ['owner', 'tech_admin'],
+        order: 2,
       },
     ],
   },
@@ -260,6 +232,43 @@ export const navigationConfig: NavItem[] = [
         label: 'System',
         path: '/settings/system',
         roles: ['tech_admin'],
+        order: 3,
+      },
+      {
+        id: 'item-types-settings',
+        label: 'Item Types',
+        path: '/settings/item-types',
+        roles: ['owner', 'tech_admin'],
+        order: 4,
+      },
+    ],
+  },
+  {
+    id: 'manage',
+    label: 'Manage',
+    icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4',
+    roles: ['owner', 'tech_admin'],
+    order: 9,
+    children: [
+      {
+        id: 'manage-users',
+        label: 'Users',
+        path: '/manage/users',
+        roles: ['owner', 'tech_admin'],
+        order: 1,
+      },
+      {
+        id: 'manage-branches',
+        label: 'Branches',
+        path: '/manage/branches',
+        roles: ['owner', 'tech_admin'],
+        order: 2,
+      },
+      {
+        id: 'manage-roles',
+        label: 'Roles',
+        path: '/manage/roles',
+        roles: ['owner', 'tech_admin'],
         order: 3,
       },
     ],
@@ -346,8 +355,8 @@ export const generateBreadcrumbs = (
   const breadcrumbs: Array<{ label: string; path?: string }> = [];
   
   // Always start with Dashboard if not on dashboard
-  if (pathname !== '/') {
-    breadcrumbs.push({ label: 'Dashboard', path: '/' });
+  if (pathname !== '/dashboard' && pathname !== '/') {
+    breadcrumbs.push({ label: 'Dashboard', path: '/dashboard' });
   }
 
   // Find matching nav item
@@ -401,7 +410,7 @@ export const getPageTitle = (
   pathname: string,
   navItems: NavItem[]
 ): string => {
-  if (pathname === '/') {
+  if (pathname === '/' || pathname === '/dashboard') {
     return 'Dashboard';
   }
 
@@ -425,3 +434,4 @@ export const getPageTitle = (
 };
 
 export { mapToNavRole };
+

@@ -15,13 +15,17 @@ import type {
   CountStatus 
 } from '../../inventory/counts/types';
 
-export default function Counts() {
+interface CountsProps {
+  newCount?: boolean;
+}
+
+export default function Counts({ newCount = false }: CountsProps) {
   const navigate = useNavigate();
   const { showToast } = useToast();
   
   // State management
   const [activeTab, setActiveTab] = useState<'all' | CountStatus>('all');
-  const [isNewCountOpen, setIsNewCountOpen] = useState(false);
+  const [isNewCountOpen, setIsNewCountOpen] = useState(newCount);
   const [queryParams, setQueryParams] = useState<CountQuery>({
     page: 1,
     pageSize: 25,
@@ -30,9 +34,19 @@ export default function Counts() {
   });
 
   // Mock data - replace with actual API calls
-  const { data: countsResponse, loading, error, refetch } = useApi<CountsResponse>('/api/inventory/counts', {
-    params: queryParams
-  });
+  const countsUrl = React.useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('page', String(queryParams.page || 1));
+    params.set('pageSize', String(queryParams.pageSize || 25));
+    if (queryParams.sortBy) params.set('sortBy', String(queryParams.sortBy));
+    if (queryParams.sortOrder) params.set('sortOrder', String(queryParams.sortOrder));
+    if ((queryParams as any).status) params.set('status', String((queryParams as any).status));
+    if ((queryParams as any).branchId) params.set('branchId', String((queryParams as any).branchId));
+    if ((queryParams as any).search) params.set('search', String((queryParams as any).search));
+    return `/api/inventory/counts?${params.toString()}`;
+  }, [queryParams]);
+
+  const { data: countsResponse, loading, error, refetch } = useApi<CountsResponse>(countsUrl);
 
   // Mock data for development
   const branches = [
@@ -41,21 +55,15 @@ export default function Counts() {
     { id: 'warehouse', name: 'Central Warehouse', type: 'warehouse' }
   ];
 
-  const categories = [
-    { id: 'produce', name: 'Produce' },
-    { id: 'meat', name: 'Meat & Seafood' },
-    { id: 'dairy', name: 'Dairy & Eggs' },
-    { id: 'beverages', name: 'Beverages' },
-    { id: 'dry-goods', name: 'Dry Goods' }
-  ];
+  // Load categories and item types from API for audit scope selection
+  const { data: categories = [] } = useApi<Array<{ id: string; name: string }>>(`/api/inventory/categories?branchId=${queryParams.branchId}`, [], {
+    execute: !!queryParams.branchId,
+  });
+  const { data: itemTypes = [] } = useApi<Array<{ id: string; name: string }>>(`/api/inventory/item-types?branchId=${queryParams.branchId}`, [], {
+    execute: !!queryParams.branchId,
+  });
 
-  const suppliers = [
-    { id: 'fresh-foods', name: 'Fresh Foods Inc' },
-    { id: 'metro-wholesale', name: 'Metro Wholesale' },
-    { id: 'organic-farms', name: 'Organic Farms Co' },
-    { id: 'quality-meats', name: 'Quality Meats Co' },
-    { id: 'dairy-farm', name: 'Local Dairy Farm' }
-  ];
+  // Supplier list removed from system
 
   const storageAreas = [
     { id: 'dry-storage', name: 'Dry Storage' },
@@ -161,23 +169,13 @@ export default function Counts() {
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-text-primary">Inventory Counts</h1>
+            <h1 className="text-2xl font-bold text-text-primary">Inventory Audit</h1>
             <p className="text-text-secondary mt-1">
-              Manage physical inventory counts and reconcile stock levels
+              Manage physical Inventory Audit and reconcile stock levels
             </p>
           </div>
           
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/inventory/count-sheets')}
-            >
-              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Count Sheets
-            </Button>
             <Button
               variant="primary"
               onClick={() => setIsNewCountOpen(true)}
@@ -258,7 +256,7 @@ export default function Counts() {
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle>Count Sessions</CardTitle>
+            <CardTitle>Audit Sessions</CardTitle>
             
             {/* Tab Navigation */}
             <div className="flex space-x-1">
@@ -316,7 +314,7 @@ export default function Counts() {
         onSuccess={handleCountCreated}
         branches={branches}
         categories={categories}
-        suppliers={suppliers}
+        itemTypes={itemTypes}
         storageAreas={storageAreas}
         loading={loading}
         simpleMode={true}
@@ -324,3 +322,6 @@ export default function Counts() {
     </div>
   );
 }
+
+
+

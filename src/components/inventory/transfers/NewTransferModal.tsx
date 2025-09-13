@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useEffect } from 'react';
+﻿import React, { useState, useCallback, useEffect } from 'react';
 import { Modal } from '../../Modal';
 import { Button } from '../../Button';
 import { Input } from '../../Input';
 import { Select } from '../../Select';
 import { Label } from '../../Label';
+import { FormField } from '../../FormField';
 import { useToast } from '../../../hooks/useToast';
 import { transferApiService } from '../../../inventory/transfers/api';
 import type { 
@@ -259,7 +260,7 @@ export default function NewTransferModal({
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Location Selection */}
         <div className="grid grid-cols-2 gap-4">
-          <div>
+          <FormField required error={touched.sourceLocation ? errors.sourceLocation : undefined}>
             <Label htmlFor="source-location" required>
               Source Location
             </Label>
@@ -284,12 +285,9 @@ export default function NewTransferModal({
                 <option key={loc.id} value={loc.id}>{loc.name}</option>
               ))}
             </Select>
-            {touched.sourceLocation && errors.sourceLocation && (
-              <p className="text-sm text-error mt-1">{errors.sourceLocation}</p>
-            )}
-          </div>
+          </FormField>
 
-          <div>
+          <FormField required error={touched.destinationLocation ? errors.destinationLocation : undefined}>
             <Label htmlFor="destination-location" required>
               Destination Location
             </Label>
@@ -310,10 +308,7 @@ export default function NewTransferModal({
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
                 ))}
             </Select>
-            {touched.destinationLocation && errors.destinationLocation && (
-              <p className="text-sm text-error mt-1">{errors.destinationLocation}</p>
-            )}
-          </div>
+          </FormField>
         </div>
 
         {/* Transfer Summary */}
@@ -364,7 +359,7 @@ export default function NewTransferModal({
                         <div>
                           <div className="font-medium text-text-primary">{item.name}</div>
                           <div className="text-sm text-text-muted">
-                            {item.sku} · {item.unit}
+                            {item.sku} Â· {item.unit}
                           </div>
                         </div>
                         {item.availableQty !== undefined && (
@@ -387,9 +382,9 @@ export default function NewTransferModal({
                     <div className="flex-1">
                       <div className="font-medium text-text-primary">{line.name}</div>
                       <div className="text-sm text-text-muted">
-                        {line.sku} · {line.unit}
+                        {line.sku} Â· {line.unit}
                         {line.availableQty !== undefined && (
-                          <span className="ml-2">· Available: {line.availableQty}</span>
+                          <span className="ml-2">Â· Available: {line.availableQty}</span>
                         )}
                       </div>
                     </div>
@@ -424,7 +419,7 @@ export default function NewTransferModal({
               </div>
             ) : (
               touched.items && errors.items ? (
-                <div className="mt-4 p-3 bg-error/10 border border-error/20 rounded-md text-error text-sm">
+                <div className="mt-4 p-3 bg-error/10 border border-error/20 rounded-md text-error text-sm" role="alert" aria-live="polite">
                   {errors.items}
                 </div>
               ) : (
@@ -437,7 +432,7 @@ export default function NewTransferModal({
         )}
 
         {/* Notes */}
-        <div>
+        <FormField>
           <Label htmlFor="notes">Notes (Optional)</Label>
           <Input
             id="notes"
@@ -447,7 +442,7 @@ export default function NewTransferModal({
             onChange={(e) => setNotes(e.target.value)}
             className="mt-1"
           />
-        </div>
+        </FormField>
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
@@ -472,3 +467,4 @@ export default function NewTransferModal({
     </Modal>
   );
 }
+

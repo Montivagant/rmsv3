@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Loading States and Skeleton Components
  * Provides consistent loading experiences across the application
  */
 
 import React from 'react'
-import { cn } from '../../utils/cn'
+import { cn } from '../../lib/utils'
 
 // Basic loading spinner
 export interface LoadingSpinnerProps {
@@ -286,12 +286,9 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           className={cn(
             'h-full transition-all duration-300 ease-out rounded-full',
             colorClasses[color],
-            indeterminate && 'animate-pulse'
+            indeterminate ? 'w-full animate-pulse' : 'w-[--progress-w]'
           )}
-          style={{
-            width: indeterminate ? '100%' : `${progress}%`,
-            animation: indeterminate ? 'indeterminate 2s ease-in-out infinite' : undefined
-          }}
+          style={indeterminate ? undefined : ({ ['--progress-w' as any]: `${progress}%` })}
           role="progressbar"
           aria-valuenow={indeterminate ? undefined : progress}
           aria-valuemin={0}

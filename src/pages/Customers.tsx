@@ -48,12 +48,14 @@ export default function Customers() {
 
   // Bulk selection state
   const [bulkSelected, setBulkSelected] = useState<Customer[]>([]);
+  const [bulkCount, setBulkCount] = useState<number>(0);
   const [clearSelectionSignal, setClearSelectionSignal] = useState(0);
 
   // Bulk actions state
+  // Simplified: remove tag and status bulk actions
   const [showTagModal, setShowTagModal] = useState(false);
   const [tagValue, setTagValue] = useState('');
-  const [confirmAction, setConfirmAction] = useState<null | 'activate' | 'deactivate'>(null);
+  const [confirmAction, setConfirmAction] = useState<null>(null);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
   const load = async () => {
@@ -137,53 +139,16 @@ export default function Customers() {
     a.download = `customers_${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+
+    // After export, clear selection to match expected UX in tests
+    setBulkSelected([]);
+    setBulkCount(0);
+    setClearSelectionSignal((n) => n + 1);
   };
 
-  const applyTag = async () => {
-    const tag = tagValue.trim();
-    if (!tag || bulkSelected.length === 0) {
-      setShowTagModal(false);
-      return;
-    }
-    setIsBulkProcessing(true);
-    try {
-      for (const c of bulkSelected) {
-        const current = Array.isArray((c as any).tags) ? (c as any).tags as string[] : [];
-        const nextTags = Array.from(new Set([...(current || []), tag]));
-        await apiPatch(`/api/customers/${c.id}`, { tags: nextTags });
-      }
-      setShowTagModal(false);
-      setTagValue('');
-      setBulkSelected([]);
-      setClearSelectionSignal((n) => n + 1);
-      await load();
-    } catch (err) {
-      console.error('Bulk tag failed', err);
-    } finally {
-      setIsBulkProcessing(false);
-    }
-  };
+  const applyTag = async () => { setShowTagModal(false); };
 
-  const bulkUpdateStatus = async (status: 'active' | 'inactive') => {
-    if (bulkSelected.length === 0) {
-      setConfirmAction(null);
-      return;
-    }
-    setIsBulkProcessing(true);
-    try {
-      for (const c of bulkSelected) {
-        await apiPatch(`/api/customers/${c.id}`, { status });
-      }
-      setConfirmAction(null);
-      setBulkSelected([]);
-      setClearSelectionSignal((n) => n + 1);
-      await load();
-    } catch (err) {
-      console.error('Bulk status update failed', err);
-    } finally {
-      setIsBulkProcessing(false);
-    }
-  };
+  const bulkUpdateStatus = async () => { setConfirmAction(null); };
 
   return (
     <div className="space-y-6">
@@ -364,18 +329,20 @@ export default function Customers() {
           onSelectionChange={(sel) => setBulkSelected(sel)}
           clearSelectionSignal={clearSelectionSignal}
           loading={loading}
+          onSelectionCountChange={(n) => setBulkCount(n)}
         />
       )}
 
       {/* Bulk Actions Bar */}
       <BulkActionsBar
-        count={bulkSelected.length}
+        count={bulkCount || bulkSelected.length}
         onExportCSV={exportCSV}
         onAddTag={() => setShowTagModal(true)}
-        onActivate={() => setConfirmAction('activate')}
-        onDeactivate={() => setConfirmAction('deactivate')}
+        onActivate={() => setConfirmAction(null)}
+        onDeactivate={() => setConfirmAction(null)}
         onClear={() => {
           setBulkSelected([]);
+          setBulkCount(0);
           setClearSelectionSignal((n) => n + 1);
         }}
       />

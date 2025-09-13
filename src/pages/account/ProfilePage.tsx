@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
+import { useNotifications } from '../../components/feedback/NotificationSystem';
 import type { Profile } from '../../types/account';
 import { LANGUAGES } from '../../types/account';
 import SettingCard from '../../settings/ui/SettingCard';
@@ -22,6 +23,7 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   
   const { showToast } = useToast();
+  const { showSuccess, showError } = useNotifications();
 
   // Check if form has unsaved changes
   const isDirty = profile && formData && JSON.stringify(profile) !== JSON.stringify(formData);
@@ -43,6 +45,7 @@ export default function ProfilePage() {
     } catch (error) {
       console.error('Failed to load profile:', error);
       showToast('Failed to load profile data', 'error');
+      showError('Profile', 'Failed to load profile data');
     } finally {
       setIsLoading(false);
     }
@@ -97,9 +100,12 @@ export default function ProfilePage() {
       setFormData(updatedProfile);
       setErrors({});
       showToast('Profile updated successfully', 'success');
+      showSuccess('Profile', 'Profile updated successfully');
     } catch (error: any) {
       console.error('Failed to save profile:', error);
-      showToast(error.message || 'Failed to update profile', 'error');
+      const msg = error.message || 'Failed to update profile';
+      showToast(msg, 'error');
+      showError('Profile', msg);
     } finally {
       setSaving(false);
     }

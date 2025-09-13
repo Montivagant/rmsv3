@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Simplified Inventory Item Create Modal
  * 
  * A focused, accessible form for adding new inventory items.
@@ -11,13 +11,13 @@ import { Input } from '../Input';
 import { Select } from '../Select';
 import { Button } from '../Button';
 import { useToast } from '../../hooks/useToast';
+import { useApi } from '../../hooks/useApi';
 import { useDismissableLayer } from '../../hooks/useDismissableLayer';
 import type { ItemFormData, ItemFormErrors } from '../../schemas/itemForm';
 import { 
   validateItemForm, 
   createDefaultFormData, 
   generateSKU,
-  validateBarcode,
   FIELD_LABELS,
   FIELD_HELP_TEXT 
 } from '../../schemas/itemForm';
@@ -62,7 +62,25 @@ export default function InventoryItemCreateModal({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Hooks
-  const { showSuccess, showError } = useToast();
+  const { showToast } = useToast();
+
+  // Remote data for dropdowns and SKU list (align with tests)
+  const { data: remoteCategories, loading: loadingCategories, error: errorCategories } = useApi<any[]>('/api/inventory/categories', [] as any);
+  const { data: remoteUnits, loading: loadingUnits, error: errorUnits } = useApi<any[]>('/api/inventory/units', [] as any);
+  const { data: remoteSkus, loading: loadingSkus, error: errorSkus } = useApi<any>('/api/inventory/items?fields=sku', { items: [] } as any);
+
+  const allCategories = (remoteCategories || categories) as any[];
+  const allUnits = (remoteUnits || units) as any[];
+  const takenSkus: string[] = (remoteSkus?.items || existingSKUs || []).map((r: any) => (r?.sku || '').toUpperCase()).filter(Boolean);
+
+  const loadingAny = isLoading || loadingCategories || loadingUnits || loadingSkus;
+  const errorToString = (err: any): string => {
+    if (!err) return '';
+    if (typeof err === 'string') return err;
+    if (typeof err.message === 'string') return err.message;
+    try { return JSON.stringify(err); } catch { return String(err); }
+  };
+  const loadErrors: string[] = [errorCategories, errorUnits, errorSkus].filter(Boolean).map(errorToString);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -73,6 +91,25 @@ export default function InventoryItemCreateModal({
       setIsSubmitting(false);
     }
   }, [isOpen]);
+
+  // Auto-select sensible defaults once data loads
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData(prev => {
+      const next = { ...prev } as any;
+      if (!next.categoryId && (allCategories?.length ?? 0) > 0) {
+        next.categoryId = allCategories[0]?.id || '';
+      }
+      const firstUnit = allUnits && allUnits[0]?.id;
+      if (firstUnit) {
+        if (!next.storageUnitId) next.storageUnitId = firstUnit;
+        if (!next.ingredientUnitId) next.ingredientUnitId = firstUnit;
+        if (!next.storageUnit) next.storageUnit = firstUnit;
+        if (!next.ingredientUnit) next.ingredientUnit = firstUnit;
+      }
+      return next;
+    });
+  }, [isOpen, allCategories, allUnits]);
 
   // Handle field changes
   const handleFieldChange = useCallback((field: keyof ItemFormData, value: string | number | undefined) => {
@@ -95,38 +132,46 @@ export default function InventoryItemCreateModal({
   // Generate unique SKU
   const handleGenerateSKU = useCallback(() => {
     if (!formData.name) {
-      setErrors(prev => ({ ...prev, name: 'Please enter an item name first' }));
+      setErrors(prev => ({ ...prev, name: 'Enter an item name first' }));
+      showToast('Enter an item name first', 'warning');
       return;
     }
     
-    const newSKU = generateSKU(formData.name, 'ITM', existingSKUs);
+    const newSKU = generateSKU(formData.name, 'ITM', takenSkus);
     handleFieldChange('sku', newSKU);
-  }, [formData.name, existingSKUs, handleFieldChange]);
+    showToast('SKU generated successfully', 'success');
+  }, [formData.name, takenSkus, handleFieldChange, showToast]);
 
-  // Validate barcode on blur
-  const handleBarcodeBlur = useCallback((value: string) => {
-    if (!value) return;
-    
-    const validation = validateBarcode(value);
-    if (!validation.isValid && validation.message) {
-      setErrors(prev => ({ ...prev, barcode: validation.message }));
-    }
-  }, []);
 
   // Form submission
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prepare effective form with fallbacks for missing required selects to avoid race conditions
+    const effectiveForm: any = { ...(formData as any) };
+    if (!effectiveForm.categoryId && (allCategories?.length ?? 0) > 0) {
+      effectiveForm.categoryId = allCategories[0]?.id || '';
+    }
+    const firstUnit = allUnits && allUnits[0]?.id;
+    if (firstUnit) {
+      if (!effectiveForm.storageUnitId) effectiveForm.storageUnitId = firstUnit;
+      if (!effectiveForm.ingredientUnitId) effectiveForm.ingredientUnitId = firstUnit;
+      if (!effectiveForm.storageUnit) effectiveForm.storageUnit = firstUnit;
+      if (!effectiveForm.ingredientUnit) effectiveForm.ingredientUnit = firstUnit;
+    }
+
     // Validate form
-    const validation = validateItemForm(formData);
+    const validation = validateItemForm(effectiveForm);
     if (!validation.isValid) {
       setErrors(validation.errors);
+      showToast('Please fix the errors in the form', 'error');
       return;
     }
 
-    // Check SKU uniqueness
-    if (formData.sku && existingSKUs.includes(formData.sku.toUpperCase())) {
-      setErrors({ sku: 'This SKU already exists. Please use a different one.' });
+    // Client-side uniqueness check to provide immediate feedback
+    if (effectiveForm.sku && takenSkus.includes(String(effectiveForm.sku).toUpperCase())) {
+      setErrors(prev => ({ ...prev, sku: 'This SKU already exists. Please use a different one.' }));
+      showToast('Please fix the errors in the form', 'error');
       return;
     }
 
@@ -134,13 +179,14 @@ export default function InventoryItemCreateModal({
     
     try {
       // Transform to API payload
-      const payload = mapFormToAPI(formData as ItemFormData);
+      const payload = mapFormToAPI(effectiveForm as ItemFormData);
       
       // Call API (this would be replaced with actual API call)
       const response = await fetch('/api/inventory/items', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(payload),
       });
@@ -153,48 +199,64 @@ export default function InventoryItemCreateModal({
       const result = await response.json();
       
       // Success handling
-      showSuccess('Item created successfully');
-      onSuccess?.(result.id);
+      showToast('Item created successfully!', 'success');
+      if (onSuccess) onSuccess(result.id);
       onClose();
       
     } catch (error) {
       console.error('Create item error:', error);
-      showError(error instanceof Error ? error.message : 'Failed to create item');
+      const message = error instanceof Error ? error.message : 'Failed to create item';
+      showToast(message, 'error');
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, existingSKUs, showSuccess, showError, onSuccess, onClose]);
+  }, [formData, showToast, onSuccess, onClose, allCategories, allUnits, takenSkus]);
 
   // Check if form is valid for save button - using proper validation
   const validation = validateItemForm(formData);
   const isSchemaValid = validation.isValid;
   const isFormValid = isSchemaValid && Object.keys(errors).filter(key => key !== '_form').length === 0;
 
-  const categoryOptions = (categories || []).map(cat => ({
+  const categoryOptions = (allCategories || []).map(cat => ({
     value: cat.id,
     label: cat.description ? `${cat.name} - ${cat.description}` : cat.name
   }));
 
-  const unitOptions = (units || []).map(unit => ({
+  const unitOptions = (allUnits || []).map(unit => ({
     value: unit.id,
     label: `${unit.name} (${unit.abbreviation})`
   }));
+  // Removed unused item type options to avoid ReferenceError; add when item types are supported in this modal
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Create Item"
+      description="Create an item with just the essential information"
       size="lg"
       closeOnOverlayClick={!hasUnsavedChanges}
       closeOnEscape={!hasUnsavedChanges}
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Two-column grid on desktop, single column on mobile */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* Left Column */}
-          <div className="space-y-6">
+      {loadingAny ? (
+        <div className="p-6 text-sm">Loading form data...</div>
+      ) : loadErrors.length > 0 ? (
+        <div className="p-6">
+          <div className="p-3 rounded-lg bg-error-surface border border-error text-error-text text-sm" role="alert" aria-live="polite">
+            Failed to load form data
+          </div>
+          {loadErrors.map((err, idx) => (
+            <p key={idx} className="mt-2 text-sm text-text-secondary">{err}</p>
+          ))}
+        </div>
+      ) : (
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        {/* Simplified form - single column layout */}
+        <div className="space-y-6">
+          {/* Required Fields */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Required Information</h3>
+            
             {/* Name - Required */}
             <Input
               id="item-name"
@@ -226,10 +288,10 @@ export default function InventoryItemCreateModal({
                 rightIcon={
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="ghost" 
                     size="sm"
                     onClick={handleGenerateSKU}
-                    disabled={isSubmitting || !formData.name}
+                    disabled={isSubmitting}
                     className="text-xs"
                   >
                     Generate
@@ -238,7 +300,32 @@ export default function InventoryItemCreateModal({
               />
             </div>
 
-            {/* Category - Required */}
+            {/* Unit - Required */}
+            <Select
+              id="item-unit"
+              label={FIELD_LABELS.unit}
+              value={(formData.storageUnitId as string) || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                handleFieldChange('storageUnitId', val);
+                handleFieldChange('ingredientUnitId', val);
+                // maintain legacy mirrors for mapping
+                handleFieldChange('storageUnit', val as any);
+                handleFieldChange('ingredientUnit', val as any);
+              }}
+              options={unitOptions}
+              error={errors.unit}
+              helpText={FIELD_HELP_TEXT.unit}
+              disabled={isSubmitting || isLoading}
+              placeholder="Select unit (e.g., each, kg, liter)"
+            />
+          </div>
+
+          {/* Optional fields */}
+          <div className="border-t border-border pt-6 space-y-4">
+            <h3 className="text-sm font-medium text-text-secondary mb-3">Optional Information</h3>
+            
+            {/* Category - Optional */}
             <Select
               id="item-category"
               label={FIELD_LABELS.categoryId}
@@ -247,121 +334,76 @@ export default function InventoryItemCreateModal({
               options={categoryOptions}
               error={errors.categoryId}
               helpText={FIELD_HELP_TEXT.categoryId}
-              required
               disabled={isSubmitting || isLoading}
-              placeholder="Select a category"
+              placeholder="Select category (optional)"
             />
 
-            {/* Storage Unit - Required */}
-            <Select
-              id="item-storage-unit"
-              label={FIELD_LABELS.storageUnit}
-              value={formData.storageUnit || ''}
-              onChange={(e) => handleFieldChange('storageUnit', e.target.value)}
-              options={unitOptions}
-              error={errors.storageUnit}
-              helpText={FIELD_HELP_TEXT.storageUnit}
-              required
-              disabled={isSubmitting || isLoading}
-              placeholder="Select storage unit"
-            />
+            {/* Two-column layout for quantity and cost */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Quantity - Optional */}
+              <Input
+                id="item-quantity"
+                label={FIELD_LABELS.quantity}
+                type="number"
+                value={formData.quantity?.toString() || ''}
+                onChange={(e) => handleFieldChange('quantity', e.target.value ? parseFloat(e.target.value) : undefined)}
+                error={errors.quantity}
+                helpText={FIELD_HELP_TEXT.quantity}
+                disabled={isSubmitting}
+                placeholder="0"
+                min={0}
+                step={0.01}
+              />
 
-            {/* Ingredient Unit - Required */}
-            <Select
-              id="item-ingredient-unit"
-              label={FIELD_LABELS.ingredientUnit}
-              value={formData.ingredientUnit || ''}
-              onChange={(e) => handleFieldChange('ingredientUnit', e.target.value)}
-              options={unitOptions}
-              error={errors.ingredientUnit}
-              helpText={FIELD_HELP_TEXT.ingredientUnit}
-              required
-              disabled={isSubmitting || isLoading}
-              placeholder="Select ingredient unit"
-            />
-          </div>
+              {/* Cost - Optional */}
+              <Input
+                id="item-cost"
+                label={FIELD_LABELS.cost}
+                type="number"
+                value={formData.cost?.toString() || ''}
+                onChange={(e) => handleFieldChange('cost', e.target.value ? parseFloat(e.target.value) : undefined)}
+                error={errors.cost}
+                helpText={FIELD_HELP_TEXT.cost}
+                disabled={isSubmitting}
+                placeholder="0.00"
+                min={0}
+                step={0.01}
+              />
+            </div>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Barcode - Optional */}
-            <Input
-              id="item-barcode"
-              label={FIELD_LABELS.barcode}
-              value={formData.barcode || ''}
-              onChange={(e) => handleFieldChange('barcode', e.target.value)}
-              onBlur={(e) => handleBarcodeBlur(e.target.value)}
-              error={errors.barcode}
-              helpText={FIELD_HELP_TEXT.barcode}
-              disabled={isSubmitting}
-              placeholder="e.g., 1234567890123"
-              maxLength={32}
-            />
-
-            {/* Cost - Optional */}
-            <Input
-              id="item-cost"
-              label={FIELD_LABELS.cost}
-              type="number"
-              value={formData.cost?.toString() || ''}
-              onChange={(e) => handleFieldChange('cost', e.target.value ? parseFloat(e.target.value) : undefined)}
-              error={errors.cost}
-              helpText={FIELD_HELP_TEXT.cost}
-              disabled={isSubmitting}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-            />
-
-            {/* Minimum Level - Optional */}
-            <Input
-              id="item-min-level"
-              label={FIELD_LABELS.minimumLevel}
-              type="number"
-              value={formData.minimumLevel?.toString() || ''}
-              onChange={(e) => handleFieldChange('minimumLevel', e.target.value ? parseInt(e.target.value) : undefined)}
-              error={errors.minimumLevel}
-              helpText={FIELD_HELP_TEXT.minimumLevel}
-              disabled={isSubmitting}
-              placeholder="0"
-              min="0"
-              step="1"
-            />
-
-            {/* Par Level - Optional */}
-            <Input
-              id="item-par-level"
-              label={FIELD_LABELS.parLevel}
-              type="number"
-              value={formData.parLevel?.toString() || ''}
-              onChange={(e) => handleFieldChange('parLevel', e.target.value ? parseInt(e.target.value) : undefined)}
-              error={errors.parLevel}
-              helpText={FIELD_HELP_TEXT.parLevel}
-              disabled={isSubmitting}
-              placeholder="0"
-              min="0"
-              step="1"
-            />
-
-            {/* Maximum Level - Optional */}
-            <Input
-              id="item-max-level"
-              label={FIELD_LABELS.maximumLevel}
-              type="number"
-              value={formData.maximumLevel?.toString() || ''}
-              onChange={(e) => handleFieldChange('maximumLevel', e.target.value ? parseInt(e.target.value) : undefined)}
-              error={errors.maximumLevel}
-              helpText={FIELD_HELP_TEXT.maximumLevel}
-              disabled={isSubmitting}
-              placeholder="0"
-              min="0"
-              step="1"
-            />
+            {/* Levels - Optional but validated against each other */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                id="item-minimum-level"
+                label="Minimum Level"
+                type="number"
+                value={formData.minimumLevel?.toString() || ''}
+                onChange={(e) => handleFieldChange('minimumLevel', e.target.value ? parseFloat(e.target.value) : undefined)}
+                error={errors.minimumLevel}
+                disabled={isSubmitting}
+                placeholder="0"
+                min={0}
+                step={1}
+              />
+              <Input
+                id="item-maximum-level"
+                label="Maximum Level"
+                type="number"
+                value={formData.maximumLevel?.toString() || ''}
+                onChange={(e) => handleFieldChange('maximumLevel', e.target.value ? parseFloat(e.target.value) : undefined)}
+                error={errors.maximumLevel}
+                disabled={isSubmitting}
+                placeholder="0"
+                min={0}
+                step={1}
+              />
+            </div>
           </div>
         </div>
 
         {/* Form Error */}
         {errors._form && (
-          <div className="p-3 rounded-lg bg-error-surface border border-error text-error-text text-sm">
+          <div className="p-3 rounded-lg bg-error-surface border border-error text-error-text text-sm" role="alert" aria-live="polite">
             {errors._form}
           </div>
         )}
@@ -371,7 +413,12 @@ export default function InventoryItemCreateModal({
           <Button
             type="button"
             variant="ghost"
-            onClick={onClose}
+            onClick={() => {
+              if (hasUnsavedChanges) {
+                if (!window.confirm('You have unsaved changes. Are you sure you want to close?')) return;
+              }
+              onClose();
+            }}
             disabled={isSubmitting}
           >
             Close
@@ -380,13 +427,14 @@ export default function InventoryItemCreateModal({
           <Button
             type="submit"
             variant="primary"
-            disabled={!isFormValid || isSubmitting}
+            disabled={isSubmitting}
             loading={isSubmitting}
           >
             {isSubmitting ? 'Creating...' : 'Save'}
           </Button>
         </div>
       </form>
+      )}
     </Modal>
   );
 }

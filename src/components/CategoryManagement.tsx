@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Category Management Component
  * 
  * Comprehensive category management system with:
@@ -203,8 +203,8 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
       options: [
         { value: '', label: 'Inherit from parent' },
         { value: 'dry', label: 'Dry Storage' },
-        { value: 'refrigerated', label: 'Refrigerated (1-4°C)' },
-        { value: 'frozen', label: 'Frozen (-18°C or below)' },
+        { value: 'refrigerated', label: 'Refrigerated (1-4Â°C)' },
+        { value: 'frozen', label: 'Frozen (-18Â°C or below)' },
         { value: 'ambient', label: 'Ambient Temperature' }
       ]
     }
@@ -380,7 +380,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
               className="mr-2 p-1 rounded hover:bg-surface-tertiary"
             >
               <span className={`transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
-                ▶
+                â–¶
               </span>
             </button>
           )}
@@ -612,7 +612,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
             <div className="space-y-1">
               {hierarchy.length === 0 ? (
                 <div className="text-center py-8">
-                  <div className="text-4xl mb-4">📁</div>
+                  <div className="text-4xl mb-4">ðŸ“</div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">
                     No categories yet
                   </h3>
@@ -629,7 +629,7 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
             <div className="space-y-2">
               {filteredCategories.length === 0 ? (
                 <div className="text-center py-8">
-                  <div className="text-4xl mb-4">🔍</div>
+                  <div className="text-4xl mb-4">ðŸ”</div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">
                     No categories found
                   </h3>
@@ -797,13 +797,13 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
                 This will hide it from active use but preserve historical data.
               </p>
               {categoryToDelete.metadata.childCount && categoryToDelete.metadata.childCount > 0 && (
-                <p className="mb-4 text-amber-600 dark:text-amber-400 text-sm">
+                <p className="mb-4 text-warning-600  text-sm">
                   ⚠️ This category has {categoryToDelete.metadata.childCount} subcategories. 
                   You must archive them first.
                 </p>
               )}
               {categoryToDelete.metadata.itemCount && categoryToDelete.metadata.itemCount > 0 && (
-                <p className="mb-4 text-amber-600 dark:text-amber-400 text-sm">
+                <p className="mb-4 text-warning-600  text-sm">
                   ⚠️ This category contains {categoryToDelete.metadata.itemCount} items. 
                   They will need to be moved to another category.
                 </p>
@@ -833,3 +833,4 @@ export function CategoryManagement({ onCategoryUpdated, className = '' }: Catego
     </div>
   );
 }
+

@@ -192,11 +192,6 @@ export class InventoryItemService {
         hazmat: itemData.quality?.hazmat || false,
         temperatureAbuse: itemData.quality?.temperatureAbuse
       },
-      suppliers: {
-        primary: itemData.suppliers?.primary,
-        alternatives: itemData.suppliers?.alternatives || [],
-        preferredSupplier: itemData.suppliers?.preferredSupplier
-      },
       lots: itemData.lots || [],
       status: itemData.status || 'active',
       flags: {
@@ -401,7 +396,6 @@ export class InventoryItemService {
         urgency: currentLevel <= 0 ? 'critical' : currentLevel <= item.levels.par.min / 2 ? 'high' : 'medium',
         suggestedAction: `Reorder ${item.levels.par.reorderQuantity} ${item.uom.purchase}`,
         suggestedQuantity: item.levels.par.reorderQuantity,
-        suggestedSupplier: item.suppliers.preferredSupplier,
         createdAt: new Date().toISOString(),
         isResolved: false
       });
@@ -418,7 +412,6 @@ export class InventoryItemService {
         urgency: 'medium',
         suggestedAction: `Consider reordering ${item.levels.par.reorderQuantity} ${item.uom.purchase}`,
         suggestedQuantity: item.levels.par.reorderQuantity,
-        suggestedSupplier: item.suppliers.preferredSupplier,
         createdAt: new Date().toISOString(),
         isResolved: false
       });
@@ -576,9 +569,6 @@ export class InventoryItemService {
               allergens: [],
               certifications: [],
               hazmat: false
-            },
-            suppliers: {
-              alternatives: []
             },
             lots: [],
             status: 'active',

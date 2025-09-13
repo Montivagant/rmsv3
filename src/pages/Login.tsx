@@ -12,15 +12,25 @@ function Login() {
   const [formData, setFormData] = useState<{
     username: string;
     password: string;
+    pin: string;
     role: Role;
   }>({
     username: '',
     password: '',
+    pin: '',
     role: Role.BUSINESS_OWNER,
   });
+  const [error, setError] = useState<string | null>(null);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    // Basic PIN validation (4-6 digits)
+    const pinOk = /^[0-9]{4,6}$/.test((formData.pin || '').trim());
+    if (!pinOk) {
+      setError('Please enter a valid 4-6 digit PIN');
+      return;
+    }
     
     // Mock authentication - in real app, this would validate credentials
     const mockUser = {
@@ -29,6 +39,10 @@ function Login() {
       role: formData.role,
     };
     
+    try {
+      localStorage.setItem('rms_user_pin', formData.pin.trim());
+    } catch {}
+
     setCurrentUser(mockUser);
     navigate('/');
   };
@@ -47,7 +61,7 @@ function Login() {
         
         <Card className="mt-8">
           <CardHeader>
-            <CardTitle className="text-center">Sign In</CardTitle>
+            <CardTitle as="h2" className="text-center">Sign In</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -70,6 +84,18 @@ function Login() {
                 autoComplete="current-password"
                 required
               />
+
+              <Input
+                label="PIN"
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.pin}
+                onChange={(e) => setFormData(prev => ({ ...prev, pin: e.target.value }))}
+                placeholder="4-6 digit PIN"
+                required
+                helpText="Use your 4-6 digit PIN to authenticate"
+              />
               
               <Select
                 label="Role"
@@ -78,6 +104,12 @@ function Login() {
                 onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as Role }))}
               />
               
+              {error && (
+                <div role="alert" className="text-error text-sm">
+                  {error}
+                </div>
+              )}
+
               <Button type="submit" className="w-full" size="lg">
                 Sign In
               </Button>

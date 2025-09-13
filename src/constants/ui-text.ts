@@ -7,7 +7,6 @@
 export const FORM_LABELS = {
   // Inventory Operations
   REFERENCE_NUMBER: 'Reference Number',
-  SUPPLIER: 'Supplier',
   ADJUSTMENT_REASON: 'Adjustment Reason',
   NOTES: 'Notes',
   ITEM: 'Item',
@@ -35,7 +34,6 @@ export const FORM_LABELS = {
   DELETE_ROLE: 'Delete Role',
   
   // Common Actions
-  ADD_SUPPLIER: 'Add Supplier',
   SAVE_PRODUCT: 'Save Product',
   CREATE_ROLE: 'Create Role',
   UPDATE_ROLE: 'Update Role',
@@ -58,7 +56,6 @@ export const FORM_PLACEHOLDERS = {
 // Help Text
 export const HELP_TEXT = {
   REFERENCE_NUMBER: 'Optional reference number for tracking',
-  SUPPLIER: 'Select the supplier for this delivery',
   ADJUSTMENT_REASON: 'Reason for the inventory adjustment',
 } as const;
 
@@ -92,7 +89,8 @@ export const OPERATION_CONFIG = {
     quantityLabel: 'Received Quantity',
     showCost: true,
     showLotExpiry: true,
-    requiresSupplier: true
+    // Supplier field removed from system
+    requiresSupplier: false
   },
   adjust: {
     title: 'Adjust Inventory',
@@ -104,7 +102,7 @@ export const OPERATION_CONFIG = {
     requiresReason: true
   },
   count: {
-    title: 'Stock Count',
+    title: 'Inventory Audit',
     itemTitle: 'Items to Count',
     quantityField: 'countedQuantity',
     quantityLabel: 'Counted Quantity',
@@ -114,12 +112,7 @@ export const OPERATION_CONFIG = {
   }
 } as const;
 
-// Supplier Options
-export const SUPPLIER_OPTIONS: { value: string; label: string }[] = [
-  { value: 'supplier-1', label: 'ABC Food Supply' },
-  { value: 'supplier-2', label: 'Fresh Market Distributors' },
-  { value: 'supplier-3', label: 'Quality Ingredients Inc.' }
-];
+// Supplier options removed from system
 
 // Adjustment Reason Options  
 export const ADJUSTMENT_REASON_OPTIONS: { value: string; label: string }[] = [

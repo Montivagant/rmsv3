@@ -15,6 +15,7 @@ import { derivePaymentStatus } from '../payments/status';
 import { PaymentModal } from '../components/PaymentModal';
 import { createTaxService, type TaxCalculationResult, type TaxableItem } from '../tax';
 import { printReceipt, type ReceiptData } from '../utils/receipt';
+import { requireReturnPin, getReturnPin, getReturnStage } from '../settings/returns';
 
 // Import new POS components
 import { PageHeader } from '../components/pos/PageHeader';
@@ -23,6 +24,7 @@ import { SearchInput } from '../components/pos/SearchInput';
 import { MenuCard } from '../components/pos/MenuCard';
 import { CartPanel } from '../components/pos/CartPanel';
 import { cn } from '../lib/utils';
+import { useShiftService, getActiveShift } from '../shifts/service';
 
 interface MenuItem {
   id: string;
@@ -67,10 +69,17 @@ function POS() {
   );
   const [taxCalculation, setTaxCalculation] = useState<TaxCalculationResult | null>(null);
   const [showMobileCart, setShowMobileCart] = useState(false);
+  const [orderNotes, setOrderNotes] = useState('');
+  const [isVoiding, setIsVoiding] = useState(false);
+  const [isReturning, setIsReturning] = useState(false);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const currentTicketIdRef = useRef<string | null>(null);
   const toast = useToast();
+  
+  // Shift controls
+  const { startShift, endShift } = useShiftService();
+  const [activeShift, setActiveShiftState] = useState(getActiveShift());
   
   // Tax service instance - memoized to prevent recreation
   const taxService = useMemo(() => createTaxService(store), [store]);
@@ -78,7 +87,7 @@ function POS() {
   const { flags } = useFlags();
   const paymentsEnabled = flags.payments;
   const loyaltyEnabled = flags.loyalty;
-
+  
   // Use a ref to track events length and prevent infinite re-renders
   const eventsLengthRef = useRef(0);
   const [eventsVersion, setEventsVersion] = useState(0);
@@ -191,8 +200,154 @@ function POS() {
     setPaymentStatus('none');
     setIsProcessingPayment(false);
     setShowPaymentModal(false);
+    setOrderNotes('');
+    setIsVoiding(false);
+    setIsReturning(false);
     // Focus search after clearing
     setTimeout(() => searchInputRef.current?.focus(), 100);
+  }
+
+  function checkReturnPinGuard(): boolean {
+    if (!requireReturnPin()) return true;
+    const pin = window.prompt('Enter Return PIN');
+    if (!pin) return false;
+    return pin.trim() === getReturnPin();
+  }
+
+  function isReturnAllowedAtStage(stage: 'before_payment' | 'same_day' | 'anytime_with_approval'): boolean {
+    switch (stage) {
+      case 'before_payment':
+        return paymentStatus === 'none' || paymentStatus === 'failed' || paymentStatus === 'pending';
+      case 'same_day':
+        return true; // simplified check for demo
+      case 'anytime_with_approval':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  function handleVoidOrder() {
+    const stage = getReturnStage();
+    if (stage !== 'before_payment') {
+      toast.show('Void allowed only before payment');
+      return;
+    }
+    if (requireReturnPin() && !checkReturnPinGuard()) {
+      toast.show('Invalid PIN');
+      return;
+    }
+    setIsVoiding(true);
+    try {
+      const ticketId = getTicketId();
+      const idempotencyKey = `ticket:${ticketId}:void`;
+      const payload = {
+        ticketId,
+        reason: orderNotes || 'void',
+        items: cart.map(i => ({ sku: i.id, name: i.name, qty: i.quantity, price: i.price })),
+      } as const;
+      store.append('sale.voided', payload, {
+        key: idempotencyKey,
+        params: payload,
+        aggregate: { id: ticketId, type: 'ticket' }
+      });
+      toast.show('Order voided');
+      handleNewTicket();
+    } finally {
+      setIsVoiding(false);
+    }
+  }
+
+  function handleReturnItems() {
+    const stage = getReturnStage();
+    if (!isReturnAllowedAtStage(stage)) {
+      toast.show('Return not allowed at this stage');
+      return;
+    }
+    if (requireReturnPin() && !checkReturnPinGuard()) {
+      toast.show('Invalid PIN');
+      return;
+    }
+    setIsReturning(true);
+    try {
+      const ticketId = getTicketId();
+      const idempotencyKey = `ticket:${ticketId}:return`;
+      const payload = {
+        ticketId,
+        reason: orderNotes || 'return',
+        items: cart.map(i => ({ sku: i.id, name: i.name, qty: i.quantity, price: i.price })),
+        totals: {
+          subtotal: totals.subtotal,
+          discount: totals.discount,
+          tax: totals.tax,
+          total: totals.total
+        }
+      } as const;
+      store.append('sale.returned', payload, {
+        key: idempotencyKey,
+        params: payload,
+        aggregate: { id: ticketId, type: 'ticket' }
+      });
+      try {
+        const receiptData: ReceiptData = {
+          ticketId,
+          timestamp: new Date().toISOString(),
+          cashier: 'Current User',
+          customer: selectedCustomer ? {
+            name: selectedCustomer.name,
+            email: selectedCustomer.email,
+            phone: selectedCustomer.phone
+          } : undefined,
+          items: cartLines.map((line, index) => ({
+            name: cart[index]?.name || 'Unknown Item',
+            quantity: line.qty,
+            price: line.price,
+            total: line.qty * line.price,
+            taxRate: line.taxRate
+          })),
+          totals: {
+            subtotal: totals.subtotal,
+            discount: totals.discount,
+            tax: totals.tax,
+            total: totals.total
+          },
+          payment: {
+            method: 'return',
+            amount: -Math.abs(totals.total)
+          },
+          store: {
+            name: 'RMS v3 Restaurant'
+          }
+        };
+        printReceipt(receiptData);
+      } catch {}
+      toast.show('Return recorded and receipt printed');
+      handleNewTicket();
+    } finally {
+      setIsReturning(false);
+    }
+  }
+
+  async function handleClockIn() {
+    const pin = window.prompt('Enter your 4-6 digit PIN to start shift');
+    if (!pin) return;
+    const result = await startShift(pin);
+    if (!result.success) {
+      toast.show(result.error || 'Failed to start shift');
+    } else {
+      setActiveShiftState(getActiveShift());
+      toast.show('Shift started');
+    }
+  }
+
+  async function handleClockOut() {
+    const result = await endShift();
+    if (!result.success) {
+      toast.show(result.error || 'Failed to end shift');
+    } else {
+      setActiveShiftState(getActiveShift());
+      toast.show('Shift ended');
+    }
   }
   
   const filteredItems = (menuItems || []).filter(item => {
@@ -255,6 +410,17 @@ function POS() {
     total: baseTotals.total + (taxCalculation?.totalTax || 0)
   };
   
+  // Search customers function
+  const searchCustomers = async (query: string): Promise<Customer[]> => {
+    if (!query || query.length < 2) return [];
+    
+    // Filter customers based on query
+    return (customers || []).filter(customer => {
+      const searchString = `${customer.name} ${customer.email} ${customer.phone}`.toLowerCase();
+      return searchString.includes(query.toLowerCase());
+    });
+  };
+  
   const handleProceedToPayment = () => {
     if (cart.length === 0 || !paymentsEnabled) return;
     setShowPaymentModal(true);
@@ -291,7 +457,8 @@ function POS() {
           tax: totals.tax,
           total: totals.total
         },
-        customerId: selectedCustomer?.id || null
+        customerId: selectedCustomer?.id || null,
+        notes: orderNotes || null
       };
       
       const result = store.append('sale.recorded', payload, {
@@ -350,7 +517,8 @@ function POS() {
           tax: totals.tax,
           total: totals.total
         },
-        customerId: selectedCustomer?.id || null
+        customerId: selectedCustomer?.id || null,
+        notes: orderNotes || null
       };
       
       const result = store.append('sale.recorded', payload, {
@@ -525,6 +693,39 @@ function POS() {
           ]}
           actions={
             <>
+              <div className="mr-2 inline-flex items-center gap-2">
+                {activeShift ? (
+                  <>
+                    <span className="text-xs text-muted-foreground">On shift</span>
+                    <button
+                      onClick={handleClockOut}
+                      className={cn(
+                        "px-3 py-1 rounded-md",
+                        "border border-border",
+                        "bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
+                        "focus:outline-none focus:ring-2 focus:ring-primary",
+                        "transition-all duration-200"
+                      )}
+                    >
+                      Clock Out
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleClockIn}
+                    className={cn(
+                      "px-3 py-1 rounded-md",
+                      "border border-border",
+                      "bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
+                      "focus:outline-none focus:ring-2 focus:ring-primary",
+                      "transition-all duration-200"
+                    )}
+                  >
+                    Clock In
+                  </button>
+                )}
+              </div>
+              {/* existing Manage Menu button remains hidden */}
               {canManageMenu && (
                 <button
                   onClick={() => { /* Hidden until implemented */ }}
@@ -625,7 +826,14 @@ function POS() {
               isProcessing={isProcessingOrder}
               discount={discount}
               onDiscountChange={setDiscount}
+              selectedCustomer={selectedCustomer}
+              onCustomerChange={setSelectedCustomer}
+              searchCustomers={searchCustomers}
+              orderNotes={orderNotes}
+              onOrderNotesChange={setOrderNotes}
               className="h-full rounded-none border-0"
+              onVoidOrder={handleVoidOrder}
+              onReturnItems={handleReturnItems}
             />
           </div>
         </div>
@@ -711,7 +919,14 @@ function POS() {
                 isProcessing={isProcessingOrder}
                 discount={discount}
                 onDiscountChange={setDiscount}
+                selectedCustomer={selectedCustomer}
+                onCustomerChange={setSelectedCustomer}
+                searchCustomers={searchCustomers}
+                orderNotes={orderNotes}
+                onOrderNotesChange={setOrderNotes}
                 className="h-[calc(100%-73px)] rounded-none border-0"
+                onVoidOrder={() => { handleVoidOrder(); setShowMobileCart(false); }}
+                onReturnItems={() => { handleReturnItems(); setShowMobileCart(false); }}
               />
             </div>
           </>

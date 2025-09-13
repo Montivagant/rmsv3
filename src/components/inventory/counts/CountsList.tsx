@@ -168,15 +168,12 @@ export function CountsList({
                   <div className="text-sm font-medium text-text-primary">
                     {count.totals.itemsCountedCount}/{count.totals.totalItemsCount}
                   </div>
-                                      <div className="w-full bg-surface-secondary rounded-full h-2 mt-1">
-                      <div 
-                        className="bg-brand h-2 rounded-full transition-all"
-                        style={{ 
-                          '--progress-width': `${(count.totals.itemsCountedCount / count.totals.totalItemsCount) * 100}%`,
-                          width: 'var(--progress-width)'
-                        } as React.CSSProperties}
-                      />
-                    </div>
+                  <div className="w-full bg-surface-secondary rounded-full h-2 mt-1">
+                    <div 
+                      className="bg-brand h-2 rounded-full transition-all w-[--progress-width]"
+                      style={{ ['--progress-width' as any]: `${(count.totals.itemsCountedCount / count.totals.totalItemsCount) * 100}%` }}
+                    />
+                  </div>
                 </div>
 
                 {/* Variance */}

@@ -9,7 +9,7 @@ import {
   type ItemFormData,
   validateItemForm,
   generateSKU,
-  validateBarcode,
+  validateBarcodeDetailed,
   EAN13_PATTERN,
   UPC_PATTERN,
 } from '../../schemas/itemForm';
@@ -286,62 +286,62 @@ describe('Item Form Validation', () => {
 describe('SKU Generation', () => {
   it('should generate SKU with default prefix', () => {
     const sku = generateSKU('Test Item');
-    expect(sku).toMatch(/^ITM-[A-Z0-9]{3}\d{3}$/);
+    expect(sku).toMatch(/^ITM-[A-Z0-9]{4}\d{4}$/);
   });
 
   it('should generate SKU with custom prefix', () => {
     const sku = generateSKU('Test Item', { prefix: 'PROD' });
-    expect(sku).toMatch(/^PROD-[A-Z0-9]{3}\d{3}$/);
+    expect(sku).toMatch(/^PROD-[A-Z0-9]{4}\d{4}$/);
   });
 
-  it('should use first 3 characters of name', () => {
+  it('should use first 4 characters of name', () => {
     const sku = generateSKU('Tomatoes Fresh Red', { prefix: 'ITM' });
-    expect(sku).toMatch(/^ITM-TOM\d{3}$/);
+    expect(sku).toMatch(/^ITM-TOMA\d{4}$/);
   });
 
   it('should pad short names', () => {
     const sku = generateSKU('AB', { prefix: 'ITM' });
-    expect(sku).toMatch(/^ITM-ABX\d{3}$/);
+    expect(sku).toMatch(/^ITM-ABXX\d{4}$/);
   });
 
   it('should handle names with special characters', () => {
     const sku = generateSKU('Olive Oil (Extra Virgin)', { prefix: 'ITM' });
-    expect(sku).toMatch(/^ITM-OLI\d{3}$/);
+    expect(sku).toMatch(/^ITM-OLIV\d{4}$/);
   });
 
   it('should avoid existing SKUs', () => {
-    const existingSKUs = ['ITM-TOM001', 'ITM-TOM002'];
+    const existingSKUs = ['ITM-TOMA0001', 'ITM-TOMA0002'];
     const sku = generateSKU('Tomatoes', { prefix: 'ITM', existingSKUs });
     
     expect(existingSKUs).not.toContain(sku);
-    expect(sku).toMatch(/^ITM-TOM\d{3}$/);
+    expect(sku).toMatch(/^ITM-TOMA\d{4}$/);
   });
 });
 
 describe('Barcode Validation', () => {
   it('should accept empty barcode', () => {
-    const result = validateBarcode('');
+    const result = validateBarcodeDetailed('');
     expect(result.isValid).toBe(true);
   });
 
   it('should accept valid EAN-13 barcode', () => {
-    const result = validateBarcode('1234567890123');
+    const result = validateBarcodeDetailed('1234567890123');
     expect(result.isValid).toBe(true);
   });
 
   it('should accept valid UPC barcode', () => {
-    const result = validateBarcode('123456789012');
+    const result = validateBarcodeDetailed('123456789012');
     expect(result.isValid).toBe(true);
   });
 
   it('should warn about short barcodes', () => {
-    const result = validateBarcode('1234567');
+    const result = validateBarcodeDetailed('1234567');
     expect(result.isValid).toBe(true);
     expect(result.message).toBe('Barcode seems short. Verify it\'s correct.');
   });
 
   it('should reject overly long barcodes', () => {
-    const result = validateBarcode('A'.repeat(33));
+    const result = validateBarcodeDetailed('A'.repeat(33));
     expect(result.isValid).toBe(false);
     expect(result.message).toBe('Barcode cannot exceed 32 characters');
   });

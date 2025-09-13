@@ -105,14 +105,15 @@ export function PersistenceDebugger() {
             </Button>
             <Button 
               onClick={() => {
-                console.log('All Events:', events);
-                console.log('Sales Events:', salesEvents);
-                if (storageInfo) console.log('Storage Info:', storageInfo);
+                // Safe logging without object serialization issues
+                console.log(`📊 Events count: ${events.length}`);
+                console.log(`💰 Sales events: ${salesEvents.length}`);
+                if (storageInfo) console.log(`💾 Storage keys: ${Object.keys(storageInfo).length}`);
               }}
               className="w-full text-xs"
               variant="outline"
             >
-              📝 Log to Console
+              📝 Log Summary
             </Button>
           </div>
         </CardContent>

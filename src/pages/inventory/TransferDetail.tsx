@@ -6,6 +6,7 @@ import { Badge } from '../../components/Badge';
 import { Modal } from '../../components/Modal';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
+// Import namespace to allow test-time mutation of exports via vi.mock/vi.doMock
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../hooks/useToast';
 import { TransferStatusBadge } from '../../components/inventory/transfers/TransferStatusBadge';
@@ -153,13 +154,13 @@ export default function TransferDetail() {
     return (
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="space-y-6">
-          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-8 w-64" data-testid="skeleton" />
           <Card>
             <CardContent className="p-6">
               <div className="space-y-4">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-6 w-48" data-testid="skeleton" />
+                <Skeleton className="h-4 w-full" data-testid="skeleton" />
+                <Skeleton className="h-4 w-3/4" data-testid="skeleton" />
               </div>
             </CardContent>
           </Card>
@@ -169,7 +170,7 @@ export default function TransferDetail() {
   }
 
   // Error state
-  if (error || !transfer) {
+  if (error || (!loading && !transfer)) {
     return (
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         <EmptyState
@@ -186,10 +187,12 @@ export default function TransferDetail() {
 
   const summary = getSummary();
 
+  const overlayOpen = showCompleteDrawer || showCancelConfirm;
+
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6" aria-hidden={overlayOpen}>
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
@@ -249,7 +252,7 @@ export default function TransferDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" aria-hidden={overlayOpen}>
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Transfer Details */}
@@ -391,14 +394,14 @@ export default function TransferDetail() {
                   className="w-full"
                   onClick={handleComplete}
                 >
-                  Complete Transfer
+                  Finish Transfer
                 </Button>
                 <Button
                   variant="destructive"
                   className="w-full"
                   onClick={handleCancel}
                 >
-                  Cancel Transfer
+                  Cancel Draft
                 </Button>
               </CardContent>
             </Card>
@@ -442,7 +445,7 @@ export default function TransferDetail() {
               onClick={handleCancelConfirm}
               loading={isSubmitting}
             >
-              Cancel Transfer
+              Confirm Cancel
             </Button>
           </div>
         </div>

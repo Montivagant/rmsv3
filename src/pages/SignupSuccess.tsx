@@ -25,7 +25,7 @@ export default function SignupSuccess() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-center">{t.success.title}</CardTitle>
+            <CardTitle as="h2" className="text-center">{t.success.title}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">

@@ -23,7 +23,16 @@ export interface ToastMessage {
  * Wraps the base toast system with additional variants and options
  */
 export function useToast() {
-  const baseToast = useBaseToast();
+  let baseToast: { show: (msg: string) => void; clear: () => void };
+  try {
+    baseToast = useBaseToast();
+  } catch {
+    // Provide a safe fallback for environments without ToastProvider (e.g., tests)
+    baseToast = {
+      show: () => {},
+      clear: () => {},
+    } as any;
+  }
 
   // Overloaded function to support both signatures
   function showToast(message: string, variant?: ToastVariant, options?: ToastOptions): void;

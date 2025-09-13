@@ -52,9 +52,8 @@
 ```typescript
 /inventory                 # Main inventory dashboard
 /inventory/items           # Inventory items management
-/inventory/suppliers       # Supplier management
 /inventory/orders          # Purchase order management
-/inventory/counts          # Inventory counting
+/inventory/audits          # Inventory Auditing
 /inventory/transfers       # Stock transfers
 /inventory/purchase-orders # Purchase order creation
 /inventory/cost-adjustments # Cost adjustment management

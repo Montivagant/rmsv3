@@ -72,13 +72,18 @@ export function useDismissableLayer(options: UseDismissableLayerOptions) {
     onDismiss();
   }, [closeOnRouteChange, onDismiss]);
 
+  const isHandlingRef = useRef(false);
+
   const handleOverlayOpenEvent = useCallback((e: Event) => {
     // Close if another overlay announces opening
     const custom = e as CustomEvent<{ id: string }>;
     const incomingId = custom.detail?.id;
     if (!incomingId) return;
+    if (isHandlingRef.current) return;
     if (incomingId !== overlayIdRef.current && isOpen) {
+      isHandlingRef.current = true;
       onDismiss();
+      queueMicrotask(() => { isHandlingRef.current = false; });
     }
   }, [isOpen, onDismiss]);
 
@@ -110,9 +115,10 @@ export function useDismissableLayer(options: UseDismissableLayerOptions) {
     }
 
     // One-overlay-at-a-time coordination
-    window.addEventListener('overlay:open', handleOverlayOpenEvent as EventListener);
+    const handle = handleOverlayOpenEvent as EventListener;
+    window.addEventListener('overlay:open', handle);
 
-    // Announce opening to others
+    // Announce opening to others once per open
     if (closeOthersOnOpen) {
       const evt = new CustomEvent('overlay:open', { detail: { id: overlayIdRef.current } });
       window.dispatchEvent(evt);
@@ -124,7 +130,7 @@ export function useDismissableLayer(options: UseDismissableLayerOptions) {
       if (closeOnRouteChange) {
         window.removeEventListener('popstate', handleRouteChange);
       }
-      window.removeEventListener('overlay:open', handleOverlayOpenEvent as EventListener);
+      window.removeEventListener('overlay:open', handle);
     };
   }, [
     isOpen,

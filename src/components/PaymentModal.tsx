@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from './index';
+﻿import { useState } from 'react';
+import { Button, Input, Modal } from './index';
 import { formatCurrency } from '../lib/format';
 import type { PlaceholderPaymentProvider, DirectPaymentParams } from '../payments/provider';
 
@@ -26,21 +26,21 @@ const PAYMENT_METHODS: PaymentMethodConfig[] = [
   {
     id: 'card',
     name: 'Credit/Debit Card',
-    icon: '💳',
+    icon: 'ðŸ’³',
     description: 'Pay with your card via secure checkout',
     isDirect: false
   },
   {
     id: 'cash',
     name: 'Cash',
-    icon: '💵',
+    icon: 'ðŸ’µ',
     description: 'Pay with cash in person',
     isDirect: true
   },
   {
     id: 'loyalty',
     name: 'Loyalty Points',
-    icon: '⭐',
+    icon: 'â­',
     description: 'Pay using your loyalty points',
     isDirect: true
   }
@@ -61,8 +61,6 @@ export function PaymentModal({
   const [cashAmount, setCashAmount] = useState(amount.toString());
   const [loyaltyPoints, setLoyaltyPoints] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  if (!isOpen) return null;
 
   const filteredMethods = PAYMENT_METHODS.filter(method => 
     availableMethods.includes(method.id)
@@ -144,22 +142,8 @@ export function PaymentModal({
   const isValid = validatePayment();
 
   return (
-    <div className="modal-backdrop">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Payment - {formatCurrency(amount)}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              disabled={isProcessing}
-            >
-              ✕
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Payment - ${formatCurrency(amount)}`} size="md">
+      <div className="space-y-4">
           {/* Payment Method Selection */}
           <div>
             <label className="block text-sm font-medium mb-2">Payment Method</label>
@@ -229,7 +213,7 @@ export function PaymentModal({
 
           {/* Error Display */}
           {error && (
-            <div className="p-3 bg-error-50 border border-error-100 rounded-lg">
+            <div className="p-3 bg-error-50 border border-error-100 rounded-lg" role="alert" aria-live="polite">
               <p className="text-sm text-error">{error}</p>
             </div>
           )}
@@ -271,10 +255,9 @@ export function PaymentModal({
 
           {/* Dev Info */}
           <div className="text-xs text-tertiary text-center pt-2 border-t border-secondary">
-            🔧 Placeholder Payment Provider
+            Placeholder Payment Provider
           </div>
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+    </Modal>
   );
 }

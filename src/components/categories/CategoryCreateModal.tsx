@@ -62,18 +62,27 @@ export default function CategoryCreateModal({
     }
   }, [errors]);
 
-  // Generate category reference
-  const handleGenerateReference = useCallback(() => {
-    const reference = generateCategoryReference(formData.name, existingReferences);
-    handleFieldChange('reference', reference);
-  }, [formData.name, existingReferences, handleFieldChange]);
-
   // Validate single field
   const validateField = useCallback((field: keyof CategoryFormData, value: any): string | undefined => {
     const testData = { ...formData, [field]: value };
     const { errors: fieldErrors } = validateCategoryForm(testData);
     return fieldErrors[field];
   }, [formData]);
+
+  const handleFieldBlur = useCallback((field: keyof CategoryFormData) => {
+    const message = validateField(field, (formData as any)[field]);
+    if (message) {
+      setErrors(prev => ({ ...prev, [field]: message }));
+    }
+  }, [formData, validateField]);
+
+  // Generate category reference
+  const handleGenerateReference = useCallback(() => {
+    const reference = generateCategoryReference(formData.name, existingReferences);
+    handleFieldChange('reference', reference);
+  }, [formData.name, existingReferences, handleFieldChange]);
+
+  // (moved above)
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -136,8 +145,7 @@ export default function CategoryCreateModal({
   };
 
   // Form validation status - manual validation that actually works
-  const isFormValid = formData.name && formData.name.trim().length >= 2 &&
-                      Object.keys(errors).filter(key => key !== '_form').length === 0;
+  const isFormValid = !!(formData.name && formData.name.trim().length >= 2);
 
   return (
     <Modal
@@ -164,6 +172,7 @@ export default function CategoryCreateModal({
               label={CATEGORY_FIELD_LABELS.name}
               value={formData.name}
               onChange={(e) => handleFieldChange('name', e.target.value)}
+              onBlur={() => handleFieldBlur('name')}
               error={errors.name}
               helpText={CATEGORY_FIELD_HELP_TEXT.name}
               required
@@ -180,6 +189,7 @@ export default function CategoryCreateModal({
               label={CATEGORY_FIELD_LABELS.reference}
               value={formData.reference || ''}
               onChange={(e) => handleFieldChange('reference', e.target.value)}
+              onBlur={() => handleFieldBlur('reference')}
               error={errors.reference}
               helpText={CATEGORY_FIELD_HELP_TEXT.reference}
               disabled={isSubmitting}
@@ -193,6 +203,7 @@ export default function CategoryCreateModal({
                   onClick={handleGenerateReference}
                   disabled={isSubmitting || !formData.name.trim()}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-xs"
+                  aria-label="Generate"
                 >
                   Generate
                 </Button>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Role, getCurrentUser, hasPermission } from './roles';
+import { Role, getCurrentUser, hasPermission, setCurrentUser } from './roles';
 
 interface RoleGuardProps {
   children: ReactNode;
@@ -14,7 +14,6 @@ export function RoleGuard({ children, requiredRole = Role.BUSINESS_OWNER, fallba
   if (!currentUser) {
     // Development mode bypass - auto-login as Business Owner
     if (import.meta.env.DEV) {
-      const { setCurrentUser } = require('./roles');
       const mockUser = {
         id: 'dev-user',
         name: 'Development User',

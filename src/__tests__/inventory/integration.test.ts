@@ -1,11 +1,10 @@
 /**
  * Inventory Integration Test
  * 
- * Tests the integration between inventory items, counts, and count sheets
+ * Tests the integration between inventory items and counts
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CountSheetUtils } from '../../inventory/count-sheets/types';
 import { CountUtils } from '../../inventory/counts/types';
 
 // Mock inventory items
@@ -109,44 +108,6 @@ beforeEach(() => {
       } as Response);
     }
     
-    // Mock count sheets creation
-    if (url === '/api/inventory/count-sheets' && options?.method === 'POST') {
-      const countSheetId = CountSheetUtils.generateCountSheetId();
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({
-          countSheetId,
-          name: 'Test Count Sheet'
-        })
-      } as Response);
-    }
-    
-    // Mock count sheets preview
-    if (url.match(/\/api\/inventory\/count-sheets\/countsheet_.*\/preview/)) {
-      const produceItems = mockItems
-        .filter(item => item.categoryId === 'produce')
-        .map(item => ({
-          itemId: item.id,
-          sku: item.sku,
-          name: item.name,
-          unit: item.uom.base,
-          categoryName: item.categoryId,
-          currentStock: item.levels.current,
-          isActive: item.status === 'active'
-        }));
-      
-      return Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({
-          totalItems: produceItems.length,
-          items: produceItems,
-          page: 1,
-          pageSize: 25,
-          totalPages: 1
-        })
-      } as Response);
-    }
-    
     // Mock inventory count creation
     if (url === '/api/inventory/counts' && options?.method === 'POST') {
       const countId = CountUtils.generateCountId();
@@ -219,92 +180,6 @@ describe('Inventory Integration', () => {
     expect(response.ok).toBe(true);
     expect(data.items).toHaveLength(3);
     expect(data.items[0].name).toBe('Fresh Tomatoes');
-  });
-  
-  // Test count sheets with inventory items
-  it('should create count sheet and preview items', async () => {
-    // 1. Create a count sheet
-    const createResponse = await fetch('/api/inventory/count-sheets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Test Count Sheet',
-        branchScope: { type: 'all' },
-        criteria: {
-          categoryIds: ['produce'],
-          includeZeroStock: true
-        }
-      })
-    });
-    
-    const createData = await createResponse.json();
-    expect(createResponse.ok).toBe(true);
-    expect(createData.countSheetId).toBeDefined();
-    
-    // 2. Get preview of items
-    const previewResponse = await fetch(`/api/inventory/count-sheets/${createData.countSheetId}/preview`);
-    const previewData = await previewResponse.json();
-    
-    expect(previewResponse.ok).toBe(true);
-    expect(previewData.items).toBeDefined();
-    expect(previewData.items.length).toBeGreaterThan(0);
-    
-    // Verify produce items are included
-    const produceItems = previewData.items.filter((item: any) => 
-      item.categoryName === 'Produce' || item.categoryName === 'produce'
-    );
-    expect(produceItems.length).toBeGreaterThan(0);
-  });
-  
-  // Test inventory count creation with count sheet
-  it('should create inventory count from count sheet', async () => {
-    // 1. Create a count sheet
-    const sheetResponse = await fetch('/api/inventory/count-sheets', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Integration Test Sheet',
-        branchScope: { type: 'all' },
-        criteria: {
-          categoryIds: ['produce', 'meat'],
-          includeZeroStock: true
-        }
-      })
-    });
-    
-    const sheetData = await sheetResponse.json();
-    const countSheetId = sheetData.countSheetId;
-    
-    // 2. Create inventory count using the sheet
-    const countResponse = await fetch('/api/inventory/counts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        branchId: 'main-branch',
-        scope: {
-          countSheetId: countSheetId
-        },
-        notes: 'Created from integration test'
-      })
-    });
-    
-    const countData = await countResponse.json();
-    expect(countResponse.ok).toBe(true);
-    expect(countData.countId).toBeDefined();
-    
-    // 3. Get count details to verify items were included
-    const countDetailsResponse = await fetch(`/api/inventory/counts/${countData.countId}`);
-    const countDetails = await countDetailsResponse.json();
-    
-    expect(countDetailsResponse.ok).toBe(true);
-    expect(countDetails.items).toBeDefined();
-    expect(countDetails.items.length).toBeGreaterThan(0);
-  });
-  
-  // Test count sheet utilities
-  it('should correctly generate count sheet ID', () => {
-    const id = CountSheetUtils.generateCountSheetId();
-    expect(id).toMatch(/^countsheet_\d+_[a-z0-9]{3,}$/);
   });
   
   // Test count utilities

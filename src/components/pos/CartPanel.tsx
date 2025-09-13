@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn, formatCurrency, truncate } from '../../lib/utils';
 import { QtyStepper } from './QtyStepper';
+import { CustomerAutoComplete, type Customer } from '../ui/AutoComplete';
 
 interface CartItem {
   id: string;
@@ -27,7 +28,14 @@ interface CartPanelProps {
   isProcessing?: boolean;
   discount?: number;
   onDiscountChange?: (discount: number) => void;
+  selectedCustomer?: Customer | null;
+  onCustomerChange?: (customer: Customer | null) => void;
+  searchCustomers?: (query: string) => Promise<Customer[]>;
+  orderNotes?: string;
+  onOrderNotesChange?: (notes: string) => void;
   className?: string;
+  onVoidOrder?: () => void;
+  onReturnItems?: () => void;
 }
 
 export function CartPanel({
@@ -40,10 +48,18 @@ export function CartPanel({
   isProcessing = false,
   discount = 0,
   onDiscountChange,
+  selectedCustomer,
+  onCustomerChange,
+  searchCustomers,
+  orderNotes = '',
+  onOrderNotesChange,
   className,
+  onVoidOrder,
+  onReturnItems,
 }: CartPanelProps) {
   const isEmpty = items.length === 0;
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const [showNotesField, setShowNotesField] = useState(false);
 
   return (
     <aside
@@ -67,6 +83,94 @@ export function CartPanel({
           )}
         </div>
       </header>
+
+      {/* Customer Selection and Order Options */}
+      {!isEmpty && (searchCustomers || onOrderNotesChange) && (
+        <div className="px-6 py-4 border-b border-border space-y-4">
+          {/* Customer Selection */}
+          {searchCustomers && onCustomerChange && (
+            <div>
+              <CustomerAutoComplete
+                name="customer"
+                label="Customer (Optional)"
+                value={selectedCustomer?.id || ''}
+                onChange={(value, customer) => onCustomerChange(customer || null)}
+                searchCustomers={searchCustomers}
+                placeholder="Search for customer..."
+                helpText={null}
+                className="w-full"
+              />
+              {selectedCustomer && (
+                <div className="mt-2 p-2 bg-accent/10 rounded-md">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm">
+                      <p className="font-medium">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
+                      {selectedCustomer.loyaltyPoints > 0 && (
+                        <p className="text-muted-foreground">Points: {selectedCustomer.loyaltyPoints}</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => onCustomerChange(null)}
+                      className="text-sm text-muted-foreground hover:text-destructive"
+                      aria-label="Remove customer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Order Notes */}
+          {onOrderNotesChange && (
+            <div>
+              <button
+                onClick={() => setShowNotesField(!showNotesField)}
+                className={cn(
+                  "flex items-center gap-2 text-sm",
+                  "text-muted-foreground hover:text-foreground",
+                  "transition-colors"
+                )}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                {showNotesField ? 'Hide Notes' : 'Add Notes'}
+                {orderNotes && !showNotesField && (
+                  <span className="text-primary">•</span>
+                )}
+              </button>
+              {showNotesField && (
+                <textarea
+                  value={orderNotes}
+                  onChange={(e) => onOrderNotesChange(e.target.value)}
+                  placeholder="Special instructions, dietary requirements, etc."
+                  className={cn(
+                    "mt-2 w-full px-3 py-2",
+                    "rounded-md border border-border",
+                    "bg-background text-foreground",
+                    "placeholder:text-muted-foreground",
+                    "focus:outline-none focus:ring-2 focus:ring-primary",
+                    "resize-none"
+                  )}
+                  rows={3}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Cart Items */}
       <div className="flex-1 overflow-y-auto">
@@ -262,6 +366,44 @@ export function CartPanel({
                 'Place Order'
               )}
             </button>
+
+            {/* Void / Return actions */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={onVoidOrder}
+                disabled={!onVoidOrder}
+                className={cn(
+                  "w-full py-2 px-4",
+                  "rounded-lg font-medium",
+                  "border border-border",
+                  "bg-background text-muted-foreground",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                  "transition-all duration-200",
+                  !onVoidOrder && 'opacity-50 cursor-not-allowed'
+                )}
+                aria-disabled={!onVoidOrder}
+              >
+                Void
+              </button>
+              <button
+                onClick={onReturnItems}
+                disabled={!onReturnItems}
+                className={cn(
+                  "w-full py-2 px-4",
+                  "rounded-lg font-medium",
+                  "border border-border",
+                  "bg-background text-muted-foreground",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                  "transition-all duration-200",
+                  !onReturnItems && 'opacity-50 cursor-not-allowed'
+                )}
+                aria-disabled={!onReturnItems}
+              >
+                Return
+              </button>
+            </div>
 
             <button
               onClick={onClearCart}

@@ -16,11 +16,11 @@
     "test:coverage": "vitest --coverage",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lighthouse": "lhci autorun",
-    "analyze": "npm-bundle-analyzer dist/assets/*.js",
+    "analyze": "vite-bundle-analyzer ./dist",
     "security:scan": "npm audit --audit-level moderate",
     "quality:check": "npm run typecheck && npm run lint && npm run test:coverage && npm run security:scan",
-    "style:scan": "rg -n --glob 'src/**/*.{ts,tsx,jsx}' --stats -e 'style=\\{\\{' -e 'text-(white|gray|slate|neutral)' -e 'bg-(white|black|gray|blue|slate|neutral)'",
-    "style:check": "pnpm -s style:scan && echo 'If matches found above, replace with tokens'",
+    "style:scan": "node scripts/style-scan.mjs",
+    "style:check": "pnpm -s style:scan && echo If matches found above, replace with tokens",
     "electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron electron/main.cjs",
     "electron:dev": "concurrently \"pnpm dev\" \"pnpm electron\"",
     "electron:build": "pnpm build && electron-builder",
@@ -73,7 +73,6 @@
     "jest-axe": "^10.0.0",
     "jsdom": "^26.1.0",
     "msw": "^2.10.5",
-    "npm-bundle-analyzer": "^0.2.0",
     "postcss": "^8.5.6",
     "pouchdb-adapter-memory": "^9.0.0",
     "snyk": "^1.1293.1",
@@ -83,12 +82,25 @@
     "vite": "^7.1.4",
     "vite-bundle-analyzer": "^0.18.0",
     "vite-plugin-pwa": "^1.0.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.4"
   },
   "msw": {
     "workerDirectory": [
       "public"
     ]
+  },
+  "vitest": {
+    "coverage": {
+      "provider": "v8"
+    },
+    "server": {
+      "deps": {
+        "inline": [
+          "msw"
+        ]
+      }
+    }
   },
   "build": {
     "appId": "com.rmsv3.pos",

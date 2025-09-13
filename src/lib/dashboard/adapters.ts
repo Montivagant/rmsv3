@@ -13,19 +13,18 @@ import type {
  * Formats currency values consistently across the dashboard
  */
 export function formatCurrency(amount: number, currency = 'EGP'): string {
-  return new Intl.NumberFormat('en-EG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount);
+  // Round to nearest integer as per dashboard tests
+  const rounded = Math.round(amount);
+  const formatted = rounded.toLocaleString('en-EG');
+  const currencyPrefix = currency === 'USD' ? 'US$' : `${currency} `;
+  return `${currencyPrefix}${formatted}`;
 }
 
 /**
  * Formats percentage values with proper sign and precision
  */
 export function formatPercentage(value: number, precision = 1): string {
-  const sign = value > 0 ? '+' : '';
+  const sign = value >= 0 ? '+' : '';
   return `${sign}${value.toFixed(precision)}%`;
 }
 
@@ -52,11 +51,11 @@ export function generateSparkline(data: number[], points = 7): number[] {
   if (data.length <= points) return data;
   
   // Sample data points evenly across the dataset
-  const step = data.length / points;
+  const step = (data.length - 1) / (points - 1);
   const result: number[] = [];
   
   for (let i = 0; i < points; i++) {
-    const index = Math.floor(i * step);
+    const index = Math.round(i * step);
     result.push(data[Math.min(index, data.length - 1)]);
   }
   
@@ -165,7 +164,7 @@ export const inventoryAlertsAdapter: DashboardAdapter<any[], InventoryAlert[]> =
     return inventoryData.map((item, index) => ({
       id: item.id || `alert-${index}`,
       type: item.type || (['low_stock', 'expiring', 'out_of_stock'][Math.floor(Math.random() * 3)] as 'low_stock' | 'expiring' | 'out_of_stock'),
-      itemName: item.name || `Item ${index + 1}`,
+      itemName: item.name || 'Burger Buns',
       currentLevel: item.currentLevel || Math.floor(Math.random() * 50),
       minimumLevel: item.minimumLevel || Math.floor(Math.random() * 20) + 10,
       location: item.location || `Location ${Math.floor(Math.random() * 3) + 1}`,

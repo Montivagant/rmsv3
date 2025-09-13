@@ -279,8 +279,8 @@ export function ProgressBar({
       </div>
       <div className="w-full bg-surface-secondary rounded-full h-2">
         <div
-          className={`h-2 rounded-full transition-all duration-300 ease-out ${variantClasses[variant]}`}
-          style={{ '--progress-width': `${percentage}%`, width: 'var(--progress-width)' } as React.CSSProperties}
+          className={`h-2 rounded-full transition-all duration-300 ease-out ${variantClasses[variant]} w-[--progress-width]`}
+          style={{ ['--progress-width' as any]: `${percentage}%` }}
         />
       </div>
     </div>

@@ -79,18 +79,7 @@ export function TransfersList({
     );
   }
 
-  if (data.length === 0 && !Object.keys(filters).length && !searchQuery) {
-    return (
-      <EmptyState
-        title="No transfers found"
-        description="Create your first transfer to move inventory between branches."
-        action={onCreateTransfer ? {
-          label: "Create Transfer",
-          onClick: onCreateTransfer
-        } : undefined}
-      />
-    );
-  }
+  const showGlobalEmpty = data.length === 0 && !Object.keys(filters).length && !searchQuery;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -114,7 +103,7 @@ export function TransfersList({
           >
             <option value="">All Sources</option>
             {(locations || []).map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
+              <option key={loc.id} value={loc.id}>{`${loc.name} (${loc.type})`}</option>
             ))}
           </Select>
 
@@ -125,11 +114,24 @@ export function TransfersList({
           >
             <option value="">All Destinations</option>
             {(locations || []).map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
+              <option key={loc.id} value={loc.id}>{`${loc.name} (${loc.type})`}</option>
             ))}
           </Select>
         </div>
       </div>
+
+      {showGlobalEmpty && (
+        <div className="mt-6">
+          <EmptyState
+            title="No transfers found"
+            description="Create your first transfer to move inventory between branches."
+            action={onCreateTransfer ? {
+              label: 'Create Transfer',
+              onClick: onCreateTransfer,
+            } : undefined}
+          />
+        </div>
+      )}
 
       {/* Transfers Table */}
       <div className="bg-surface rounded-lg border border-border overflow-hidden">
@@ -198,6 +200,7 @@ export function TransfersList({
                           variant="ghost"
                           size="sm"
                           className="h-8 w-8 p-0"
+                          aria-label="More actions"
                         >
                           <span className="sr-only">Open menu</span>
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -302,13 +305,14 @@ export function TransfersList({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-text-muted">
-              Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, total)} of {total} transfers
+              Showing {((page - 1) * pageSize) + 1} to {Math.min(((page - 1) * pageSize) + data.length, total)} of {total} transfers
             </span>
             
             <Select
               value={pageSize.toString()}
               onChange={(e) => onPageSizeChange(parseInt(e.target.value))}
               className="w-20"
+              label="Show"
             >
               <option value="10">10</option>
               <option value="25">25</option>

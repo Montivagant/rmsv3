@@ -78,8 +78,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts', './vitest.setup.ts'],
     testTimeout: 15000,
-    deps: {
-      inline: ['msw']
+    server: {
+      deps: {
+        inline: ['msw']
+      }
     },
     typecheck: {
       tsconfig: './tsconfig.vitest.json'

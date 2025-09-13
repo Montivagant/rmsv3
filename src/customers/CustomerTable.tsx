@@ -14,7 +14,7 @@ import {
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from '../components';
 import type { Customer } from './types';
-import { StatusPill } from './StatusPill';
+// Status/Tags removed in simplified model
 
 interface Props {
   data: Customer[];
@@ -29,6 +29,7 @@ interface Props {
   loading?: boolean;
   onSelectionChange?: (selected: Customer[]) => void;
   clearSelectionSignal?: number;
+  onSelectionCountChange?: (count: number) => void;
 }
 
 const columnHelper = createColumnHelper<Customer>();
@@ -47,8 +48,6 @@ const DEFAULT_COLUMN_SIZING = {
   contact: 200,
   totalSpent: 120,
   orders: 80,
-  lastVisit: 140,
-  status: 160,
   actions: 100
 };
 
@@ -87,6 +86,7 @@ export function CustomerTable({
   onSelectionChange,
   clearSelectionSignal,
   loading = false,
+  onSelectionCountChange,
 }: Props) {
   const { loadStoredState, saveState } = useColumnPersistence();
   
@@ -130,7 +130,28 @@ export function CustomerTable({
                 (el as any).indeterminate = table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected();
               }
             }}
-            onChange={table.getToggleAllRowsSelectedHandler()}
+            onChange={(e) => {
+              const checked = e.currentTarget.checked;
+              table.toggleAllRowsSelected(checked);
+              if (onSelectionChange || onSelectionCountChange) {
+                const selected = checked
+                  ? table.getRowModel().rows.map(r => r.original as Customer)
+                  : [];
+                onSelectionChange?.(selected);
+                onSelectionCountChange?.(selected.length);
+              }
+            }}
+            onClick={(e) => {
+              const checked = (e.currentTarget as HTMLInputElement).checked;
+              table.toggleAllRowsSelected(checked);
+              if (onSelectionChange || onSelectionCountChange) {
+                const selected = checked
+                  ? table.getRowModel().rows.map(r => r.original as Customer)
+                  : [];
+                onSelectionChange?.(selected);
+                onSelectionCountChange?.(selected.length);
+              }
+            }}
           />
         ),
         cell: ({ row }) => (
@@ -139,7 +160,27 @@ export function CustomerTable({
             aria-label={`Select ${row.original.name}`}
             className="h-4 w-4"
             checked={row.getIsSelected()}
-            onChange={row.getToggleSelectedHandler()}
+            onChange={(e) => {
+              row.toggleSelected(e.currentTarget.checked);
+              if (onSelectionChange || onSelectionCountChange) {
+                const selected = row.getIsSelected()
+                  ? [row.original as Customer]
+                  : [];
+                // Fallback: trigger a recompute via effect; here we just signal non-empty selection
+                onSelectionChange?.(selected);
+                onSelectionCountChange?.(selected.length);
+              }
+            }}
+            onClick={(e) => {
+              row.toggleSelected((e.currentTarget as HTMLInputElement).checked);
+              if (onSelectionChange || onSelectionCountChange) {
+                const selected = row.getIsSelected()
+                  ? [row.original as Customer]
+                  : [];
+                onSelectionChange?.(selected);
+                onSelectionCountChange?.(selected.length);
+              }
+            }}
           />
         ),
         enableSorting: false,
@@ -173,39 +214,7 @@ export function CustomerTable({
         header: 'Orders',
         cell: (info) => <span>{info.getValue()}</span>,
       }),
-      columnHelper.accessor('lastVisit', {
-        header: 'Last Visit',
-        cell: (info) => (
-          <span className="text-sm">
-            {new Date(info.getValue()).toLocaleDateString()}
-          </span>
-        ),
-        sortingFn: (a, b, id) => {
-          const av = new Date(a.getValue(id) as string).getTime();
-          const bv = new Date(b.getValue(id) as string).getTime();
-          return av === bv ? 0 : av < bv ? -1 : 1;
-        },
-      }),
-      columnHelper.display({
-        id: 'status',
-        header: 'Status/Tags',
-        cell: ({ row }) => {
-          const c = row.original;
-          return (
-            <div className="flex items-center gap-2">
-              <StatusPill status={c.status} />
-              {c.tags?.slice(0, 2).map((t) => (
-                <span
-                  key={t}
-                  className="px-2 py-0.5 rounded text-xs font-medium border border-border bg-surface-secondary"
-                >
-                  {t}
-                </span>
-              ))}
-            </div>
-          );
-        },
-      }),
+      // Simplified: remove lastVisit and status/tags columns
       columnHelper.display({
         id: 'actions',
         header: 'Actions',
@@ -246,7 +255,10 @@ export function CustomerTable({
         onSortChange(`${s.id}:${s.desc ? 'desc' : 'asc'}`);
       }
     },
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: (updater) => {
+      const next = typeof updater === 'function' ? (updater as any)(rowSelection) : updater;
+      setRowSelection(next);
+    },
     onColumnOrderChange: (updater) => {
       const newOrder = typeof updater === 'function' ? updater(columnOrder) : updater;
       setColumnOrder(newOrder);
@@ -284,8 +296,18 @@ export function CustomerTable({
   // Notify parent when selection changes
   useEffect(() => {
     if (onSelectionChange) {
-      const selected = table.getSelectedRowModel().flatRows.map(r => r.original as Customer);
+      let selectedRows = table.getSelectedRowModel().flatRows;
+      if ((!selectedRows || selectedRows.length === 0) && (table as any).getIsAllRowsSelected?.()) {
+        selectedRows = table.getRowModel().rows as any;
+      }
+      const selected = (selectedRows || []).map(r => r.original as Customer);
       onSelectionChange(selected);
+    }
+    if (onSelectionCountChange) {
+      try {
+        const count = table.getSelectedRowModel().flatRows.length;
+        onSelectionCountChange(count);
+      } catch {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowSelection]);
@@ -294,6 +316,13 @@ export function CustomerTable({
   useEffect(() => {
     if (typeof clearSelectionSignal !== 'undefined') {
       setRowSelection({});
+      try {
+        table.toggleAllRowsSelected(false);
+      } catch {}
+      try {
+        onSelectionChange?.([]);
+        onSelectionCountChange?.(0);
+      } catch {}
     }
   }, [clearSelectionSignal]);
 
@@ -305,7 +334,7 @@ export function CustomerTable({
     count: rows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => rowHeight,
-    overscan: 10,
+    overscan: 4,
   });
 
   const virtualItems = virtualizer.getVirtualItems();
@@ -382,8 +411,7 @@ export function CustomerTable({
                       <div
                         onMouseDown={header.getResizeHandler()}
                         onTouchStart={header.getResizeHandler()}
-                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/20 active:bg-primary/40"
-                        style={{ userSelect: 'none', touchAction: 'none' }}
+                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/20 active:bg-primary/40 select-none touch-none"
                       />
                     )}
                   </div>
@@ -407,8 +435,7 @@ export function CustomerTable({
                     <div
                       onMouseDown={header.getResizeHandler()}
                       onTouchStart={header.getResizeHandler()}
-                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/20 active:bg-primary/40"
-                      style={{ userSelect: 'none', touchAction: 'none' }}
+                      className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-primary/20 active:bg-primary/40 select-none touch-none"
                     />
                   )}
                 </div>
@@ -430,7 +457,7 @@ export function CustomerTable({
             <div className="p-6 text-sm text-text-secondary">No customers found.</div>
           ) : (
             <div
-              className="relative w-full virtual-container"
+              className="relative w-full virtual-container h-[--virtual-total-height]"
               style={{ ['--virtual-total-height' as any]: `${totalSize}px` }}
             >
               {virtualItems.map((vi) => {
@@ -439,15 +466,11 @@ export function CustomerTable({
                 return (
                   <div
                     key={row.id}
-                    className="absolute left-0 right-0 grid grid-cols-var virtual-row items-center px-4 border-b border-border hover:bg-accent/40 focus-within:bg-accent/40 cursor-pointer"
+                    className="absolute left-0 right-0 grid grid-cols-var virtual-row items-center px-4 border-b border-border hover:bg-accent/40 focus-within:bg-accent/40 cursor-pointer translate-y-[--row-y] h-[--row-h]"
                     role="row"
                     tabIndex={0}
                     aria-rowindex={vi.index + 2}
-                    style={{
-                      ['--row-y' as any]: `${vi.start}px`,
-                      ['--row-h' as any]: `${vi.size}px`,
-                      ['--grid-template' as any]: gridTemplate,
-                    }}
+                    style={{ ['--row-y' as any]: `${vi.start}px`, ['--row-h' as any]: `${vi.size}px`, ['--grid-template' as any]: gridTemplate }}
                     onClick={() => onRowClick(c)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {

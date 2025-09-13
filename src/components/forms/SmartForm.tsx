@@ -76,7 +76,8 @@ export function SmartForm({
     setFieldValue,
     validateField,
     validateForm,
-    getFieldState
+    getFieldState,
+    addFieldRules
   } = useFormValidation(initialValues, {
     validateOnChange: true,
     validateOnBlur: true,
@@ -138,15 +139,14 @@ export function SmartForm({
     }
   }, [autoSave, autoSaveKey, initialValues]);
 
-  // Set up validation rules from field definitions
+  // Register validation rules centrally so submit/blur validations work consistently
   useEffect(() => {
     fields.forEach(field => {
       if (field.validationRules && field.validationRules.length > 0) {
-        // Rules are handled by the useFormValidation hook and ValidatedInput components
-        // No need to set them up here as they're passed directly to components
+        addFieldRules(field.name, field.validationRules)
       }
-    });
-  }, [fields]);
+    })
+  }, [fields, addFieldRules])
 
   // Handle field value change
   const handleFieldChange = (fieldName: string, value: any) => {

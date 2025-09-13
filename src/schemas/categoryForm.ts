@@ -9,7 +9,7 @@ export const categoryFormSchema = z.object({
   
   reference: z.string()
     .transform(val => val?.trim() || '')
-    .refine(val => val === '' || (val.length >= 1 && val.length <= 24), 'Reference must be 1-24 characters if provided')
+    .refine(val => val === '' || (val.length >= 1 && val.length <= 24), 'Reference cannot exceed 24 characters')
     .refine(val => val === '' || /^[A-Z0-9_-]+$/i.test(val), 'Reference can only contain letters, numbers, underscores, and hyphens (no spaces)')
     .transform(val => val.toUpperCase())
 });

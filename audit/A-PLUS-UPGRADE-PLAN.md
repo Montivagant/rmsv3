@@ -22,6 +22,13 @@ Based on current research, A+ quality requires:
 
 ## **📋 A+ ENHANCEMENT ROADMAP**
 
+### Upcoming Tasks (Requested)
+
+- Dynamic RBAC: allow custom roles, per-feature toggles, and scoped access; add UI to assign users to roles and define scope (branch/location).
+- POS and KDS discoverability: expose POS and KDS in admin navigation and ensure role-guarded access works; audit both screens for production readiness.
+- Inventory Audit enhancements: finalize snapshot-based audit and movement reporting; add a dedicated movements panel on submit confirmation.
+- Supplier feature removal: verify all remaining supplier references are purged from UI, mocks, and constants; keep any internal types only if strictly needed by history data.
+
 ### **🔴 CRITICAL for A+ (High Impact)**
 
 #### 1. Security Testing Suite ⚡ **NEW STANDARD**

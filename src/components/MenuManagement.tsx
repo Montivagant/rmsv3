@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Menu Management Component
  * 
  * Comprehensive CRUD operations for menu items including:
@@ -307,7 +307,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
   if (error) {
     return (
       <div className={`text-center py-8 ${className}`}>
-        <p className="text-red-600 dark:text-red-400">Error loading menu items: {error}</p>
+        <p className="text-error-600 text-error-600">Error loading menu items: {error}</p>
         <Button onClick={refetch} className="mt-4">Retry</Button>
       </div>
     );
@@ -400,7 +400,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="text-text-tertiary text-4xl">🍽️</div>
+                <div className="text-text-tertiary text-4xl">ðŸ½ï¸</div>
               )}
             </div>
             <CardHeader className="pb-2">
@@ -448,7 +448,7 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
       {/* Empty State */}
       {filteredItems.length === 0 && !loading && (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">🍽️</div>
+          <div className="text-6xl mb-4">ðŸ½ï¸</div>
           <h3 className="text-xl font-semibold text-foreground mb-2">
             {searchTerm || selectedCategory !== 'All' ? 'No items found' : 'No menu items yet'}
           </h3>
@@ -505,3 +505,5 @@ export function MenuManagement({ onItemUpdated, className = '' }: MenuManagement
     </div>
   );
 }
+
+

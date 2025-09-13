@@ -1,5 +1,5 @@
-import { forwardRef, type ReactNode } from 'react';
-import { cn } from '../utils/cn';
+﻿import { forwardRef, type ReactNode } from 'react';
+import { cn } from '../lib/utils';
 
 interface FormFieldProps {
   children: ReactNode;

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Auto-Complete Components
  * Smart input components with fuzzy search, keyboard navigation, and caching
  */
@@ -563,7 +563,7 @@ export const SKUAutoComplete: React.FC<SKUAutoCompleteProps> = ({
             {option.category}
           </span>
           {option.metadata?.inStock === false && (
-            <span className="text-xs text-red-500 mt-1">Out of Stock</span>
+            <span className="text-xs text-error-600 mt-1">Out of Stock</span>
           )}
         </div>
       </div>
@@ -654,3 +654,4 @@ export default {
   useAutoComplete,
   fuzzySearch
 }
+
