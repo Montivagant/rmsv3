@@ -3,42 +3,25 @@
  * Create and manage modifier groups for menu customization
  */
 
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '../../components/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
+import { Card, CardContent } from '../../components/Card';
 import { Input } from '../../components/Input';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import { DropdownMenu, DropdownMenuItem } from '../../components/DropdownMenu';
-import { useApi } from '../../hooks/useApi';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
 import { useToast } from '../../hooks/useToast';
 import { cn } from '../../lib/utils';
 import ModifierGroupModal from '../../components/menu/ModifierGroupModal';
-import { menuModifiersApi } from '../../menu/modifiers/api';
+import { 
+  listModifierGroups, 
+  deleteModifierGroup,
+  type ModifierGroup 
+} from '../../menu/modifiers/repository';
 
-interface ModifierOption {
-  id: string;
-  name: string;
-  priceAdjustment: number; // +$1.50, -$0.50, etc.
-  isDefault?: boolean;
-  isActive: boolean;
-}
-
-interface ModifierGroup {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'single' | 'multiple'; // Single selection or multiple
-  isRequired: boolean;
-  minSelections: number;
-  maxSelections: number;
-  displayOrder: number;
-  isActive: boolean;
-  options: ModifierOption[];
-  createdAt: string;
-  updatedAt: string;
-}
+// Interfaces now imported from repository
 
 export default function Modifiers() {
   const { showToast } = useToast();
@@ -49,8 +32,13 @@ export default function Modifiers() {
   const [selectedGroup, setSelectedGroup] = useState<ModifierGroup | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // API call - mock endpoint for now
-  const { data: modifierGroups = [], loading, error, refetch } = useApi<ModifierGroup[]>('/api/menu/modifiers');
+  // Repository data loading
+  const { data: modifierGroups = [], loading, error, refetch } = useRepository(listModifierGroups, []);
+  
+  // Repository mutations
+  const deleteGroupMutation = useRepositoryMutation(
+    ({ id, reason }: { id: string; reason?: string }) => deleteModifierGroup(id, reason)
+  );
 
   // Filter groups by search term (with null safety)
   const filteredGroups = (modifierGroups || []).filter(group =>
@@ -95,7 +83,7 @@ export default function Modifiers() {
     }
 
     try {
-      await menuModifiersApi.delete(group.id);
+      await deleteGroupMutation.mutate({ id: group.id, reason: 'Deleted by user' });
 
       refetch();
       showToast({
@@ -110,7 +98,7 @@ export default function Modifiers() {
         variant: 'error'
       });
     }
-  }, [refetch, showToast]);
+  }, [refetch, showToast, deleteGroupMutation]);
 
   // Loading state
   if (loading && (!modifierGroups || modifierGroups.length === 0)) {
@@ -215,7 +203,7 @@ export default function Modifiers() {
                       </p>
                     )}
                     <div className="flex items-center gap-2 text-sm text-text-secondary">
-                      <Badge variant={group.type === 'single' ? 'secondary' : 'info'} size="sm">
+                      <Badge variant={group.type === 'single' ? 'secondary' : 'primary'} size="sm">
                         {group.type === 'single' ? 'Single Choice' : 'Multiple Choice'}
                       </Badge>
                       {group.isRequired && (

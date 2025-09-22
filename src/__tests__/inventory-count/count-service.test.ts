@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InventoryCountService } from '../../inventory/counts/service';
 import { CountUtils } from '../../inventory/counts/types';
 import type { 
-  CreateCountRequest, 
   CountItem, 
   InventoryCount 
 } from '../../inventory/counts/types';
@@ -13,6 +12,7 @@ const mockEventStore: EventStore = {
   append: vi.fn(),
   query: vi.fn(),
   getAll: vi.fn(),
+  getEventsForAggregate: vi.fn(),
   reset: vi.fn()
 };
 
@@ -155,6 +155,8 @@ describe('InventoryCountService', () => {
           snapshotAvgCost: 5.00,
           snapshotTimestamp: '2024-01-01T00:00:00Z',
           countedQty: 95,
+          auditedQty: 95,
+          hasDiscrepancy: false,
           isActive: true
         };
 
@@ -177,6 +179,8 @@ describe('InventoryCountService', () => {
           snapshotAvgCost: 5.00,
           snapshotTimestamp: '2024-01-01T00:00:00Z',
           countedQty: 80, // 20% variance
+          auditedQty: 80,
+          hasDiscrepancy: true,
           isActive: true
         };
 
@@ -199,6 +203,8 @@ describe('InventoryCountService', () => {
           snapshotAvgCost: 5.00,
           snapshotTimestamp: '2024-01-01T00:00:00Z',
           countedQty: null,
+          auditedQty: null,
+          hasDiscrepancy: false,
           isActive: true
         };
 
@@ -217,19 +223,19 @@ describe('InventoryCountService', () => {
           {
             id: '1', itemId: 'item1', sku: 'TEST001', name: 'Item 1', unit: 'pieces',
             snapshotQty: 100, snapshotAvgCost: 5.00, snapshotTimestamp: '2024-01-01T00:00:00Z',
-            countedQty: 95, varianceQty: -5, varianceValue: -25.00, variancePercentage: -5,
+            countedQty: 95, auditedQty: 95, varianceQty: -5, varianceValue: -25.00, variancePercentage: -5,
             isActive: true, hasDiscrepancy: false
           },
           {
             id: '2', itemId: 'item2', sku: 'TEST002', name: 'Item 2', unit: 'kg',
             snapshotQty: 50, snapshotAvgCost: 10.00, snapshotTimestamp: '2024-01-01T00:00:00Z',
-            countedQty: 55, varianceQty: 5, varianceValue: 50.00, variancePercentage: 10,
+            countedQty: 55, auditedQty: 55, varianceQty: 5, varianceValue: 50.00, variancePercentage: 10,
             isActive: true, hasDiscrepancy: false
           },
           {
             id: '3', itemId: 'item3', sku: 'TEST003', name: 'Item 3', unit: 'pieces',
             snapshotQty: 75, snapshotAvgCost: 2.00, snapshotTimestamp: '2024-01-01T00:00:00Z',
-            countedQty: null, varianceQty: 0, varianceValue: 0, variancePercentage: 0,
+            countedQty: null, auditedQty: null, varianceQty: 0, varianceValue: 0, variancePercentage: 0,
             isActive: true, hasDiscrepancy: false
           }
         ];
@@ -269,13 +275,13 @@ describe('InventoryCountService', () => {
           {
             id: '1', itemId: 'item1', sku: 'TEST001', name: 'Item 1', unit: 'pieces',
             snapshotQty: 100, snapshotAvgCost: 5.00, snapshotTimestamp: '2024-01-01T00:00:00Z',
-            countedQty: 95, varianceQty: -5, varianceValue: -25.00, variancePercentage: -5,
+            countedQty: 95, auditedQty: 95, varianceQty: -5, varianceValue: -25.00, variancePercentage: -5,
             isActive: true, hasDiscrepancy: false
           },
           {
             id: '2', itemId: 'item2', sku: 'TEST002', name: 'Item 2', unit: 'kg',
             snapshotQty: 50, snapshotAvgCost: 10.00, snapshotTimestamp: '2024-01-01T00:00:00Z',
-            countedQty: 55, varianceQty: 5, varianceValue: 50.00, variancePercentage: 10,
+            countedQty: 55, auditedQty: 55, varianceQty: 5, varianceValue: 50.00, variancePercentage: 10,
             isActive: true, hasDiscrepancy: false
           }
         ];
@@ -309,7 +315,7 @@ describe('InventoryCountService', () => {
           {
             id: '1', itemId: 'item1', sku: 'TEST001', name: 'Item 1', unit: 'pieces',
             snapshotQty: 100, snapshotAvgCost: 5.00, snapshotTimestamp: '2024-01-01T00:00:00Z',
-            countedQty: null, varianceQty: 0, varianceValue: 0, variancePercentage: 0,
+            countedQty: null, auditedQty: null, varianceQty: 0, varianceValue: 0, variancePercentage: 0,
             isActive: true, hasDiscrepancy: false
           }
         ];
@@ -370,7 +376,7 @@ describe('InventoryCountService', () => {
           {
             id: '1', itemId: 'item1', sku: 'TEST001', name: 'Item 1', unit: 'pieces',
             snapshotQty: 100, snapshotAvgCost: 5.00, snapshotTimestamp: '2024-01-01T00:00:00Z',
-            countedQty: 75, varianceQty: -25, varianceValue: -125.00, variancePercentage: -25, // 25% variance
+            countedQty: 75, auditedQty: 75, varianceQty: -25, varianceValue: -125.00, variancePercentage: -25, // 25% variance
             isActive: true, hasDiscrepancy: true
           }
         ];
@@ -395,6 +401,8 @@ describe('InventoryCountService', () => {
         snapshotAvgCost: 7.77,
         snapshotTimestamp: '2024-01-01T00:00:00Z',
         countedQty: 31.11,
+        auditedQty: 31.11,
+        hasDiscrepancy: false,
         isActive: true
       };
 
@@ -417,6 +425,8 @@ describe('InventoryCountService', () => {
         snapshotAvgCost: 0, // Zero cost
         snapshotTimestamp: '2024-01-01T00:00:00Z',
         countedQty: 90,
+        auditedQty: 90,
+        hasDiscrepancy: false,
         isActive: true
       };
 

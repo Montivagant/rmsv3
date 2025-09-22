@@ -161,8 +161,16 @@ export class MockStripeProvider implements PaymentProvider {
     // Simulate Stripe checkout session creation
     await new Promise(resolve => setTimeout(resolve, 200));
     
+    // Build redirect URL with params
+    const urlParams = new URLSearchParams({
+      amount: params.amount.toString(),
+      currency: params.currency || 'USD',
+      ticket: params.ticketId,
+      ...(params.metadata && { metadata: JSON.stringify(params.metadata) })
+    });
+    
     return {
-      redirectUrl: `https://checkout.stripe.com/pay/${sessionId}`,
+      redirectUrl: `https://checkout.stripe.com/pay/${sessionId}?${urlParams.toString()}`,
       sessionId,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
     };

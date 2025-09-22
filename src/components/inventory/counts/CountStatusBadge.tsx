@@ -1,4 +1,3 @@
-import React from 'react';
 import { Badge } from '../../Badge';
 import type { CountStatus } from '../../../inventory/counts/types';
 
@@ -22,7 +21,7 @@ export function CountStatusBadge({ status, className }: CountStatusBadgeProps) {
       label: 'Completed'
     },
     cancelled: {
-      variant: 'destructive' as const,
+      variant: 'error' as const,
       label: 'Cancelled'
     }
   };

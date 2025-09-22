@@ -26,16 +26,19 @@ export function useDashboardQuery() {
     const branches = searchParams.get('branches');
     const compare = searchParams.get('compare');
     
-    return {
+    const newQuery: DashboardQuery = {
       tab: (tab === 'general' || tab === 'branches' || tab === 'inventory') 
         ? tab : DEFAULT_QUERY.tab,
       period: (period === 'day' || period === 'week' || period === 'month' || period === 'custom') 
         ? period : DEFAULT_QUERY.period,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
       branches: branches ? branches.split(',').filter(Boolean) : DEFAULT_QUERY.branches,
       compare: compare === 'true'
     };
+
+    if (startDate) newQuery.startDate = startDate;
+    if (endDate) newQuery.endDate = endDate;
+
+    return newQuery;
   }, [searchParams]);
   
   // Update specific query parameters
@@ -73,11 +76,14 @@ export function useDashboardQuery() {
   }, [updateQuery]);
   
   const setPeriod = useCallback((period: DashboardQuery['period']) => {
-    updateQuery({ 
-      period,
-      // Clear custom dates when switching away from custom period
-      ...(period !== 'custom' && { startDate: undefined, endDate: undefined })
-    });
+    const updates: Partial<DashboardQuery> = { period };
+    if (period !== 'custom') {
+      const update: Partial<DashboardQuery> = { period };
+      // Clear dates when switching away from custom
+      updateQuery(update);
+    } else {
+      updateQuery(updates);
+    }
   }, [updateQuery]);
   
   const setDateRange = useCallback((startDate: string, endDate: string) => {

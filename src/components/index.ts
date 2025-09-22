@@ -1,9 +1,7 @@
 // Navigation components
-export { AppNav } from './navigation/AppNav';
 export { TopBar } from './navigation/TopBar';
 
 // Card components
-export { StatCard } from './cards/StatCard';
 export { ListCard } from './cards/ListCard';
 export { ChartCard } from './cards/ChartCard';
 
@@ -35,6 +33,10 @@ export { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from './Dropdow
 export { Toast, ToastContainer } from './ToastNew';
 export { EmptyState } from './EmptyState';
 export { Skeleton, SkeletonCard, SkeletonTable } from './Skeleton';
+export { DataTable } from './DataTable';
+export { PageStub } from './PageStub';
+export { PaymentModal } from './PaymentModal';
+export { InventoryOperationForm } from './InventoryOperationForm';
 export { Drawer } from './Drawer';
 export { PasswordInput } from './PasswordInput';
 export { Collapsible } from './Collapsible';
@@ -45,9 +47,7 @@ export { Card, CardHeader, CardTitle, CardContent } from './Card';
 export { default as Tabs } from './Tabs';
 
 // Business components
-export { CategoryManagement } from './CategoryManagement';
 export { RecipeManagement } from './RecipeManagement';
-export { MenuManagement } from './MenuManagement';
 
 // RBAC components
 export { RBACAdminPanel } from './rbac';
@@ -67,9 +67,7 @@ import type { ReactNode } from 'react';
 export const UpdateManager = ({ children }: { children: ReactNode }) => children;
 
 // Re-export default components
-export { default as AppNavDefault } from './navigation/AppNav';
 export { default as TopBarDefault } from './navigation/TopBar';
-export { default as StatCardDefault } from './cards/StatCard';
 export { default as ListCardDefault } from './cards/ListCard';
 export { default as ChartCardDefault } from './cards/ChartCard';
 export { default as ActionMenuDefault } from './ui/ActionMenu';

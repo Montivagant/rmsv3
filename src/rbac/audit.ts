@@ -189,7 +189,10 @@ export class AuditLogger {
    * Get audit summary statistics
    */
   getAuditSummary(fromDate?: Date, toDate?: Date) {
-    const trail = this.getAuditTrail({ fromDate, toDate });
+    const trail = this.getAuditTrail({
+      ...(fromDate && { fromDate }),
+      ...(toDate && { toDate })
+    });
     const actionCounts = new Map<string, number>();
     const userCounts = new Map<string, number>();
     const resourceCounts = new Map<string, number>();

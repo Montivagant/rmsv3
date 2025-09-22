@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { 
   sanitizeInput, 
   sanitizeSQL, 
-  validateCSRFToken, 
   RateLimiter,
   validatePasswordStrength 
 } from '../../security/validation';

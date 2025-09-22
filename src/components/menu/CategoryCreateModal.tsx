@@ -8,14 +8,13 @@ import { Modal } from '../Modal';
 import { Input } from '../Input';
 import { Button } from '../Button';
 import { Checkbox } from '../Checkbox';
-import { useToast } from '../../hooks/useToast';
-import { useApi } from '../../hooks/useApi';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
+import { listBranches } from '../../management/repository';
+import { createCategory, updateCategory, type CreateCategoryInput, type UpdateCategoryInput } from '../../menu/categories/repository';
 import type { 
   MenuCategory, 
   CategoryFormData, 
-  CategoryFormErrors,
-  CreateCategoryRequest,
-  UpdateCategoryRequest 
+  CategoryFormErrors
 } from '../../menu/categories/types';
 import { 
   createDefaultCategoryData, 
@@ -23,17 +22,12 @@ import {
   validateDisplayOrder 
 } from '../../menu/categories/types';
 
-interface Branch {
-  id: string;
-  name: string;
-  type: string;
-}
 
 interface CategoryCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  editingCategory?: MenuCategory;
+  editingCategory?: MenuCategory | null;
 }
 
 export default function CategoryCreateModal({
@@ -47,10 +41,12 @@ export default function CategoryCreateModal({
   const [errors, setErrors] = useState<CategoryFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { showToast } = useToast();
+  
+  // Repository mutations
+  const createCategoryMutation = useRepositoryMutation(createCategory);
   
   // Load branches for assignment
-  const { data: branches = [] } = useApi<Branch[]>('/api/branches');
+  const { data: branches = [] } = useRepository(listBranches, []);
 
   const isEditing = !!editingCategory;
 
@@ -139,29 +135,19 @@ export default function CategoryCreateModal({
             displayOrder: formData.displayOrder,
             isActive: formData.isActive,
             branchIds: formData.branchIds,
-          } as UpdateCategoryRequest
+          } as UpdateCategoryInput
         : {
             name: formData.name,
             displayOrder: formData.displayOrder,
             isActive: formData.isActive,
             branchIds: formData.branchIds,
-          } as CreateCategoryRequest;
+          } as CreateCategoryInput;
 
-      const url = isEditing 
-        ? `/api/menu/categories/${editingCategory!.id}`
-        : '/api/menu/categories';
-      
-      const method = isEditing ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || `Failed to ${isEditing ? 'update' : 'create'} category`);
+      // Use repository mutations
+      if (isEditing) {
+        await updateCategory(editingCategory!.id, requestData as UpdateCategoryInput);
+      } else {
+        await createCategoryMutation.mutate(requestData as CreateCategoryInput);
       }
 
       onSuccess();
@@ -299,3 +285,4 @@ export default function CategoryCreateModal({
     </Modal>
   );
 }
+

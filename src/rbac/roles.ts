@@ -1,3 +1,5 @@
+﻿import { SYSTEM_ROLES } from './permissions';
+
 export const Role = {
   BUSINESS_OWNER: 'BUSINESS_OWNER',
   STAFF: 'STAFF',
@@ -46,9 +48,9 @@ export function userHasPermission(user: User, requiredPermission: string): boole
     return true;
   }
   // This is where dynamic role permission checking would go.
-  const userRoleDetails = SYSTEM_ROLES.find(r => r.id === user.role);
+  const userRoleDetails = SYSTEM_ROLES.find(role => role.id === user.role);
   if (userRoleDetails) {
-    return userRoleDetails.permissions.some(p => p.id === requiredPermission);
+    return userRoleDetails.permissions.some(permission => permission.id === requiredPermission);
   }
   return false;
 }
@@ -73,3 +75,4 @@ export function setCurrentUser(user: User | null): void {
     localStorage.removeItem('rms_current_user');
   }
 }
+

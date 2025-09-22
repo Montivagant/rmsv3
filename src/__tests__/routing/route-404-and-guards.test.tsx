@@ -1,9 +1,8 @@
-import React from 'react';
-import { describe, it, beforeEach, expect } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-import App, { AppContent } from '../../App';
+import { AppContent } from '../../App';
 import { ThemeProvider } from '../../components/providers/ThemeProvider';
 import { setCurrentUser, Role } from '../../rbac/roles';
 

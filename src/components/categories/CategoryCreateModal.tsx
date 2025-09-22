@@ -32,7 +32,6 @@ export default function CategoryCreateModal({
   onClose,
   onSuccess,
   existingReferences = [],
-  isLoading = false,
 }: CategoryCreateModalProps) {
   const [formData, setFormData] = useState<CategoryFormData>(createDefaultCategoryFormData());
   const [errors, setErrors] = useState<CategoryFormErrors>({});
@@ -173,7 +172,7 @@ export default function CategoryCreateModal({
               value={formData.name}
               onChange={(e) => handleFieldChange('name', e.target.value)}
               onBlur={() => handleFieldBlur('name')}
-              error={errors.name}
+              {...(errors.name && { error: errors.name })}
               helpText={CATEGORY_FIELD_HELP_TEXT.name}
               required
               disabled={isSubmitting}
@@ -190,7 +189,7 @@ export default function CategoryCreateModal({
               value={formData.reference || ''}
               onChange={(e) => handleFieldChange('reference', e.target.value)}
               onBlur={() => handleFieldBlur('reference')}
-              error={errors.reference}
+              {...(errors.reference && { error: errors.reference })}
               helpText={CATEGORY_FIELD_HELP_TEXT.reference}
               disabled={isSubmitting}
               maxLength={24}

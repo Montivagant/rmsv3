@@ -5,7 +5,7 @@ import type { Event as AppEvent, SaleRecordedEvent, InventoryAdjustedEvent, Loya
  */
 
 export function createSaleRecordedEvent(overrides: Partial<AppEvent> = {}): SaleRecordedEvent {
-  const event = {
+  const baseEvent: SaleRecordedEvent = {
     id: `sale-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     seq: 1,
     type: 'sale.recorded',
@@ -26,34 +26,34 @@ export function createSaleRecordedEvent(overrides: Partial<AppEvent> = {}): Sale
     aggregate: {
       id: 'sale-123',
       type: 'sale'
-    },
-    ...overrides
-  } satisfies SaleRecordedEvent;
-  return event;
+    }
+  };
+  return { ...baseEvent, ...overrides } as SaleRecordedEvent;
 }
 
 export function createInventoryAdjustedEvent(overrides: Partial<AppEvent> = {}): InventoryAdjustedEvent {
-  const event = {
+  const baseEvent: InventoryAdjustedEvent = {
     id: `inventory-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     seq: 2,
     type: 'inventory.adjusted',
     at: Date.now(),
     payload: {
       sku: 'product-1',
-      delta: -2,
-      reason: 'sale'
+      oldQty: 10,
+      newQty: 8,
+      reason: 'sale',
+      delta: -2
     },
     aggregate: {
       id: 'inventory-123',
       type: 'inventory'
-    },
-    ...overrides
-  } satisfies InventoryAdjustedEvent;
-  return event;
+    }
+  };
+  return { ...baseEvent, ...overrides } as InventoryAdjustedEvent;
 }
 
 export function createLoyaltyAccruedEvent(overrides: Partial<AppEvent> = {}): LoyaltyAccruedEvent {
-  const event = {
+  const baseEvent: LoyaltyAccruedEvent = {
     id: `loyalty-accrued-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     seq: 1,
     type: 'loyalty.accrued',
@@ -61,19 +61,19 @@ export function createLoyaltyAccruedEvent(overrides: Partial<AppEvent> = {}): Lo
     payload: {
       customerId: 'customer-456',
       ticketId: 'ticket-123',
-      points: 100
+      points: 100,
+      amount: 24.18
     },
     aggregate: {
       id: 'loyalty-123',
       type: 'loyalty'
-    },
-    ...overrides
-  } satisfies LoyaltyAccruedEvent;
-  return event;
+    }
+  };
+  return { ...baseEvent, ...overrides } as LoyaltyAccruedEvent;
 }
 
 export function createLoyaltyRedeemedEvent(overrides: Partial<AppEvent> = {}): LoyaltyRedeemedEvent {
-  const event = {
+  const baseEvent: LoyaltyRedeemedEvent = {
     id: `loyalty-redeemed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     seq: 2,
     type: 'loyalty.redeemed',
@@ -87,14 +87,13 @@ export function createLoyaltyRedeemedEvent(overrides: Partial<AppEvent> = {}): L
     aggregate: {
       id: 'loyalty-123',
       type: 'loyalty'
-    },
-    ...overrides
-  } satisfies LoyaltyRedeemedEvent;
-  return event;
+    }
+  };
+  return { ...baseEvent, ...overrides } as LoyaltyRedeemedEvent;
 }
 
 export function createPaymentInitiatedEvent(overrides: Partial<AppEvent> = {}): PaymentInitiatedEvent {
-  const event = {
+  const baseEvent: PaymentInitiatedEvent = {
     id: 'evt_payment_initiated_123',
     seq: 1,
     type: 'payment.initiated',
@@ -104,20 +103,18 @@ export function createPaymentInitiatedEvent(overrides: Partial<AppEvent> = {}): 
       provider: 'stripe',
       sessionId: 'session-456',
       amount: 100,
-      currency: 'USD',
-      redirectUrl: 'https://example.com/redirect'
+      currency: 'USD'
     },
     aggregate: {
       id: 'payment-123',
       type: 'payment'
-    },
-    ...overrides
-  } satisfies PaymentInitiatedEvent;
-  return event;
+    }
+  };
+  return { ...baseEvent, ...overrides } as PaymentInitiatedEvent;
 }
 
 export function createPaymentSucceededEvent(overrides: Partial<AppEvent> = {}): PaymentSucceededEvent {
-  const event = {
+  const baseEvent: PaymentSucceededEvent = {
     id: 'evt_payment_succeeded_123',
     seq: 2,
     type: 'payment.succeeded',
@@ -132,14 +129,13 @@ export function createPaymentSucceededEvent(overrides: Partial<AppEvent> = {}): 
     aggregate: {
       id: 'payment-123',
       type: 'payment'
-    },
-    ...overrides
-  } satisfies PaymentSucceededEvent;
-  return event;
+    }
+  };
+  return { ...baseEvent, ...overrides } as PaymentSucceededEvent;
 }
 
 export function createPaymentFailedEvent(overrides: Partial<AppEvent> = {}): PaymentFailedEvent {
-  const event = {
+  const baseEvent: PaymentFailedEvent = {
     id: 'evt_payment_failed_123',
     seq: 2,
     type: 'payment.failed',
@@ -155,10 +151,9 @@ export function createPaymentFailedEvent(overrides: Partial<AppEvent> = {}): Pay
     aggregate: {
       id: 'payment-123',
       type: 'payment'
-    },
-    ...overrides
-  } satisfies PaymentFailedEvent;
-  return event;
+    }
+  };
+  return { ...baseEvent, ...overrides } as PaymentFailedEvent;
 }
 
 /**

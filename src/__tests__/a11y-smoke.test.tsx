@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import React from 'react';
 import { render } from '@testing-library/react';
 import { axe } from 'jest-axe';
 import { MemoryRouter } from 'react-router-dom';
 
 import { TopBar } from '../components/navigation/TopBar';
-import { AppNav } from '../components/navigation/AppNav';
+import { Sidebar } from '../components/navigation/Sidebar';
 import { Modal } from '../components/Modal';
 
 describe('A11y smoke tests (axe)', () => {
@@ -28,10 +27,10 @@ describe('A11y smoke tests (axe)', () => {
     expect(results).toHaveNoViolations();
   });
 
-  it('AppNav (side navigation) has no obvious accessibility violations', async () => {
+  it('Sidebar (side navigation) has no obvious accessibility violations', async () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/inventory']}>
-        <AppNav userRole="admin" onNewAction={() => {}} />
+        <Sidebar userRole="admin" onNewAction={() => {}} />
       </MemoryRouter>
     );
     const results = await axe(container);

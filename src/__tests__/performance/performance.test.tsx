@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import { CustomerTable } from '../../customers/CustomerTable';
 import { ChartCard } from '../../components/cards/ChartCard';
@@ -53,7 +53,6 @@ describe('Performance Testing', () => {
     });
 
     it('should handle rapid state updates efficiently', async () => {
-      const updateCounts: number[] = [];
       let renderCount = 0;
 
       const TestComponent = () => {
@@ -96,12 +95,7 @@ describe('Performance Testing', () => {
   describe('Bundle Performance', () => {
     it('should have optimal chunk sizes', () => {
       // These would be verified against actual build output
-      const expectedChunks = {
-        'index': { maxSize: 400 * 1024 },      // 400KB
-        'vendor': { maxSize: 200 * 1024 },     // 200KB
-        'components': { maxSize: 100 * 1024 }  // 100KB
-      };
-      
+      // Expected chunks configuration
       // In real implementation, would check actual bundle sizes
       expect(true).toBe(true); // Placeholder for bundle analysis
     });

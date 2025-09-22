@@ -152,7 +152,7 @@ export class BatchTracker {
           quantityConsumed: consumeFromBatch,
           consumedDate: new Date().toISOString(),
           reason,
-          notes
+          ...(notes && { notes })
         };
 
         consumptions.push(consumption);
@@ -261,14 +261,13 @@ export class BatchTracker {
 
       // Create expiration alerts for batches expiring soon
       if (daysUntilExpiration <= this.expirationWarningDays && daysUntilExpiration >= 0) {
-        const existingAlert = await this.hasActiveExpirationAlert(batch.batchId);
         
-        if (!existingAlert) {
-          const alert = this.createExpirationAlert(batch, daysUntilExpiration);
-          alerts.push(alert);
+        const alert = this.createExpirationAlert(batch, daysUntilExpiration);
+        alerts.push(alert);
 
-          await this.logExpirationAlert(alert);
-        }
+        this.logExpirationAlert(alert).catch(err => {
+          console.error(`Failed to log expiration alert for batch ${batch.batchId}:`, err);
+        });
       }
     }
 
@@ -444,7 +443,7 @@ export class BatchTracker {
     const remainingQuantity = batch?.quantity || 0;
 
     return {
-      batch,
+      batch: batch || null,
       consumptions,
       alerts,
       totalConsumed,
@@ -458,11 +457,6 @@ export class BatchTracker {
   private isBatchExpired(expirationDate?: string): boolean {
     if (!expirationDate) return false;
     return new Date(expirationDate) <= new Date();
-  }
-
-  private async hasActiveExpirationAlert(batchId: string): Promise<boolean> {
-    // Would check event store for existing active alerts
-    return false; // Simplified for now
   }
 
   private async logExpirationAlert(alert: ExpirationAlert): Promise<void> {

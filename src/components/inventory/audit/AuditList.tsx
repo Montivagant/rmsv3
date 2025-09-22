@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../../Button';
 import { Input } from '../../Input';
 import { Select } from '../../Select';
@@ -22,6 +22,7 @@ interface AuditListProps {
   onViewAudit: (audit: InventoryCount) => void;
   onResumeAudit: (audit: InventoryCount) => void;
   onExportAudit: (audit: InventoryCount) => void;
+  onCreateNewAudit?: () => void; // Added for empty state action
   className?: string;
 }
 
@@ -33,11 +34,11 @@ export function AuditList({
   loading = false,
   onPageChange,
   onPageSizeChange,
-  onSortChange,
   onFilterChange,
   onViewAudit,
   onResumeAudit,
   onExportAudit,
+  onCreateNewAudit,
   className = ''
 }: AuditListProps) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,10 +67,12 @@ export function AuditList({
       <EmptyState
         title="No inventory audits found"
         description="Start your first inventory audit to reconcile stock levels."
-        action={{
-          label: "Create New Audit",
-          onClick: () => {} // Will be handled by parent
-        }}
+        {...(onCreateNewAudit && {
+          action: {
+            label: "Create New Audit",
+            onClick: onCreateNewAudit
+          }
+        })}
         className={className}
       />
     );
@@ -93,7 +96,7 @@ export function AuditList({
         
         <Select
           placeholder="All Branches"
-          onValueChange={(value) => onFilterChange({ branchId: value || undefined })}
+          onValueChange={(value) => onFilterChange(value ? { branchId: value } : {})}
           options={[
             { value: '', label: 'All Branches' },
             { value: 'main-restaurant', label: 'Main Restaurant' },
@@ -187,7 +190,7 @@ export function AuditList({
                       }>
                         {audit.totals.varianceValue.toLocaleString('en-US', {
                           style: 'currency',
-                          currency: 'USD',
+                          currency: 'EGP',
                           signDisplay: 'always'
                         })}
                       </div>

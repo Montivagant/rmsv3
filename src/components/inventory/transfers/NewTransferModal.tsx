@@ -11,7 +11,6 @@ import type {
   CreateTransferRequest, 
   Location 
 } from '../../../inventory/transfers/types';
-import { TransferUtils, TRANSFER_CONFIG } from '../../../inventory/transfers/types';
 // Icons as inline SVGs to match project pattern
 
 interface NewTransferModalProps {
@@ -28,8 +27,8 @@ interface TransferLineInput {
   name: string;
   unit: string;
   qtyPlanned: number;
-  availableQty?: number;
-  isFractional?: boolean;
+  availableQty: number | undefined;
+  isFractional: boolean | undefined;
 }
 
 interface ItemSearchResult {
@@ -56,7 +55,7 @@ export default function NewTransferModal({
   // Item search state
   const [itemSearch, setItemSearch] = useState('');
   const [searchResults, setSearchResults] = useState<ItemSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   
   // Form state
@@ -223,7 +222,7 @@ export default function NewTransferModal({
           itemId: line.itemId,
           qtyPlanned: line.qtyPlanned
         })),
-        notes: notes.trim() || undefined
+        notes: notes.trim() ? notes.trim() : undefined
       };
 
       const result = await transferApiService.createTransfer(request);
@@ -260,7 +259,7 @@ export default function NewTransferModal({
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Location Selection */}
         <div className="grid grid-cols-2 gap-4">
-          <FormField required error={touched.sourceLocation ? errors.sourceLocation : undefined}>
+          <FormField required error={touched.sourceLocation && errors.sourceLocation ? errors.sourceLocation : undefined}>
             <Label htmlFor="source-location" required>
               Source Location
             </Label>
@@ -287,7 +286,7 @@ export default function NewTransferModal({
             </Select>
           </FormField>
 
-          <FormField required error={touched.destinationLocation ? errors.destinationLocation : undefined}>
+          <FormField required error={touched.destinationLocation && errors.destinationLocation ? errors.destinationLocation : undefined}>
             <Label htmlFor="destination-location" required>
               Destination Location
             </Label>

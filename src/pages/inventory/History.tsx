@@ -3,14 +3,14 @@
  * Shows all inventory movements, adjustments, and audit trails
  */
 
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
+import { useState, useMemo } from 'react';
+import { Card, CardContent } from '../../components/Card';
 import { Input } from '../../components/Input';
 import { Select } from '../../components/Select';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
-import { useApi } from '../../hooks/useApi';
+import { useRepository } from '../../hooks/useRepository';
 import { cn } from '../../lib/utils';
 
 interface InventoryMovement {
@@ -52,7 +52,7 @@ export default function History() {
   });
 
   // Build API URL with query parameters
-  const historyUrl = useMemo(() => {
+  useMemo(() => {
     const params = new URLSearchParams();
     Object.entries(queryParams).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -65,25 +65,24 @@ export default function History() {
     return `/api/inventory/movements?${params.toString()}`;
   }, [queryParams, searchTerm, selectedType, selectedBranch]);
 
-  // API call
-  const { data: movementsResponse, loading, error, refetch } = useApi<{
-    movements: InventoryMovement[];
-    total: number;
-    page: number;
-    pageSize: number;
-  }>(historyUrl);
+  // Repository call - import from transfers repository
+  const { listInventoryMovements } = require('../../inventory/transfers/repository');
+  const { data: movementsResponse, loading, error, refetch } = useRepository(
+    () => listInventoryMovements(queryParams),
+    [queryParams]
+  );
 
-  const movements = movementsResponse?.movements || [];
-  const total = movementsResponse?.total || 0;
+  const movements = (movementsResponse as any)?.movements || [];
+  const total = (movementsResponse as any)?.total || 0;
 
   // Movement type styling
   const getMovementBadge = (type: InventoryMovement['type']) => {
     const config = {
       sale: { variant: 'success' as const, label: 'Sale' },
       adjustment: { variant: 'warning' as const, label: 'Adjustment' },
-      transfer: { variant: 'info' as const, label: 'Transfer' },
+      transfer: { variant: 'secondary' as const, label: 'Transfer' },
       audit: { variant: 'secondary' as const, label: 'Audit' },
-      waste: { variant: 'destructive' as const, label: 'Waste' },
+      waste: { variant: 'error' as const, label: 'Waste' },
       received: { variant: 'success' as const, label: 'Received' },
     };
     return config[type] || { variant: 'secondary' as const, label: type };
@@ -207,7 +206,7 @@ export default function History() {
 
             {/* Table Body */}
             <div className="divide-y divide-border">
-              {movements.map((movement) => {
+              {movements.map((movement: any) => {
                 const badge = getMovementBadge(movement.type);
                 return (
                   <div key={movement.id} className="px-6 py-4 hover:bg-surface-secondary/30 transition-colors">

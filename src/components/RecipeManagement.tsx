@@ -14,7 +14,6 @@ import type { FormField } from './forms/SmartForm';
 import { SkeletonCard } from './feedback/LoadingSpinner';
 import { useNotifications } from './feedback/NotificationSystem';
 import { useApi, apiPost, apiPatch, apiDelete } from '../hooks/useApi';
-import { validateName, validateQuantity } from '../utils/validation';
 import type {
   Recipe,
   RecipeScale
@@ -62,7 +61,6 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
   const [scalingRecipe, setScalingRecipe] = useState<Recipe | null>(null);
   const [targetYield, setTargetYield] = useState<number>(1);
   const [scaledRecipe, setScaledRecipe] = useState<RecipeScale | null>(null);
-  const [activeTab, setActiveTab] = useState<'list' | 'analytics'>('list');
   const [isProcessing, setIsProcessing] = useState(false);
   const { showSuccess, showError, showLoading, removeNotification } = useNotifications();
 
@@ -79,7 +77,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
   }, []);
 
   // Get inventory options for ingredients
-  const inventoryOptions = useMemo(() => {
+  useMemo(() => {
     if (!inventoryItems || !Array.isArray(inventoryItems)) return [];
     return inventoryItems.map(item => ({
       value: item.id,
@@ -113,7 +111,6 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       required: true,
       placeholder: 'Classic Cheeseburger, House Marinara...',
       helpText: RECIPE_TEXT.RECIPE_NAME_HELP,
-      validation: validateName
     },
     {
       name: 'description',
@@ -168,7 +165,6 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       required: true,
       placeholder: '1',
       helpText: RECIPE_TEXT.YIELD_QUANTITY_HELP,
-      validation: (value: string) => validateQuantity(value, { maxStock: 1000 })
     },
     {
       name: 'yieldUnit',
@@ -185,10 +181,6 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       required: false,
       placeholder: '1',
       helpText: RECIPE_TEXT.SERVINGS_HELP,
-      validation: (value: string) => {
-        if (!value) return { isValid: true };
-        return validateQuantity(value, { maxStock: 100 });
-      }
     },
     {
       name: 'prepTime',
@@ -197,7 +189,6 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       required: true,
       placeholder: '15',
       helpText: RECIPE_TEXT.PREP_TIME_HELP,
-      validation: (value: string) => validateQuantity(value, { maxStock: 480 })
     },
     {
       name: 'cookTime',
@@ -206,7 +197,6 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       required: true,
       placeholder: '20',
       helpText: RECIPE_TEXT.COOK_TIME_HELP,
-      validation: (value: string) => validateQuantity(value, { maxStock: 480 })
     },
     {
       name: 'shelfLife',
@@ -215,10 +205,6 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
       required: false,
       placeholder: '24',
       helpText: RECIPE_TEXT.SHELF_LIFE_HELP,
-      validation: (value: string) => {
-        if (!value) return { isValid: true };
-        return validateQuantity(value, { maxStock: 168 }); // Max 1 week
-      }
     },
     {
       name: 'tags',
@@ -382,7 +368,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
     const loadingId = showLoading('Scaling Recipe', `Scaling "${scalingRecipe.name}" to ${targetYield} ${scalingRecipe.yield.unit}...`);
     try {
       const response = await apiPost(`/api/recipes/${scalingRecipe.id}/scale`, { targetYield });
-      setScaledRecipe(response);
+      setScaledRecipe(response as RecipeScale);
       
       removeNotification(loadingId);
       showSuccess(
@@ -548,7 +534,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
                     <p><strong>{RECIPE_TEXT.COOK_TIME}</strong> {scaledRecipe.scaledTiming?.cookTime} minutes</p>
                   </div>
                   <div>
-                    {scaledRecipe.warnings.length > 0 && (
+                    {scaledRecipe.warnings && scaledRecipe.warnings.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-warning font-medium flex items-center gap-2">
                           <FaExclamationTriangle /> {RECIPE_TEXT.WARNINGS}

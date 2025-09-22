@@ -151,13 +151,12 @@ export function useAutoSave<T extends Record<string, any>>(
     onRestore,
     excludeFields = [],
     clearOnSubmit = true,
-    showIndicator = true
   } = options
 
   const [lastSaved, setLastSaved] = React.useState<Date | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
   const [saveError, setSaveError] = React.useState<string | null>(null)
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const hasChanges = useRef(false)
 
   // Filter out excluded fields

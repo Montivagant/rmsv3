@@ -41,7 +41,11 @@ export interface ReportingData {
  * Optimized Loyalty Queries
  */
 export class LoyaltyQueries {
-  constructor(private store: OptimizedEventStore) {}
+  private store: OptimizedEventStore;
+  
+  constructor(store: OptimizedEventStore) {
+    this.store = store;
+  }
 
   /**
    * Get loyalty balance for customer (cached)
@@ -86,8 +90,8 @@ export class LoyaltyQueries {
    * Get top customers by loyalty points
    */
   getTopCustomers(limit: number = 10): LoyaltyBalance[] {
-    const accruedEvents = this.store.getEventsByType('loyalty.accrued');
-    const redeemedEvents = this.store.getEventsByType('loyalty.redeemed');
+    const accruedEvents = this.store.getEventsByType('loyalty.accrued') as LoyaltyAccruedEvent[];
+    const redeemedEvents = this.store.getEventsByType('loyalty.redeemed') as LoyaltyRedeemedEvent[];
 
     const customerMap = new Map<string, LoyaltyBalance>();
 
@@ -133,7 +137,11 @@ export class LoyaltyQueries {
  * Optimized Payment Queries
  */
 export class PaymentQueries {
-  constructor(private store: OptimizedEventStore) {}
+  private store: OptimizedEventStore;
+  
+  constructor(store: OptimizedEventStore) {
+    this.store = store;
+  }
 
   /**
    * Get payment status for ticket
@@ -177,7 +185,7 @@ export class PaymentQueries {
 
     for (const event of paymentEvents) {
       total += event.payload.amount;
-      const method = event.payload.method;
+      const method = event.payload.provider;
       methods[method] = (methods[method] || 0) + event.payload.amount;
     }
 
@@ -193,7 +201,11 @@ export class PaymentQueries {
  * Optimized Sales Queries
  */
 export class SalesQueries {
-  constructor(private store: OptimizedEventStore) {}
+  private store: OptimizedEventStore;
+  
+  constructor(store: OptimizedEventStore) {
+    this.store = store;
+  }
 
   /**
    * Get sales summary for date range
@@ -207,8 +219,8 @@ export class SalesQueries {
     const uniqueOrders = new Set<string>();
 
     for (const event of saleEvents) {
-      totalRevenue += event.payload.amount;
-      totalItems += event.payload.items.reduce((sum, item) => sum + item.quantity, 0);
+      totalRevenue += event.payload.totals.total;
+      totalItems += event.payload.lines.reduce((sum: number, item: any) => sum + item.qty, 0);
       if (event.aggregate?.id) {
         uniqueOrders.add(event.aggregate.id);
       }
@@ -235,11 +247,12 @@ export class SalesQueries {
     const itemMap = new Map<string, { quantity: number; revenue: number }>();
 
     for (const event of saleEvents) {
-      for (const item of event.payload.items) {
-        const existing = itemMap.get(item.id) || { quantity: 0, revenue: 0 };
-        existing.quantity += item.quantity;
-        existing.revenue += item.price * item.quantity;
-        itemMap.set(item.id, existing);
+      for (const item of event.payload.lines) {
+        const itemId = item.sku || item.name;
+        const existing = itemMap.get(itemId) || { quantity: 0, revenue: 0 };
+        existing.quantity += item.qty;
+        existing.revenue += item.price * item.qty;
+        itemMap.set(itemId, existing);
       }
     }
 
@@ -262,7 +275,7 @@ export class SalesQueries {
       const hour = new Date(event.at).getHours().toString().padStart(2, '0');
       const existing = hourlyMap.get(hour) || { revenue: 0, orders: new Set() };
       
-      existing.revenue += event.payload.amount;
+      existing.revenue += event.payload.totals.total;
       if (event.aggregate?.id) {
         existing.orders.add(event.aggregate.id);
       }
@@ -293,7 +306,10 @@ export class ReportingQueries {
   private paymentQueries: PaymentQueries;
   private salesQueries: SalesQueries;
 
-  constructor(private store: OptimizedEventStore) {
+  private store: OptimizedEventStore;
+  
+  constructor(store: OptimizedEventStore) {
+    this.store = store;
     this.loyaltyQueries = new LoyaltyQueries(store);
     this.paymentQueries = new PaymentQueries(store);
     this.salesQueries = new SalesQueries(store);

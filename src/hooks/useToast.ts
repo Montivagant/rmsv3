@@ -40,7 +40,7 @@ export function useToast() {
   function showToast(
     messageOrObj: string | ToastMessage, 
     variant: ToastVariant = 'info', 
-    options: ToastOptions = {}
+    _options: ToastOptions = {}
   ): void {
     let message: string;
     

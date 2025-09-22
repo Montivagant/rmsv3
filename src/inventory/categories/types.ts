@@ -114,6 +114,17 @@ export interface CategoryReorderedEvent {
   aggregateId: string;
 }
 
+export interface CategoryDeletedEvent {
+  type: 'inventory.category.deleted';
+  payload: {
+    categoryId: string;
+    deletedBy: string;
+    reason?: string;
+  };
+  timestamp: string;
+  aggregateId: string;
+}
+
 // Validation and Business Rules
 export interface CategoryValidationResult {
   isValid: boolean;

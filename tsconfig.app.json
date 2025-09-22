@@ -6,6 +6,7 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
     "preserveSymlinks": false,
     "typeRoots": ["./node_modules/@types"],
     "moduleResolution": "bundler",
@@ -18,12 +19,17 @@
     "paths": {
       "@/*": ["*"] // Added paths
     },
-    "strict": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": false,
-    "noUncheckedSideEffectImports": false
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "exactOptionalPropertyTypes": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "node_modules/@typescript-eslint/**/*",
+    "node_modules/@types/pouchdb-core/**/*"
+  ]
 }

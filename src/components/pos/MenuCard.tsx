@@ -1,5 +1,5 @@
-import React from 'react';
 import { cn, formatCurrency, truncate } from '../../lib/utils';
+import { CategoryTag } from './CategoryTag';
 
 interface MenuCardProps {
   id: string;
@@ -36,8 +36,8 @@ export function MenuCard({
       )}
       aria-labelledby={`menu-item-${id}`}
     >
-      {/* Image Section */}
-      <div className="relative aspect-[4/3] bg-muted rounded-t-lg overflow-hidden">
+      {/* Image Section - Reduced aspect ratio for more compact cards */}
+      <div className="relative aspect-[3/2] bg-muted rounded-t-lg overflow-hidden">
         {image ? (
           <img
             src={image}
@@ -63,39 +63,32 @@ export function MenuCard({
           </div>
         )}
         
-        {/* Category Badge */}
+        {/* Category Tag with Type-Specific Styling */}
         <div className="absolute top-2 right-2">
-          <span className={cn(
-            "px-2 py-1 text-xs font-medium",
-            "bg-background/90 backdrop-blur-sm",
-            "text-muted-foreground",
-            "rounded-md border border-border"
-          )}>
-            {category}
-          </span>
+          <CategoryTag category={category} />
         </div>
       </div>
 
-      {/* Content Section */}
-      <div className="flex-1 flex flex-col p-4 gap-3">
+      {/* Content Section - Reduced padding and font sizes for compact design */}
+      <div className="flex-1 flex flex-col p-3 gap-2">
         {/* Title and Description */}
         <div className="flex-1">
           <h3 
             id={`menu-item-${id}`}
-            className="font-semibold text-foreground text-lg leading-tight mb-1"
+            className="font-semibold text-foreground text-base leading-tight mb-1"
           >
-            {truncate(name, 50)}
+            {truncate(name, 45)}
           </h3>
           {description && (
-            <p className="text-sm text-muted-foreground line-clamp-2">
+            <p className="text-xs text-muted-foreground line-clamp-2">
               {description}
             </p>
           )}
         </div>
 
-        {/* Price and Action */}
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xl font-bold text-primary">
+        {/* Price and Action - Compact sizing */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-lg font-bold text-primary">
             {formatCurrency(price)}
           </span>
           
@@ -103,9 +96,9 @@ export function MenuCard({
             onClick={onAddToCart}
             disabled={disabled}
             className={cn(
-              // Base styles
-              "px-4 py-2 min-h-[44px] min-w-[100px]",
-              "rounded-lg font-medium",
+              // Base styles - Reduced padding and min sizes
+              "px-3 py-1.5 min-h-[36px] min-w-[80px]",
+              "rounded-lg font-medium text-sm",
               "transition-all duration-200",
               // Focus styles
               "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
@@ -123,7 +116,7 @@ export function MenuCard({
             )}
             aria-label={`Add ${name} to cart`}
           >
-            Add to Order
+            Add
           </button>
         </div>
       </div>

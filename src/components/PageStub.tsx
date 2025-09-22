@@ -1,6 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { NavIcon } from './navigation/NavIcon';
+import { Button } from './Button';
+import { Card, CardContent, CardHeader, CardTitle } from './Card';
 
 interface PageStubProps {
   title: string;
@@ -10,96 +9,113 @@ interface PageStubProps {
   backLabel?: string;
   comingSoon?: boolean;
   features?: string[];
-  className?: string;
 }
 
-export const PageStub: React.FC<PageStubProps> = ({
+export function PageStub({
   title,
   description,
   icon,
   backPath,
   backLabel = 'Back',
   comingSoon = true,
-  features = [],
-  className = '',
-}) => {
+  features = []
+}: PageStubProps) {
   return (
-    <div className={`p-6 ${className}`}>
-      {/* Back navigation */}
-      {backPath && (
-        <div className="mb-6">
-          <Link
-            to={backPath}
-            className="inline-flex items-center space-x-2 text-sm text-text-secondary hover:text-text-primary transition-colors focus-ring rounded-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <span>{backLabel}</span>
-          </Link>
-        </div>
-      )}
-
+    <div className="container mx-auto px-4 py-6 max-w-4xl">
       {/* Header */}
-      <div className="max-w-3xl">
-        <div className="flex items-start space-x-4 mb-6">
+      <div className="mb-6">
+        {backPath && (
+          <div className="mb-4">
+            <Button
+              variant="ghost"
+              onClick={() => window.history.back()}
+              className="text-text-muted hover:text-text-primary"
+            >
+              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              {backLabel}
+            </Button>
+          </div>
+        )}
+        
+        <div className="flex items-center gap-4">
           {icon && (
-            <div className="flex-shrink-0 mt-1">
-              <div className="w-12 h-12 bg-brand-100 dark:bg-brand-900/30 rounded-lg flex items-center justify-center">
-                <NavIcon path={icon} className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
+              </svg>
+            </div>
+          )}
+          <div>
+            <h1 className="text-3xl font-bold text-text-primary">{title}</h1>
+            <p className="text-text-muted mt-1">{description}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {comingSoon && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning">
+                Coming Soon
+              </span>
+            )}
+            {title} Module
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="text-center py-8">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-secondary flex items-center justify-center">
+              <svg className="w-8 h-8 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                      d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-text-primary mb-2">
+              {comingSoon ? 'Under Development' : 'Module Available'}
+            </h3>
+            <p className="text-text-muted max-w-md mx-auto">
+              {comingSoon 
+                ? 'This module is currently being developed and will be available in a future release.'
+                : 'This module is available and ready to use.'
+              }
+            </p>
+          </div>
+
+          {features.length > 0 && (
+            <div>
+              <h4 className="font-semibold text-text-primary mb-3">Planned Features:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {features.map((feature, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg className="w-3 h-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-sm text-text-secondary">{feature}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-text-primary mb-2">{title}</h1>
-            <p className="text-lg text-text-secondary">{description}</p>
-          </div>
-        </div>
 
-        {/* Coming soon badge */}
-        {comingSoon && (
-          <div className="mb-6">
-            <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-warning-100 text-warning-800 dark:bg-warning-500/20 dark:text-warning-400">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Coming Soon
-            </span>
-          </div>
-        )}
-
-        {/* Features list */}
-        {features.length > 0 && (
-          <div>
-            <h2 className="text-xl font-semibold text-text-primary mb-4">Planned Features</h2>
-            <ul className="space-y-3">
-              {features.map((feature, index) => (
-                <li key={index} className="flex items-start space-x-3">
-                  <svg className="w-5 h-5 text-brand-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-secondary">{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Placeholder content area */}
-        {!comingSoon && (
-          <div className="mt-8 p-8 bg-surface-secondary rounded-lg border-2 border-dashed border-border-secondary">
-            <div className="text-center">
-              <svg className="mx-auto h-12 w-12 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              <p className="mt-4 text-lg font-medium text-text-primary">Page Content Area</p>
-              <p className="text-text-secondary">This page is ready for implementation.</p>
+          {comingSoon && (
+            <div className="bg-surface-secondary rounded-lg p-4">
+              <p className="text-sm text-text-muted text-center">
+                Want to be notified when this module is ready?{' '}
+                <button className="text-primary hover:underline">
+                  Contact us
+                </button>{' '}
+                for updates on development progress.
+              </p>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
-};
-
-export default PageStub;
+}

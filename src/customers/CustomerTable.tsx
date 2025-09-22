@@ -207,7 +207,7 @@ export function CustomerTable({
       columnHelper.accessor('totalSpent', {
         header: 'Total Spend',
         cell: (info) => (
-          <span className="font-semibold">${info.getValue().toFixed(2)}</span>
+          <span className="font-semibold">${info.getValue()?.toFixed(2)}</span>
         ),
       }),
       columnHelper.accessor('orders', {

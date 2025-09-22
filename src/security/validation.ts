@@ -30,8 +30,13 @@ export function validateCSRFToken(token: string, expectedPattern: RegExp): boole
 // Rate Limiting Helper
 export class RateLimiter {
   private attempts = new Map<string, number[]>();
+  private maxAttempts: number;
+  private windowMs: number;
   
-  constructor(private maxAttempts: number = 10, private windowMs: number = 60000) {}
+  constructor(maxAttempts: number = 10, windowMs: number = 60000) {
+    this.maxAttempts = maxAttempts;
+    this.windowMs = windowMs;
+  }
   
   isAllowed(identifier: string): boolean {
     const now = Date.now();

@@ -8,14 +8,16 @@ export interface DashboardQuery {
   compare: boolean;
 }
 
+export interface DashboardKPITrend {
+  value: number;
+  isPositive: boolean;
+}
+
 export interface DashboardKPI {
   title: string;
   value: string | number;
   subtitle?: string;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
+  trend?: DashboardKPITrend;
   sparkline?: number[];
   link?: string;
 }

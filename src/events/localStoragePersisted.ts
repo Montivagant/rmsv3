@@ -12,13 +12,10 @@ export class LocalStoragePersistedEventStore implements EventStore {
   private memoryStore: InMemoryEventStore;
   private db: LocalStorageAdapter;
   private syncInterval: ReturnType<typeof setInterval> | null = null;
-  private dbPrefix: string;
-
-  constructor(memoryStore: InMemoryEventStore, db: LocalStorageAdapter, dbPrefix: string = 'rmsv3_events') {
+  constructor(memoryStore: InMemoryEventStore, db: LocalStorageAdapter, _dbPrefix: string = 'rmsv3_events') {
     this.memoryStore = memoryStore;
     this.db = db;
     // The db already handles the prefix, we just store it for reference
-    this.dbPrefix = dbPrefix;
   }
 
   /**
@@ -51,9 +48,9 @@ export class LocalStoragePersistedEventStore implements EventStore {
       }
 
       // Only log hydration status once per session
-      if (!globalThis.__RMS_HYDRATION_LOGGED) {
+      if (!(globalThis as any).__RMS_HYDRATION_LOGGED) {
         console.log(`✅ Hydrated ${this.memoryStore.getAll().length} events`);
-        globalThis.__RMS_HYDRATION_LOGGED = true;
+        (globalThis as any).__RMS_HYDRATION_LOGGED = true;
       }
     } catch (error) {
       console.error('❌ Failed to hydrate from localStorage');
@@ -123,6 +120,13 @@ export class LocalStoragePersistedEventStore implements EventStore {
   }
 
   /**
+   * Query events with optional filter
+   */
+  query(filter?: any): Event[] {
+    return this.memoryStore.query(filter);
+  }
+
+  /**
    * Reset both memory and localStorage
    */
   async reset(): Promise<void> {
@@ -160,8 +164,8 @@ export class LocalStoragePersistedEventStore implements EventStore {
     }, intervalMs);
     
     // Only log auto-sync start once per session to avoid React StrictMode duplicate messages
-    if (!globalThis.__RMS_AUTOSYNC_LOGGED) {
-      globalThis.__RMS_AUTOSYNC_LOGGED = true;
+    if (!(globalThis as any).__RMS_AUTOSYNC_LOGGED) {
+      (globalThis as any).__RMS_AUTOSYNC_LOGGED = true;
     }
   }
 
@@ -202,15 +206,6 @@ export class LocalStoragePersistedEventStore implements EventStore {
   /**
    * Persist a single event to localStorage
    */
-  private async persistEventToLocalStorage(event: Event): Promise<void> {
-    try {
-      const dbEvent = this.eventToDBEvent(event);
-      await this.db.put(dbEvent);
-    } catch (error) {
-      console.error('Failed to persist event:', event.id, error);
-      throw error;
-    }
-  }
 
   /**
    * Convert Event to DBEvent for localStorage

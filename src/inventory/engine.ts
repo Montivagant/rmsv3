@@ -1,6 +1,7 @@
 import type { OversellPolicy, InventoryAdjustmentReport } from './types'
 import { OversellError } from './types'
 import { explodeLines } from './recipes'
+import type { SaleRecordedPayload } from '../events/types';
 
 export class InventoryEngine {
   private quantities: Map<string, number>
@@ -35,7 +36,7 @@ export class InventoryEngine {
    * Returns adjustment report with any alerts
    */
   applySale(
-    payload: any,
+    payload: SaleRecordedPayload,
     policy: OversellPolicy
   ): InventoryAdjustmentReport {
     // Explode sale lines into component requirements
@@ -81,10 +82,13 @@ export class InventoryEngine {
       }
     }
 
-    return {
+    const report: InventoryAdjustmentReport = {
       adjustments,
-      alerts: alerts.length > 0 ? alerts : undefined
+    };
+    if (alerts.length > 0) {
+      report.alerts = alerts;
     }
+    return report;
   }
 
   /**

@@ -3,8 +3,7 @@ import { InventoryTransferService } from '../../inventory/transfers/service';
 import { TransferUtils } from '../../inventory/transfers/types';
 import type { 
   CreateTransferRequest, 
-  Transfer, 
-  TransferLine 
+  Transfer
 } from '../../inventory/transfers/types';
 import type { EventStore } from '../../events/types';
 
@@ -17,6 +16,7 @@ describe('Inventory Transfer Service', () => {
       append: vi.fn().mockResolvedValue({ id: 'evt-123' }),
       query: vi.fn().mockReturnValue([]),
       getAll: vi.fn().mockReturnValue([]),
+      getEventsForAggregate: vi.fn().mockReturnValue([]),
       reset: vi.fn().mockResolvedValue(undefined)
     } as unknown as EventStore;
 
@@ -39,9 +39,8 @@ describe('Inventory Transfer Service', () => {
 
     describe('calculateTotals', () => {
       it('should calculate totals correctly', () => {
-        const lines: TransferLine[] = [
+        const lines: any[] = [
           {
-            id: 'line-1',
             itemId: 'item-1',
             sku: 'SKU-1',
             name: 'Item 1',
@@ -54,7 +53,6 @@ describe('Inventory Transfer Service', () => {
             unitCost: 5.00
           },
           {
-            id: 'line-2',
             itemId: 'item-2',
             sku: 'SKU-2',
             name: 'Item 2',
@@ -164,10 +162,22 @@ describe('Inventory Transfer Service', () => {
       });
 
       it('should correctly identify transfer capabilities', () => {
-        const draftTransfer: Transfer = { status: 'DRAFT', lines: [] } as Transfer;
-        const draftTransferWithLines: Transfer = { status: 'DRAFT', lines: [{}] } as Transfer;
-        const sentTransfer: Transfer = { status: 'SENT', lines: [{}] } as Transfer;
-        const closedTransfer: Transfer = { status: 'CLOSED', lines: [{}] } as Transfer;
+        const draftTransfer: Transfer = { 
+          id: 'test-1', code: 'TR-001', sourceLocationId: 'loc1', destinationLocationId: 'loc2',
+          status: 'DRAFT', lines: [], createdBy: 'test'
+        };
+        const draftTransferWithLines: Transfer = { 
+          id: 'test-2', code: 'TR-002', sourceLocationId: 'loc1', destinationLocationId: 'loc2',
+          status: 'DRAFT', lines: [{ itemId: 'item1', sku: 'SKU1', name: 'Item 1', unit: 'each', qtyPlanned: 1 }], createdBy: 'test'
+        };
+        const sentTransfer: Transfer = { 
+          id: 'test-3', code: 'TR-003', sourceLocationId: 'loc1', destinationLocationId: 'loc2',
+          status: 'SENT', lines: [{ itemId: 'item1', sku: 'SKU1', name: 'Item 1', unit: 'each', qtyPlanned: 1 }], createdBy: 'test'
+        };
+        const closedTransfer: Transfer = { 
+          id: 'test-4', code: 'TR-004', sourceLocationId: 'loc1', destinationLocationId: 'loc2',
+          status: 'CLOSED', lines: [{ itemId: 'item1', sku: 'SKU1', name: 'Item 1', unit: 'each', qtyPlanned: 1 }], createdBy: 'test'
+        };
 
         expect(TransferUtils.canCancel(draftTransfer)).toBe(true);
         expect(TransferUtils.canCancel(sentTransfer)).toBe(false);

@@ -1,13 +1,11 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 // Use local test double to avoid msw/node condition issues
 import { beforeEach, vi } from 'vitest';
 // Keep handlers import to ensure API types stay consistent
-import { inventoryTransferApiHandlers } from '../../../inventory/transfers/api';
 import { transferApiService } from '../../../inventory/transfers/api';
 import type { 
   CreateTransferRequest, 
-  CompleteTransferRequest,
-  Transfer 
+  CompleteTransferRequest
 } from '../../../inventory/transfers/types';
 
 beforeEach(() => {
@@ -31,7 +29,7 @@ beforeEach(() => {
     { id: 'westside-branch', name: 'Westside Branch' },
   ] as any);
 
-  vi.spyOn(transferApiService, 'searchItems').mockImplementation(async (q: string, locationId?: string) => {
+  vi.spyOn(transferApiService, 'searchItems').mockImplementation(async (q: string, _locationId?: string) => {
     const term = (q || '').toLowerCase();
     const list = Array.from(items.values()).filter(i => i.name.toLowerCase().includes(term));
     return list as any;
@@ -169,7 +167,7 @@ describe('Transfer Workflow E2E', () => {
     // Note: In the mock, we don't persist stock changes across requests,
     // but in production this would verify actual stock levels
     const updatedSourceItems = await transferApiService.searchItems('tomato', sourceLocation!.id);
-    const updatedTomato = updatedSourceItems.find(i => i.id === tomatoItem.id);
+    updatedSourceItems.find(i => i.id === tomatoItem.id);
     
     // In a real implementation with persistent storage:
     // expect(updatedTomato.availableQty).toBe(initialSourceStock - 9);

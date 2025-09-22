@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { fetchJSON, postJSON, patchJSON, deleteJSON } from '../api/client';
 
 interface UseApiState<T> {
   data: T | null;
@@ -20,7 +21,7 @@ export function useApi<T>(url: string, defaultValue?: T): UseApiReturn<T> {
     error: null,
   });
 
-  const fetchData = async (retryCount = 0) => {
+  const fetchData = async (_retryCount = 0) => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
       
@@ -38,33 +39,7 @@ export function useApi<T>(url: string, defaultValue?: T): UseApiReturn<T> {
       if (import.meta.env.DEV && import.meta.env.VITE_CONSOLE_LOGGING !== 'false') {
         console.log(`🔄 Fetching: ${url}`);
       }
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error(`❌ Expected JSON but got ${contentType} for ${url}`);
-        console.error(`📄 Response preview: ${text.substring(0, 100)}...`);
-        
-        // Check if we got HTML instead of JSON (likely MSW not ready)
-        if (text.includes('<!doctype html>') || text.includes('<html')) {
-          // Retry once after a short delay if this is the first attempt
-          if (retryCount === 0) {
-            console.log('⏳ MSW not ready, retrying in 500ms...');
-            setTimeout(() => fetchData(1), 500);
-            return;
-          }
-          throw new Error(`API not ready - try refreshing the page or switch to Advanced Dashboard`);
-        }
-        
-        throw new Error(`Expected JSON but got ${contentType || 'unknown content type'}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchJSON(url);
       
       // Ensure we have valid data
       if (data === null || data === undefined) {
@@ -118,48 +93,13 @@ export function useApi<T>(url: string, defaultValue?: T): UseApiReturn<T> {
 }
 
 export async function apiPost<T>(url: string, data: any): Promise<T> {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+  return postJSON<T>(url, data);
 }
 
 export async function apiPatch<T>(url: string, data: any): Promise<T> {
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+  return patchJSON<T>(url, data);
 }
 
 export async function apiDelete<T>(url: string): Promise<T> {
-  const response = await fetch(url, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  return response.json();
+  return deleteJSON<T>(url);
 }

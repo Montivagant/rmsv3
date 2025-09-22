@@ -55,10 +55,11 @@ export interface CategoryFormData {
 }
 
 export interface CategoryFormErrors {
-  name?: string;
-  displayOrder?: string;
-  branchIds?: string;
-  _form?: string;
+  name?: string | undefined;
+  displayOrder?: string | undefined;
+  branchIds?: string | undefined;
+  isActive?: string | undefined;
+  _form?: string | undefined;
 }
 
 // Business Rules Constants

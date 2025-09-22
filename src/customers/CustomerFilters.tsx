@@ -1,4 +1,3 @@
-import React, { useMemo, useState } from 'react';
 import { Button, Input } from '../components';
 import type { CustomerFilters } from './types';
 
@@ -14,7 +13,7 @@ export function CustomerFilters({
   searchInput,
   setSearchInput,
   filters,
-  onChange,
+  onChange: _onChange,
   onReset,
 }: Props) {
   const hasAnyFilter = !!filters && Object.keys(filters).length > 0;

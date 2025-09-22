@@ -18,6 +18,7 @@ export interface InventoryItem {
   batches?: BatchInfo[]
   // Location-specific quantities
   locationQuantities?: Record<string, number>
+  primarySupplierId?: string
 }
 
 export type OversellPolicy = 'block' | 'allow_negative_alert'
@@ -65,6 +66,7 @@ export interface BatchInfo {
   expirationDate?: string
   receivedDate: string
   costPerUnit: number
+  supplierId?: string
   lotNumber?: string
   isExpired?: boolean
   notes?: string
@@ -220,6 +222,34 @@ export interface InventoryAnalytics {
   recommendedReorderQuantity?: number
 }
 
+export interface PurchaseOrder {
+  id: string;
+  supplierId: string;
+  locationId: string;
+  status: 'draft' | 'submitted' | 'approved' | 'rejected' | 'partially_received' | 'fully_received' | 'cancelled';
+  orderDate: string;
+  expectedDeliveryDate?: string;
+  actualDeliveryDate?: string;
+  subtotal: number;
+  taxAmount?: number;
+  shippingCost?: number;
+  totalAmount: number;
+  items: Array<{
+    sku: string;
+    name: string;
+    quantityOrdered: number;
+    quantityReceived?: number;
+    unitCost: number;
+    totalCost: number;
+    unit: string;
+  }>;
+  notes?: string;
+  createdBy: string;
+  approvedBy?: string;
+  submittedBy?: string;
+  receivedBy?: string;
+}
+
 export interface InventoryCount {
   id: string
   locationId: string
@@ -283,6 +313,8 @@ export type DiscrepancyReason =
   | 'unknown'
   | 'transfer_not_recorded'
   | 'sale_not_recorded';
+
+import type { InventoryMovement } from './items/types';
 
 // Event types for advanced inventory management
 

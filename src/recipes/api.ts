@@ -701,19 +701,19 @@ export const recipeApiHandlers = [
         prepTime: recipeData.timing?.prepTime || 0,
         cookTime: recipeData.timing?.cookTime || 0,
         totalTime: (recipeData.timing?.prepTime || 0) + (recipeData.timing?.cookTime || 0),
-        restTime: recipeData.timing?.restTime,
-        shelfLife: recipeData.timing?.shelfLife
+        ...(recipeData.timing?.restTime && { restTime: recipeData.timing.restTime }),
+        ...(recipeData.timing?.shelfLife && { shelfLife: recipeData.timing.shelfLife })
       },
       instructions: recipeData.instructions || [],
       ingredients: recipeData.ingredients || [],
       equipment: recipeData.equipment || [],
-      nutrition: recipeData.nutrition,
+      ...(recipeData.nutrition && { nutrition: recipeData.nutrition }),
       costing: {
         totalIngredientCost: 0,
         costPerServing: 0,
         costPerUnit: 0,
-        laborCostPerBatch: recipeData.costing?.laborCostPerBatch,
-        overheadCostPerBatch: recipeData.costing?.overheadCostPerBatch,
+        ...(recipeData.costing?.laborCostPerBatch && { laborCostPerBatch: recipeData.costing.laborCostPerBatch }),
+        ...(recipeData.costing?.overheadCostPerBatch && { overheadCostPerBatch: recipeData.costing.overheadCostPerBatch }),
         totalCostPerBatch: 0,
         currency: 'USD',
         lastCalculated: now

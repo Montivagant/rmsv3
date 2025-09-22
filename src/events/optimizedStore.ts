@@ -12,7 +12,10 @@
 import type { Event, EventStore, AppendOptions, AppendResult } from './types';
 import { generateEventId, stableHash } from './hash';
 import { logEvent } from './log';
-import { IdempotencyConflictError } from './types';
+import { dispatchOutboxEvent } from '../data/sync/outboxBridge';
+import { environment } from '../lib/environment';
+import { processIncomingEvent, EventValidationError, type VersionedEvent } from './validation';
+import { logger } from '../shared/logger';
 
 export interface OptimizedStoreConfig {
   maxEventsInMemory?: number;
@@ -105,20 +108,35 @@ export class OptimizedEventStore implements EventStore {
       }
       
       // Different params hash - conflict
-      throw new IdempotencyConflictError(
-        `Idempotency conflict for key '${opts.key}': params hash mismatch`
-      );
+      throw new Error(`Idempotency conflict for key '${opts.key}': params hash mismatch`);
     }
     
-    // Create new event
-    const event: Event = {
+    // Create new event with version support
+    const eventCandidate = {
       id: generateEventId(),
       seq: ++this.sequenceCounter,
       type,
       at: Date.now(),
+      version: 1, // Default version for new events
       aggregate: opts.aggregate,
       payload
-    } as Event;
+    };
+
+    // Validate event before storing
+    let event: Event & VersionedEvent;
+    try {
+      event = processIncomingEvent(eventCandidate) as Event & VersionedEvent;
+    } catch (error) {
+      if (error instanceof EventValidationError) {
+        logger.error(`Event validation failed for ${type}`, {
+          eventType: type,
+          version: error.version,
+          validationErrors: error.issues
+        });
+        throw new Error(`Invalid event payload: ${error.message}`);
+      }
+      throw error;
+    }
     
     // Store event
     this.events.set(event.id, event);
@@ -141,11 +159,23 @@ export class OptimizedEventStore implements EventStore {
     
     // Log the event
     logEvent(event);
-    
+
+    // Dispatch to outbox for sync
+    dispatchOutboxEvent(event);
+
+    // Persist to PouchDB/IndexedDB (fire-and-forget to not block)
+    this.persistEventToPouchDB(event).catch(error => {
+      logger.warn('Failed to persist event to PouchDB', { 
+        eventId: event.id, 
+        eventType: event.type,
+        error: (error as Error).message
+      });
+    });
+
     // Update metrics
     if (this.config.enableMetrics) {
       const duration = performance.now() - startTime;
-      this.updateMetrics('append', duration);
+      this.updateMetrics(duration);
     }
     
     return {
@@ -157,6 +187,37 @@ export class OptimizedEventStore implements EventStore {
 
   getAll(): Event[] {
     return [...this.eventArray];
+  }
+
+  query(filter?: any): Event[] {
+    if (!filter) {
+      return this.getAll();
+    }
+    
+    const startTime = performance.now();
+    
+    // Use optimized indexes when possible
+    if (filter.type && !filter.aggregateId && !filter.aggregateType) {
+      return this.getEventsByType(filter.type);
+    }
+    
+    if (filter.aggregateId && !filter.type && !filter.aggregateType) {
+      return this.getEventsForAggregate(filter.aggregateId);
+    }
+    
+    // Fallback to filtering all events
+    const events = this.eventArray.filter(event => {
+      if (filter.type && event.type !== filter.type) return false;
+      if (filter.aggregateId && event.aggregate?.id !== filter.aggregateId) return false;
+      if (filter.aggregateType && event.aggregate?.type !== filter.aggregateType) return false;
+      return true;
+    });
+    
+    if (this.config.enableMetrics) {
+      this.updateMetrics(performance.now() - startTime);
+    }
+    
+    return events;
   }
 
   /**
@@ -171,7 +232,7 @@ export class OptimizedEventStore implements EventStore {
     if (cached) {
       if (this.config.enableMetrics) {
         this.metrics.cacheHits++;
-        this.updateMetrics('getEventsByType', performance.now() - startTime);
+        this.updateMetrics(performance.now() - startTime);
       }
       return cached as Extract<Event, { type: T }>[];
     }
@@ -191,7 +252,7 @@ export class OptimizedEventStore implements EventStore {
     if (this.config.enableMetrics) {
       this.metrics.cacheMisses++;
       this.metrics.indexUsage.byType = (this.metrics.indexUsage.byType || 0) + 1;
-      this.updateMetrics('getEventsByType', performance.now() - startTime);
+      this.updateMetrics(performance.now() - startTime);
     }
 
     return events;
@@ -209,7 +270,7 @@ export class OptimizedEventStore implements EventStore {
     if (cached) {
       if (this.config.enableMetrics) {
         this.metrics.cacheHits++;
-        this.updateMetrics('getEventsForAggregate', performance.now() - startTime);
+        this.updateMetrics(performance.now() - startTime);
       }
       return cached;
     }
@@ -229,7 +290,7 @@ export class OptimizedEventStore implements EventStore {
     if (this.config.enableMetrics) {
       this.metrics.cacheMisses++;
       this.metrics.indexUsage.byAggregate = (this.metrics.indexUsage.byAggregate || 0) + 1;
-      this.updateMetrics('getEventsForAggregate', performance.now() - startTime);
+      this.updateMetrics(performance.now() - startTime);
     }
 
     return events;
@@ -247,7 +308,7 @@ export class OptimizedEventStore implements EventStore {
     if (cached) {
       if (this.config.enableMetrics) {
         this.metrics.cacheHits++;
-        this.updateMetrics('getEventsByDateRange', performance.now() - startTime);
+        this.updateMetrics(performance.now() - startTime);
       }
       return cached;
     }
@@ -287,7 +348,7 @@ export class OptimizedEventStore implements EventStore {
     if (this.config.enableMetrics) {
       this.metrics.cacheMisses++;
       this.metrics.indexUsage.byDate = (this.metrics.indexUsage.byDate || 0) + 1;
-      this.updateMetrics('getEventsByDateRange', performance.now() - startTime);
+      this.updateMetrics(performance.now() - startTime);
     }
 
     return events;
@@ -486,7 +547,7 @@ export class OptimizedEventStore implements EventStore {
     return date.toISOString().substring(0, 13);
   }
 
-  private updateMetrics(operation: string, duration: number): void {
+  private updateMetrics(duration: number): void {
     this.metrics.queriesExecuted++;
     this.metrics.averageQueryTime = 
       (this.metrics.averageQueryTime * (this.metrics.queriesExecuted - 1) + duration) / 
@@ -501,5 +562,20 @@ export class OptimizedEventStore implements EventStore {
       averageQueryTime: 0,
       indexUsage: {}
     };
+  }
+
+  /**
+   * Persist event to PouchDB/IndexedDB (canonical persistence layer)
+   */
+  private async persistEventToPouchDB(event: Event): Promise<void> {
+    try {
+      // Dynamically import PouchDB to handle module availability
+      const { openLocalDB, putEvent } = await import('../db/pouch');
+      const db = await openLocalDB({ name: environment.eventStorePath });
+      await putEvent(db, event);
+    } catch (error) {
+      // PouchDB may not be available in some environments, fail gracefully
+      throw new Error(`PouchDB persistence failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }

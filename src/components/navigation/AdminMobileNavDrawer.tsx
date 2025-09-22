@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useDismissableLayer } from '../../hooks/useDismissableLayer';
 import { NavIcon } from './NavIcon';
@@ -166,7 +166,7 @@ export const AdminMobileNavDrawer: React.FC<AdminMobileNavDrawerProps> = ({
   onClose,
   userRole = 'admin',
 }) => {
-  const drawerRef = useRef<HTMLDivElement>(null);
+  // drawerRef will be provided by useDismissableLayer
   const [expandedSections, setExpandedSections] = useState<Set<string>>(getExpandedSections);
   
   // Filter navigation items by user role
@@ -187,12 +187,13 @@ export const AdminMobileNavDrawer: React.FC<AdminMobileNavDrawerProps> = ({
   };
 
   // Set up dismissable layer
-  useDismissableLayer({
+  const { layerRef } = useDismissableLayer({
     isOpen,
     onDismiss: onClose,
-    triggerRef: null,
-    layerRef: drawerRef,
   });
+
+  // Use the returned layerRef or merge it with drawerRef
+  const drawerRef = layerRef as React.RefObject<HTMLDivElement>;
 
   // Prevent body scroll when drawer is open
   useEffect(() => {

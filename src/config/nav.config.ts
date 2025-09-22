@@ -5,7 +5,7 @@ export interface NavItem {
   icon?: string; // SVG path string instead of ReactNode
   path?: string;
   roles: Array<'owner' | 'staff' | 'tech_admin'>;
-  children?: NavItem[];
+  children?: NavItem[] | undefined;
   order?: number;
   badgeId?: 'ordersCount' | 'lowStock' | 'expiringItems' | 'outOfStock';
   featureFlag?: string;
@@ -53,17 +53,25 @@ export const navigationConfig: NavItem[] = [
     order: 2,
   },
   {
+    id: 'clockin',
+    label: 'Clock In/Out', 
+    path: '/clockin',
+    icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+    roles: ['staff', 'owner', 'tech_admin'],
+    order: 3,
+  },
+  {
     id: 'orders',
     label: 'Orders',
     icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
     roles: ['staff', 'owner', 'tech_admin'],
     badgeId: 'ordersCount',
-    order: 3,
+    order: 4,
     children: [
       {
-        id: 'active-orders',
-        label: 'Active Orders',
-        path: '/orders/active',
+        id: 'order-management',
+        label: 'Order Management',
+        path: '/orders',
         roles: ['staff', 'owner', 'tech_admin'],
         order: 1,
       },
@@ -395,11 +403,13 @@ export const generateBreadcrumbs = (
   if (matchedItem) {
     const parent = findParent(navItems, matchedItem.id);
     
-    if (parent) {
+    if (parent && parent.path) {
       breadcrumbs.push({ label: parent.label, path: parent.path });
     }
     
-    breadcrumbs.push({ label: matchedItem.label, path: matchedItem.path });
+    if (matchedItem.path) {
+      breadcrumbs.push({ label: matchedItem.label, path: matchedItem.path });
+    }
   }
 
   return breadcrumbs;

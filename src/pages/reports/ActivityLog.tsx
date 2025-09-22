@@ -25,21 +25,28 @@ export default function ActivityLog() {
     const logs: LogRow[] = events.map(e => {
       if (e.type === 'audit.logged') {
         const p: any = e.payload || {};
-        return {
+        const log: LogRow = {
           when: e.at,
           type: e.type,
-          userName: p.userName,
-          userId: p.userId,
-          action: p.action,
-          resource: p.resource,
-          details: p.details ? JSON.stringify(p.details) : undefined,
         };
+        if (p.userName) log.userName = p.userName;
+        if (p.userId) log.userId = p.userId;
+        if (p.action) log.action = p.action;
+        if (p.resource) log.resource = p.resource;
+        if (p.details) log.details = JSON.stringify(p.details);
+        return log;
       }
-      return {
+
+      const log: LogRow = {
         when: e.at,
         type: e.type,
-        details: e.aggregate ? `${e.aggregate.type}:${e.aggregate.id}` : undefined,
       };
+
+      if (e.aggregate) {
+        log.details = `${e.aggregate.type}:${e.aggregate.id}`;
+      }
+
+      return log;
     });
 
     const filtered = logs
@@ -87,10 +94,10 @@ export default function ActivityLog() {
               <tr key={idx} className="border-b last:border-0">
                 <td className="py-2 pr-4">{new Date(r.when).toLocaleString()}</td>
                 <td className="py-2 pr-4">{r.type}</td>
-                <td className="py-2 pr-4">{r.userName || r.userId || '—'}</td>
-                <td className="py-2 pr-4">{r.action || '—'}</td>
-                <td className="py-2 pr-4">{r.resource || '—'}</td>
-                <td className="py-2 pr-4 truncate max-w-[320px]" title={r.details}>{r.details || '—'}</td>
+              <td className="py-2 pr-4">{r.userName || r.userId || '-'}</td>
+                <td className="py-2 pr-4">{r.action || '-'}</td>
+                <td className="py-2 pr-4">{r.resource || '-'}</td>
+                <td className="py-2 pr-4 truncate max-w-[320px]" title={r.details}>{r.details || '-'}</td>
               </tr>
             ))}
           </tbody>

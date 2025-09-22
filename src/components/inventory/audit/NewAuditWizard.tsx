@@ -1,17 +1,13 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { Modal } from '../../Modal';
 import { Button } from '../../Button';
 import { Input } from '../../Input';
 import { Select } from '../../Select';
 import { Label } from '../../Label';
-import { Badge } from '../../Badge';
 import { Checkbox } from '../../Checkbox';
 import { RadioGroup, RadioOption, RadioOptionContent } from '../../ui/RadioGroup';
-import { Skeleton } from '../../Skeleton';
-import { Tooltip } from '../../ui/Tooltip';
 import { useToast } from '../../../hooks/useToast';
-import { useApi } from '../../../hooks/useApi';
+import { createInventoryAudit } from '../../../inventory/repository';
 import type { CreateCountRequest, CountScope } from '../../../inventory/audit/types';
 
 interface NewAuditWizardProps {
@@ -37,11 +33,9 @@ export default function NewAuditWizard({
   branches = [],
   categories = [],
   itemTypes = [],
-  storageAreas = [],
   loading = false,
   simpleMode = false
 }: NewAuditWizardProps) {
-  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<WizardStep>('branch');
   const [formData, setFormData] = useState<CreateCountRequest>({
     branchId: '',
@@ -64,7 +58,7 @@ export default function NewAuditWizard({
         if (!formData.branchId || formData.branchId.trim() === '') {
           newErrors.branchId = 'Branch selection is required';
         }
-        if (formData.estimatedDurationMinutes < 15 || formData.estimatedDurationMinutes > 480) {
+        if ((formData.estimatedDurationMinutes ?? 0) < 15 || (formData.estimatedDurationMinutes ?? 0) > 480) {
           newErrors.estimatedDurationMinutes = 'Duration must be between 15 and 480 minutes';
         }
         break;
@@ -125,20 +119,10 @@ export default function NewAuditWizard({
         scope: finalScope,
       };
 
-      // API call - keep internal API path as counts for now
-      const response = await fetch('/api/inventory/counts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create audit session');
-      }
-
-      const result = await response.json();
+      // Create audit using repository
+      const result = await createInventoryAudit(requestData);
       showToast('Audit session created successfully', 'success');
-      onSuccess(result.countId);
+      onSuccess(result.id);
       
     } catch (error) {
       console.error('Error creating audit:', error);
@@ -202,9 +186,9 @@ export default function NewAuditWizard({
         if (scopeType === 'all') {
           return true;
         } else if (scopeType === 'categories') {
-          return formData.scope.filters?.categoryIds && formData.scope.filters.categoryIds.length > 0;
+          return Boolean(formData.scope.filters?.categoryIds && formData.scope.filters.categoryIds.length > 0);
         } else if (scopeType === 'itemTypes') {
-          return formData.scope.filters?.itemTypeIds && formData.scope.filters.itemTypeIds.length > 0;
+          return Boolean(formData.scope.filters?.itemTypeIds && formData.scope.filters.itemTypeIds.length > 0);
         }
         return false;
       case 'confirmation':
@@ -271,6 +255,7 @@ export default function NewAuditWizard({
             <div>
               <Label>Audit Scope</Label>
               <RadioGroup 
+                name="auditScope"
                 value={scopeType} 
                 onValueChange={(value) => handleScopeTypeChange(value as ScopeType)}
                 className="mt-3 space-y-3"
@@ -514,6 +499,7 @@ export default function NewAuditWizard({
               <div>
                 <Label>Audit Scope</Label>
                   <RadioGroup
+                    name="auditScopeType"
                     value={scopeType}
                   onValueChange={(value) => handleScopeTypeChange(value as ScopeType)}
                   className="mt-3 space-y-3"

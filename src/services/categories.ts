@@ -1,4 +1,5 @@
-import type { CreateCategoryAPIPayload, CategoryAPIResponse } from '../lib/categories/mapCategoryForm';
+import type { CreateCategoryAPIPayload } from '../lib/categories/mapCategoryForm';
+import { fetchJSON, postJSON } from '../api/client';
 
 /**
  * API service for category management
@@ -15,30 +16,7 @@ export const categoryService = {
     }
 
     try {
-      const response = await fetch('/api/menu/categories', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Category name or reference already exists');
-        }
-        
-        if (response.status >= 400 && response.status < 500) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Invalid category data');
-        }
-        
-        throw new Error('Failed to create category');
-      }
-
-      const result = await response.json();
-      
+      const result = await postJSON<{ id: string }>('/api/menu/categories', payload);
       return result.id;
 
     } catch (error) {
@@ -54,14 +32,7 @@ export const categoryService = {
     if (!reference.trim()) return true;
 
     try {
-      const response = await fetch(`/api/menu/categories/check-reference?reference=${encodeURIComponent(reference.trim())}`);
-      
-      if (!response.ok) {
-        console.warn('Failed to check reference uniqueness, assuming unique');
-        return true;
-      }
-      
-      const result = await response.json();
+      const result = await fetchJSON<{ exists: boolean }>(`/api/menu/categories/check-reference?reference=${encodeURIComponent(reference.trim())}`);
       return !result.exists; // Return true if reference is unique (doesn't exist)
       
     } catch (error) {
@@ -77,14 +48,7 @@ export const categoryService = {
     if (!name.trim()) return true;
 
     try {
-      const response = await fetch(`/api/menu/categories/check-name?name=${encodeURIComponent(name.trim())}`);
-      
-      if (!response.ok) {
-        console.warn('Failed to check name uniqueness, assuming unique');
-        return true;
-      }
-      
-      const result = await response.json();
+      const result = await fetchJSON<{ exists: boolean }>(`/api/menu/categories/check-name?name=${encodeURIComponent(name.trim())}`);
       return !result.exists; // Return true if name is unique (doesn't exist)
       
     } catch (error) {
@@ -128,14 +92,7 @@ export const categoryService = {
    */
   async getExistingReferences(): Promise<string[]> {
     try {
-      const response = await fetch('/api/menu/categories/references');
-      
-      if (!response.ok) {
-        console.warn('Failed to fetch existing references');
-        return [];
-      }
-      
-      const result = await response.json();
+      const result = await fetchJSON<{ references: string[] }>('/api/menu/categories/references');
       return Array.isArray(result.references) ? result.references : [];
       
     } catch (error) {
@@ -149,14 +106,7 @@ export const categoryService = {
    */
   async getExistingNames(): Promise<string[]> {
     try {
-      const response = await fetch('/api/menu/categories/names');
-      
-      if (!response.ok) {
-        console.warn('Failed to fetch existing names');
-        return [];
-      }
-      
-      const result = await response.json();
+      const result = await fetchJSON<{ names: string[] }>('/api/menu/categories/names');
       return Array.isArray(result.names) ? result.names : [];
       
     } catch (error) {

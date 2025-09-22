@@ -45,7 +45,7 @@ const ACCOUNT_TABS: AccountTab[] = [
 
 export default function AccountLayout() {
   const location = useLocation();
-  const currentUser = getCurrentUser();
+  getCurrentUser();
 
   // Redirect to profile tab if on base account path
   React.useEffect(() => {

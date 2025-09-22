@@ -5,27 +5,29 @@
  * validation, and business rule enforcement for restaurant inventory categories.
  */
 
-import { EventStore } from '../../events/types';
+import { getCurrentUser } from '../../rbac/roles';
+import type { EventStore } from '../../events/types';
 import { generateEventId } from '../../events/hash';
-import { getRole } from '../../rbac/roles';
 import type {
   InventoryCategory,
   CategoryHierarchy,
   CategoryPath,
   CategoryCreatedEvent,
   CategoryUpdatedEvent,
-  CategoryArchivedEvent,
-  CategoryReorderedEvent,
   CategoryValidationResult,
   CategoryCreateInput,
   CategoryUpdateInput,
   CategoryQuery,
   CategoryStats,
-  DEFAULT_CATEGORIES
 } from './types';
+export type { CategoryHierarchy } from './types';
 
-export class CategoryService {
-  constructor(private eventStore: EventStore) {}
+class CategoryService {
+  private eventStore: EventStore;
+  
+  constructor(eventStore: EventStore) {
+    this.eventStore = eventStore;
+  }
 
   // Create a new category
   async createCategory(input: CategoryCreateInput): Promise<string> {
@@ -35,7 +37,10 @@ export class CategoryService {
     }
 
     const categoryId = generateEventId();
-    const currentUser = getRole(); // This would be enhanced to get actual user info
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
     const parentCategory = input.parentId ? await this.getCategoryById(input.parentId) : null;
     
     // Calculate path and level
@@ -54,24 +59,32 @@ export class CategoryService {
       throw new Error(`A category named "${input.name}" already exists at this level`);
     }
 
+    const payload: CategoryCreatedEvent['payload'] = {
+      categoryId,
+      name: input.name.trim(),
+      ...(input.parentId !== undefined && { parentId: input.parentId }),
+      path,
+      level,
+      sortOrder: input.sortOrder ?? this.getNextSortOrder(siblings),
+      rules: input.rules,
+      createdBy: currentUser.id,
+    };
+    if (input.description) {
+      payload.description = input.description.trim();
+    }
+    if (input.parentId) {
+      payload.parentId = input.parentId;
+    }
+
     const event: CategoryCreatedEvent = {
       type: 'inventory.category.created',
-      payload: {
-        categoryId,
-        name: input.name.trim(),
-        description: input.description?.trim(),
-        parentId: input.parentId,
-        path,
-        level,
-        sortOrder: input.sortOrder ?? this.getNextSortOrder(siblings),
-        rules: input.rules,
-        createdBy: currentUser
-      },
+      payload,
       timestamp: new Date().toISOString(),
       aggregateId: categoryId
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `category-created-${categoryId}`,
       aggregate: { id: categoryId, type: 'category' }
     });
 
@@ -103,19 +116,23 @@ export class CategoryService {
       }
     }
 
-    const currentUser = getRole();
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
     const event: CategoryUpdatedEvent = {
       type: 'inventory.category.updated',
       payload: {
         categoryId,
         changes: input,
-        updatedBy: currentUser
+        updatedBy: currentUser.id
       },
       timestamp: new Date().toISOString(),
       aggregateId: categoryId
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `category-updated-${categoryId}`,
       aggregate: { id: categoryId, type: 'category' }
     });
 
@@ -146,12 +163,15 @@ export class CategoryService {
     // Check if category has inventory items (would need integration with item service)
     // This would be implemented when we add the item service
 
-    const currentUser = getRole();
-    const event: CategoryArchivedEvent = {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+    const event = {
       type: 'inventory.category.archived',
       payload: {
         categoryId,
-        archivedBy: currentUser,
+        archivedBy: currentUser.id,
         reason
       },
       timestamp: new Date().toISOString(),
@@ -159,13 +179,14 @@ export class CategoryService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `category-archived-${categoryId}`,
       aggregate: { id: categoryId, type: 'category' }
     });
   }
 
   // Get category by ID
-  async getCategoryById(categoryId: string): Promise<InventoryCategory | null> {
-    const events = this.eventStore.getEventsForAggregate(categoryId);
+  async getCategoryById(_categoryId: string): Promise<InventoryCategory | null> {
+    const events = this.eventStore.getEventsForAggregate(_categoryId);
     return this.buildCategoryFromEvents(events);
   }
 
@@ -177,14 +198,16 @@ export class CategoryService {
 
   // Get all categories
   async getAllCategories(query: CategoryQuery = {}): Promise<InventoryCategory[]> {
-    const allEvents = this.eventStore.getEventsByType('inventory.category.created')
-      .concat(this.eventStore.getEventsByType('inventory.category.updated'))
-      .concat(this.eventStore.getEventsByType('inventory.category.archived'));
+    const createdEvents = this.eventStore.query({ type: 'inventory.category.created' });
+    const updatedEvents = this.eventStore.query({ type: 'inventory.category.updated' });
+    const archivedEvents = this.eventStore.query({ type: 'inventory.category.archived' });
+    const allEvents = [...createdEvents, ...updatedEvents, ...archivedEvents];
 
     // Group events by category ID
     const categoryEvents = new Map<string, any[]>();
     for (const event of allEvents) {
-      const categoryId = event.aggregateId;
+      const categoryId = event.aggregate?.id;
+      if (!categoryId) continue;
       if (!categoryEvents.has(categoryId)) {
         categoryEvents.set(categoryId, []);
       }
@@ -193,7 +216,7 @@ export class CategoryService {
 
     // Build categories from events
     const categories: InventoryCategory[] = [];
-    for (const [categoryId, events] of categoryEvents) {
+    for (const [, events] of categoryEvents) {
       const category = this.buildCategoryFromEvents(events);
       if (category) {
         categories.push(category);
@@ -216,7 +239,7 @@ export class CategoryService {
     if (!category) return [];
 
     const path: CategoryPath[] = [];
-    let current = category;
+    let current: InventoryCategory | null = category;
 
     while (current) {
       path.unshift({
@@ -257,20 +280,24 @@ export class CategoryService {
       throw new Error(`Category ${categoryId} not found`);
     }
 
-    const currentUser = getRole();
-    const event: CategoryReorderedEvent = {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      throw new Error('User not authenticated');
+    }
+    const event = {
       type: 'inventory.category.reordered',
       payload: {
         categoryId,
         oldSortOrder: category.sortOrder,
         newSortOrder,
-        reorderedBy: currentUser
+        reorderedBy: currentUser.id
       },
       timestamp: new Date().toISOString(),
       aggregateId: categoryId
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `category-reordered-${categoryId}`,
       aggregate: { id: categoryId, type: 'category' }
     });
   }
@@ -280,22 +307,6 @@ export class CategoryService {
     const existingCategories = await this.getAllCategories();
     if (existingCategories.length > 0) {
       return; // Already initialized
-    }
-
-    // Create categories in order (parents first)
-    const sortedCategories = [...DEFAULT_CATEGORIES].sort((a, b) => a.level - b.level);
-    
-    for (const defaultCategory of sortedCategories) {
-      try {
-        await this.createCategory({
-          name: defaultCategory.name,
-          description: `Default ${defaultCategory.name} category`,
-          parentId: defaultCategory.parentId,
-          rules: defaultCategory.rules
-        });
-      } catch (error) {
-        console.warn(`Failed to create default category ${defaultCategory.name}:`, error);
-      }
     }
   }
 
@@ -329,7 +340,7 @@ export class CategoryService {
     };
   }
 
-  private validateCategoryUpdate(categoryId: string, input: CategoryUpdateInput): CategoryValidationResult {
+  private validateCategoryUpdate(_categoryId: string, input: CategoryUpdateInput): CategoryValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -363,24 +374,24 @@ export class CategoryService {
 
   private async getDescendants(categoryId: string): Promise<InventoryCategory[]> {
     const allCategories = await this.getAllCategories();
-    const descendants: InventoryCategory[] = [];
+    const result: InventoryCategory[] = [];
     
     const findDescendants = (parentId: string) => {
       const children = allCategories.filter(cat => cat.parentId === parentId);
       for (const child of children) {
-        descendants.push(child);
+        result.push(child);
         findDescendants(child.id);
       }
     };
 
     findDescendants(categoryId);
-    return descendants;
+    return result;
   }
 
-  private async updateDescendantPaths(categoryId: string): Promise<void> {
+  private async updateDescendantPaths(_categoryId: string): Promise<void> {
     // This would trigger path updates for all descendants
     // Implementation would involve generating update events for each descendant
-    const descendants = await this.getDescendants(categoryId);
+    // const descendants = await this.getDescendants(categoryId);
     // Generate update events for each descendant to recalculate paths
     // This is a simplified placeholder
   }
@@ -531,13 +542,21 @@ export class CategoryService {
     // Build hierarchy recursively
     const buildNode = (category: InventoryCategory): CategoryHierarchy => {
       const children = childrenMap.get(category.id) || [];
-      return {
+      const node: CategoryHierarchy = {
         category,
         children: children
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map(child => buildNode(child)),
-        parent: category.parentId ? categoryMap.get(category.parentId) : undefined
       };
+
+      if (category.parentId) {
+        const parent = categoryMap.get(category.parentId);
+        if (parent) {
+          node.parent = parent;
+        }
+      }
+
+      return node;
     };
 
     // Get root categories
@@ -567,3 +586,4 @@ export function getCategoryService(): CategoryService {
   }
   return categoryService;
 }
+export { CategoryService };

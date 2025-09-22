@@ -17,10 +17,9 @@ import type {
   TransferCreatedEvent,
   TransferCompletedEvent,
   TransferCancelledEvent,
-  TransferValidationError,
   Location
 } from './types';
-import { TransferUtils, TRANSFER_CONFIG } from './types';
+import { TransferValidationError, TransferUtils, TRANSFER_CONFIG } from './types';
 
 export class InventoryTransferService {
   private eventStore: EventStore;
@@ -91,7 +90,7 @@ export class InventoryTransferService {
     if (!validation.isValid) {
       throw new TransferValidationError(
         validation.errors.map(msg => ({
-          code: 'VALIDATION_ERROR',
+          code: 'VALIDATION_ERROR' as const,
           message: msg
         }))
       );
@@ -103,14 +102,14 @@ export class InventoryTransferService {
     
     if (!sourceLocation) {
       throw new TransferValidationError([{
-        code: 'INVALID_LOCATION',
+        code: 'INVALID_LOCATION' as const,
         message: 'Source location not found'
       }]);
     }
     
     if (!destinationLocation) {
       throw new TransferValidationError([{
-        code: 'INVALID_LOCATION',
+        code: 'INVALID_LOCATION' as const,
         message: 'Destination location not found'
       }]);
     }
@@ -129,7 +128,7 @@ export class InventoryTransferService {
           sku: itemDetails.sku,
           name: itemDetails.name,
           unit: itemDetails.unit,
-          qtyPlanned: lineRequest.qtyPlanned
+          qtyPlanned: lineRequest.qtyPlanned || 0
         };
       })
     );
@@ -142,7 +141,7 @@ export class InventoryTransferService {
       destinationLocationId: request.destinationLocationId,
       status: 'DRAFT',
       lines,
-      notes: request.notes,
+      ...(request.notes ? { notes: request.notes } : {}),
       createdBy: currentUser.id
     };
 
@@ -161,6 +160,7 @@ export class InventoryTransferService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `transfer-created-${transferId}`,
       aggregate: { id: transferId, type: 'inventory-transfer' }
     });
 
@@ -193,7 +193,7 @@ export class InventoryTransferService {
     if (!validation.isValid) {
       throw new TransferValidationError(
         validation.errors.map(msg => ({
-          code: 'VALIDATION_ERROR',
+          code: 'VALIDATION_ERROR' as const,
           message: msg
         }))
       );
@@ -230,6 +230,7 @@ export class InventoryTransferService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `transfer-completed-${transferId}`,
       aggregate: { id: transferId, type: 'inventory-transfer' }
     });
 
@@ -274,6 +275,7 @@ export class InventoryTransferService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `transfer-cancelled-${transferId}`,
       aggregate: { id: transferId, type: 'inventory-transfer' }
     });
 
@@ -311,7 +313,7 @@ export class InventoryTransferService {
       if (!validation.isValid) {
         throw new TransferValidationError(
           validation.errors.map(msg => ({
-            code: 'VALIDATION_ERROR',
+            code: 'VALIDATION_ERROR' as const,
             message: msg
           }))
         );
@@ -341,7 +343,7 @@ export class InventoryTransferService {
   /**
    * Get a single transfer by ID
    */
-  async getTransfer(transferId: string): Promise<Transfer | null> {
+  async getTransfer(_transferId: string): Promise<Transfer | null> {
     // Implementation would reconstruct transfer from event store
     // For now, returning null
     return null;
@@ -367,6 +369,7 @@ export class InventoryTransferService {
         reference: transfer.code,
         transactionId
       }, {
+        key: `stock-moved-out-${transfer.id}-${line.itemId}`,
         aggregate: { id: line.itemId, type: 'inventory-item' }
       });
 
@@ -381,6 +384,7 @@ export class InventoryTransferService {
         reference: transfer.code,
         transactionId
       }, {
+        key: `stock-moved-in-${transfer.id}-${line.itemId}`,
         aggregate: { id: line.itemId, type: 'inventory-item' }
       });
     }
@@ -401,7 +405,7 @@ export class InventoryTransferService {
   /**
    * Get available stock quantities
    */
-  private async getAvailableStock(itemIds: string[], locationId: string): Promise<Map<string, number>> {
+  private async getAvailableStock(itemIds: string[], _locationId: string): Promise<Map<string, number>> {
     // Mock implementation - would integrate with inventory service
     const stock = new Map<string, number>();
     itemIds.forEach(id => {

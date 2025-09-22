@@ -17,7 +17,7 @@ interface ModifierOption {
   id: string;
   name: string;
   priceAdjustment: number;
-  isDefault?: boolean;
+  isDefault?: boolean | undefined;
   isActive: boolean;
 }
 
@@ -132,10 +132,11 @@ export default function ModifierGroupModal({
     
     // Clear field error when user starts typing
     if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined,
-      }));
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
     }
   }, [errors]);
 
@@ -160,7 +161,11 @@ export default function ModifierGroupModal({
 
     setNewOptionName('');
     setNewOptionPrice(0);
-    setErrors(prev => ({ ...prev, newOption: undefined }));
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.newOption;
+      return newErrors;
+    });
   }, [newOptionName, newOptionPrice, formData.options.length]);
 
   // Remove option

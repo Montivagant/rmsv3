@@ -4,10 +4,12 @@
  */
 
 // Core service and business logic
-export { InventoryAuditService as InventoryCountService, createInventoryCountService, getInventoryCountService, initializeInventoryCountService } from './service';
+export { InventoryCountService, createInventoryCountService, getInventoryCountService, initializeInventoryCountService } from './service';
 
 // API layer and MSW handlers
 export { inventoryCountApiHandlers, countApiService } from './api';
+
+import type { InventoryCount, CountItem } from './types';
 
 // TypeScript types and utilities  
 export type {
@@ -97,7 +99,7 @@ export const InventoryCountUtils = {
    */
   findSignificantVariances(items: CountItem[], thresholdPercentage: number = 10): CountItem[] {
     return items.filter(item => 
-      item.countedQty !== null && 
+      item.countedQty !== undefined && 
       Math.abs(item.variancePercentage) > thresholdPercentage
     );
   },
@@ -106,7 +108,7 @@ export const InventoryCountUtils = {
    * Generate count summary statistics
    */
   generateCountSummary(count: InventoryCount, items: CountItem[]) {
-    const countedItems = items.filter(item => item.countedQty !== null);
+    const countedItems = items.filter(item => item.countedQty !== undefined);
     const variance = this.calculateTotalVariance(countedItems);
     const completion = this.calculateCompletionPercentage(items);
     const significantVariances = this.findSignificantVariances(countedItems);

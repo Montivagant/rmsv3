@@ -99,7 +99,7 @@ export class InventoryIntegrationService {
    * Validate transfer quantity against inventory
    */
   static validateTransferQuantity(
-    itemId: string,
+    _itemId: string,
     requestedQuantity: number,
     availableQuantity: number
   ): {

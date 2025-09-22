@@ -1,10 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KpiCard } from '../ui/KpiCard';
 import { cn } from '../../lib/utils';
 import { useDashboardQuery } from '../../lib/dashboard/useDashboardQuery';
 import { branchHealthAdapter, formatCurrency, formatRelativeTime } from '../../lib/dashboard/adapters';
 import type { BranchHealthData } from '../../lib/dashboard/types';
+import { useAnalytics } from '../../hooks/useAnalytics';
+import { useRepository } from '../../hooks/useRepository';
+import { listBranches } from '../../management/repository';
 
 /**
  * Branches dashboard tab - Branch health KPIs and detailed table
@@ -13,107 +16,79 @@ import type { BranchHealthData } from '../../lib/dashboard/types';
 export default function BranchesTab() {
   const navigate = useNavigate();
   const { query } = useDashboardQuery();
-  const [loading, setLoading] = useState(true);
-  const [branchData, setBranchData] = useState<BranchHealthData[]>([]);
+  // Get period from query
+  const period = query.period === 'day' ? 'today' : 
+                query.period === 'week' ? 'week' : 
+                query.period === 'month' ? 'month' : 'today';
+
+  // Fetch real branches data and analytics
+  const { data: branches = [], loading: branchesLoading } = useRepository(listBranches, []);
+  const { analytics, loading: analyticsLoading } = useAnalytics({ 
+    period,
+    refreshInterval: 5 * 60 * 1000 // 5 minutes
+  });
+
+  const loading = branchesLoading || analyticsLoading;
   const [sortConfig, setSortConfig] = useState<{
     key: keyof BranchHealthData;
     direction: 'asc' | 'desc';
   } | null>(null);
 
-  // Simulate data loading
-  useEffect(() => {
-    const loadBranchData = async () => {
-      setLoading(true);
+  // Combine branch data with analytics performance data
+  const branchData = useMemo(() => {
+    if (!branches?.length || !analytics) return [];
+
+    const availableBranches = query.branches?.length > 0 
+      ? branches.filter(branch => query.branches?.includes(branch.id))
+      : branches;
+
+    return availableBranches.map(branch => {
+      // Find performance data for this branch from analytics
+      const performance = analytics.branchPerformance?.find(p => p.id === branch.id);
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      // Only use real data - no mock/random data
+      const activeOrders = performance?.orderCount || 0;
+      const activeOrdersAmount = performance?.revenue || 0;
       
-      // Mock branch data - TODO: Replace with actual API call
-      const mockApiResponse = [
-        {
-          id: 'main',
-          name: 'Main Branch',
-          activeOrders: 12,
-          activeOrdersAmount: 2847,
-          occupiedTables: 8,
-          offlineCashiers: 0,
-          openTills: 3,
-          lastSync: new Date(Date.now() - 300000).toISOString(), // 5 min ago
-          lastOrder: new Date(Date.now() - 120000).toISOString(), // 2 min ago
-          status: 'online' as const
-        },
-        {
-          id: 'downtown',
-          name: 'Downtown Branch',
-          activeOrders: 8,
-          activeOrdersAmount: 1956,
-          occupiedTables: 6,
-          offlineCashiers: 1,
-          openTills: 2,
-          lastSync: new Date(Date.now() - 600000).toISOString(), // 10 min ago
-          lastOrder: new Date(Date.now() - 480000).toISOString(), // 8 min ago
-          status: 'warning' as const
-        },
-        {
-          id: 'mall',
-          name: 'Shopping Mall',
-          activeOrders: 15,
-          activeOrdersAmount: 3542,
-          occupiedTables: 12,
-          offlineCashiers: 0,
-          openTills: 4,
-          lastSync: new Date(Date.now() - 180000).toISOString(), // 3 min ago
-          lastOrder: new Date(Date.now() - 60000).toISOString(), // 1 min ago
-          status: 'online' as const
-        },
-        {
-          id: 'airport',
-          name: 'Airport Terminal',
-          activeOrders: 0,
-          activeOrdersAmount: 0,
-          occupiedTables: 0,
-          offlineCashiers: 2,
-          openTills: 0,
-          lastSync: new Date(Date.now() - 1800000).toISOString(), // 30 min ago
-          lastOrder: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-          status: 'offline' as const
-        }
-      ];
+      // Calculate branch status based on real activity only
+      let status: 'online' | 'warning' | 'offline' = 'online';
+      if (activeOrders === 0 && performance) {
+        status = 'warning'; // Has data but no active orders
+      } else if (!performance) {
+        status = 'offline'; // No performance data available
+      }
 
-      // Filter by selected branches if any
-      const filteredData = query.branches.length > 0 
-        ? mockApiResponse.filter(branch => query.branches.includes(branch.id))
-        : mockApiResponse;
+      // Transform to BranchHealthData format - only real data
+      return branchHealthAdapter.transform([{
+        id: branch.id,
+        name: branch.name,
+        activeOrders,
+        activeOrdersAmount,
+        occupiedTables: 0, // Remove - we don't track table management
+        offlineCashiers: 0, // Remove - we don't have real-time cashier status
+        openTills: 0, // Remove - we don't track till management
+        lastSync: new Date().toISOString(), // Use current time since we don't track sync
+        lastOrder: performance ? new Date().toISOString() : '', // Only if we have data
+        status
+      }])[0];
+    });
+  }, [branches, analytics, query.branches]);
 
-      const transformedData = branchHealthAdapter.transform(filteredData);
-      setBranchData(transformedData);
-      setLoading(false);
-    };
-
-    loadBranchData();
-  }, [query.branches]);
-
-  // Calculate aggregate KPIs
+  // Calculate aggregate KPIs - only real data
   const aggregateKpis = useMemo(() => {
     if (loading || branchData.length === 0) {
       return {
         totalActiveOrders: 0,
-        totalActiveAmount: 0,
-        totalOccupiedTables: 0,
-        totalOfflineCashiers: 0
+        totalActiveAmount: 0
       };
     }
 
     return branchData.reduce((acc, branch) => ({
       totalActiveOrders: acc.totalActiveOrders + branch.activeOrders,
-      totalActiveAmount: acc.totalActiveAmount + branch.activeOrdersAmount,
-      totalOccupiedTables: acc.totalOccupiedTables + branch.occupiedTables,
-      totalOfflineCashiers: acc.totalOfflineCashiers + branch.offlineCashiers
+      totalActiveAmount: acc.totalActiveAmount + branch.activeOrdersAmount
     }), {
       totalActiveOrders: 0,
-      totalActiveAmount: 0,
-      totalOccupiedTables: 0,
-      totalOfflineCashiers: 0
+      totalActiveAmount: 0
     });
   }, [branchData, loading]);
 
@@ -200,8 +175,8 @@ export default function BranchesTab() {
 
   return (
     <div className="space-y-6">
-      {/* Branch KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Branch KPIs - Only Real Data */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <KpiCard
           title="Active Orders Count"
           value={aggregateKpis.totalActiveOrders}
@@ -221,34 +196,6 @@ export default function BranchesTab() {
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-          loading={loading}
-        />
-
-        <KpiCard
-          title="Occupied Tables"
-          value={aggregateKpis.totalOccupiedTables}
-          subtitle="Currently serving"
-          icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-          }
-          loading={loading}
-        />
-
-        <KpiCard
-          title="Offline Cashiers"
-          value={aggregateKpis.totalOfflineCashiers}
-          subtitle="Need attention"
-          trend={aggregateKpis.totalOfflineCashiers > 0 ? {
-            value: aggregateKpis.totalOfflineCashiers,
-            isPositive: false
-          } : undefined}
-          icon={
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           }
           loading={loading}
@@ -380,7 +327,7 @@ export default function BranchesTab() {
                   <tr 
                     key={branch.id} 
                     className="hover:bg-surface-secondary transition-colors cursor-pointer"
-                    onClick={() => navigate(`/branches/${branch.id}`)}
+                    onClick={() => navigate('/manage/branches')}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-text-primary">

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { CustomerStatus } from './types';
 
 export function StatusPill({ status }: { status?: CustomerStatus }) {

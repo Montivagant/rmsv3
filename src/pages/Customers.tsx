@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Button,
   Input,
@@ -10,13 +10,13 @@ import {
   CardTitle,
   CardContent,
 } from '../components';
-import { apiPost, apiPatch } from '../hooks/useApi';
+import { useRepository, useRepositoryMutation } from '../hooks/useRepository';
 import { CustomerFilters } from '../customers/CustomerFilters';
 import { CustomerTable } from '../customers/CustomerTable';
 import { CustomerProfileDrawer } from '../customers/CustomerProfileDrawer';
 import { BulkActionsBar } from '../customers/BulkActionsBar';
 import { useCustomerQueryState } from '../customers/useCustomerQueryState';
-import { fetchCustomers } from '../customers/api';
+import { listCustomers, upsertCustomerProfile, type UpsertCustomerInput } from '../customers/repository';
 import type { Customer, CustomersResponse, CustomerFilters as Filters } from '../customers/types';
 
 // Simple validation helpers
@@ -27,14 +27,77 @@ const validatePhone = (phone: string) =>
 export default function Customers() {
   const { state, setState, searchInput, setSearchInput } = useCustomerQueryState();
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<CustomersResponse>({
-    data: [],
-    page: state.page,
-    pageSize: state.pageSize,
-    total: 0,
-  });
+  // Repository hooks
+  const { data: allCustomers, loading, error: repositoryError, refetch } = useRepository(
+    listCustomers,
+    []
+  );
+  const createCustomerMutation = useRepositoryMutation(upsertCustomerProfile);
+
+  // Client-side filtering, sorting, and pagination
+  const data = useMemo<CustomersResponse>(() => {
+    if (!allCustomers) {
+      return { data: [], page: state.page, pageSize: state.pageSize, total: 0 };
+    }
+
+    let filtered = allCustomers;
+
+    // Apply search filter
+    if (state.search?.trim()) {
+      const query = state.search.trim().toLowerCase();
+      filtered = filtered.filter(customer => {
+        const haystack = `${customer.name} ${customer.email} ${customer.phone}`.toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
+    // Apply sorting
+    if (state.sort) {
+      const [column, dir = 'asc'] = state.sort.split(':');
+      const multiplier = dir === 'desc' ? -1 : 1;
+      filtered = [...filtered].sort((a, b) => {
+        switch (column) {
+          case 'totalSpent':
+            return ((a.totalSpent ?? 0) - (b.totalSpent ?? 0)) * multiplier;
+          case 'orders':
+            return ((a.orders ?? 0) - (b.orders ?? 0)) * multiplier;
+          case 'points':
+            return ((a.points ?? 0) - (b.points ?? 0)) * multiplier;
+          case 'name':
+          default:
+            return a.name.localeCompare(b.name) * multiplier;
+        }
+      });
+    }
+
+    // Apply pagination
+    const startIndex = (state.page - 1) * state.pageSize;
+    const paginatedData = filtered.slice(startIndex, startIndex + state.pageSize);
+
+    // Convert to Customer format (matching the original API response format)
+    return {
+      data: paginatedData.map(customer => ({
+        id: customer.id,
+        name: customer.name,
+        email: customer.email ?? '',
+        phone: customer.phone ?? '',
+        points: customer.points,
+        orders: customer.orders,
+        totalSpent: customer.totalSpent,
+        // Note: visits, lastVisit, tags not available in Customer type
+        // visits: customer.visits,
+        // lastVisit: customer.lastVisit,
+        // tags: customer.tags,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt
+      })),
+      page: state.page,
+      pageSize: state.pageSize,
+      total: filtered.length
+    };
+  }, [allCustomers, state.search, state.sort, state.page, state.pageSize]);
+
+  const error = repositoryError;
 
   // Profile drawer state
   const [openProfile, setOpenProfile] = useState(false);
@@ -56,25 +119,7 @@ export default function Customers() {
   const [showTagModal, setShowTagModal] = useState(false);
   const [tagValue, setTagValue] = useState('');
   const [confirmAction, setConfirmAction] = useState<null>(null);
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetchCustomers(state);
-      setData(res);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load customers');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.page, state.pageSize, state.search, state.sort, JSON.stringify(state.filters)]);
+  const [isBulkProcessing] = useState(false);
 
   // Derived
   const hasAnyFilter = useMemo(
@@ -98,15 +143,27 @@ export default function Customers() {
     if (!validateForm()) return;
     setIsAddingCustomer(true);
     try {
-      await apiPost('/api/customers', formData);
+      // Generate a unique customer ID
+      const customerId = `cust_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      
+      const customerData: UpsertCustomerInput = {
+        id: customerId,
+        name: formData.name.trim(),
+        ...(formData.email.trim() && { email: formData.email.trim() }),
+        ...(formData.phone.trim() && { phone: formData.phone.trim() }),
+      };
+      
+      await createCustomerMutation.mutate(customerData);
       setShowAddModal(false);
       setFormData({ name: '', email: '', phone: '' });
       setFormErrors({});
       // Reset to first page to see the new entry
       setState({ page: 1 });
-      await load();
-    } catch {
-      setFormErrors({ submit: 'Failed to add customer. Please try again.' });
+      refetch(); // Refresh data from repository
+    } catch (error) {
+      setFormErrors({ 
+        submit: error instanceof Error ? error.message : 'Failed to add customer. Please try again.'
+      });
     } finally {
       setIsAddingCustomer(false);
     }
@@ -125,11 +182,11 @@ export default function Customers() {
       `"${(c.phone ?? '').replace(/"/g, '""')}"`,
       c.orders ?? 0,
       c.totalSpent?.toFixed ? c.totalSpent.toFixed(2) : c.totalSpent ?? 0,
-      c.visits ?? 0,
+      0, // visits not available
       c.points ?? 0,
-      c.lastVisit ? new Date(c.lastVisit).toISOString() : '',
-      c.status ?? '',
-      `"${(c.tags?.join('|') ?? '').replace(/"/g, '""')}"`,
+      '', // lastVisit not available
+      '', // status not available
+      '""' // tags not available,
     ].join(',')));
     const csv = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -277,7 +334,7 @@ export default function Customers() {
             Cancel
           </Button>
           <Button
-            onClick={() => bulkUpdateStatus(confirmAction === 'deactivate' ? 'inactive' : 'active')}
+            onClick={bulkUpdateStatus}
             disabled={isBulkProcessing}
           >
             {isBulkProcessing ? 'Updating…' : 'Confirm'}
@@ -308,7 +365,7 @@ export default function Customers() {
       {error ? (
         <div className="text-center py-8">
           <p className="text-error">Error loading customers: {error}</p>
-          <Button onClick={load} className="mt-4">
+          <Button onClick={refetch} className="mt-4">
             Retry
           </Button>
         </div>

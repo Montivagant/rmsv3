@@ -97,7 +97,8 @@ beforeEach(() => {
   global.fetch = vi.fn();
   
   // Mock inventory items endpoint
-  vi.mocked(fetch).mockImplementation((url: string, options?: RequestInit) => {
+  vi.mocked(fetch).mockImplementation((input: string | Request | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input.toString();
     if (url === '/api/inventory/items' || url.startsWith('/api/inventory/items?')) {
       return Promise.resolve({
         ok: true,
@@ -109,7 +110,7 @@ beforeEach(() => {
     }
     
     // Mock inventory count creation
-    if (url === '/api/inventory/counts' && options?.method === 'POST') {
+    if (url === '/api/inventory/counts' && init?.method === 'POST') {
       const countId = CountUtils.generateCountId();
       return Promise.resolve({
         ok: true,

@@ -20,8 +20,8 @@ export interface AppError {
 // Error boundary component
 interface ErrorBoundaryState {
   hasError: boolean
-  error?: Error
-  errorInfo?: ErrorInfo
+  error: Error | null
+  errorInfo: ErrorInfo | null
 }
 
 interface ErrorBoundaryProps {
@@ -34,13 +34,13 @@ interface ErrorBoundaryProps {
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
-    this.state = { hasError: false }
+    this.state = { hasError: false, error: null, errorInfo: null }
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error) {
     return {
       hasError: true,
-      error
+      error,
     }
   }
 
@@ -58,7 +58,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
+    this.setState({ hasError: false, error: null, errorInfo: null })
   }
 
   render() {
@@ -71,8 +71,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <ErrorDisplay
           title="Something went wrong"
           message="An unexpected error occurred. Please try refreshing the page."
-          error={this.state.error?.message}
-          showDetails={this.props.showErrorDetails}
+          error={this.state.error?.message ?? ''}
+          showDetails={this.props.showErrorDetails ?? false}
           onRetry={this.handleRetry}
           actions={[
             {

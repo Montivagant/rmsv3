@@ -76,13 +76,13 @@ export class TaxConfigurationManager {
       displayName,
       rate,
       type,
-      description: options.description,
       effectiveDate: options.effectiveDate || new Date().toISOString(),
-      expiryDate: options.expiryDate,
       isActive: true,
-      applicableRegions: options.applicableRegions,
-      applicableCategories: options.applicableCategories,
-      jurisdiction
+      jurisdiction,
+      ...(options.description && { description: options.description }),
+      ...(options.expiryDate && { expiryDate: options.expiryDate }),
+      ...(options.applicableRegions && { applicableRegions: options.applicableRegions }),
+      ...(options.applicableCategories && { applicableCategories: options.applicableCategories })
     };
   }
 
@@ -107,10 +107,10 @@ export class TaxConfigurationManager {
       type,
       description,
       certificateRequired: options.certificateRequired || false,
-      validUntil: options.validUntil,
-      applicableCategories: options.applicableCategories,
-      applicableCustomers: options.applicableCustomers,
-      exemptFromTaxTypes
+      exemptFromTaxTypes,
+      ...(options.validUntil && { validUntil: options.validUntil }),
+      ...(options.applicableCategories && { applicableCategories: options.applicableCategories }),
+      ...(options.applicableCustomers && { applicableCustomers: options.applicableCustomers })
     };
   }
 

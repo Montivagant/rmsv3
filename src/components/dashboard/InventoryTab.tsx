@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KpiCard } from '../ui/KpiCard';
-import { ListCard } from '../cards/ListCard';
 import { cn } from '../../lib/utils';
 import { useDashboardQuery } from '../../lib/dashboard/useDashboardQuery';
 import { inventoryAlertsAdapter, formatCount, formatRelativeTime } from '../../lib/dashboard/adapters';
 import type { InventoryAlert } from '../../lib/dashboard/types';
+import { useRepository } from '../../hooks/useRepository';
+import { listInventoryItems, listInventoryCategories } from '../../inventory/repository';
+import { listTransfers } from '../../inventory/transfers/repository';
 
 /**
  * Inventory dashboard tab - Transaction/stock alerts and inventory insights
@@ -13,112 +15,80 @@ import type { InventoryAlert } from '../../lib/dashboard/types';
  */
 export default function InventoryTab() {
   const navigate = useNavigate();
-  const { query } = useDashboardQuery();
-  const [loading, setLoading] = useState(true);
-  const [inventoryData, setInventoryData] = useState<{
-    alerts: InventoryAlert[];
-    pendingTransactions: any[];
-    topWasted: any[];
-    topConsumed: any[];
-    kpis: {
-      purchaseOrders: number;
-      completedTransfers: number;
-      purchasing: number;
-    };
-  } | null>(null);
+  const { } = useDashboardQuery();
+  
+  // Fetch real inventory data
+  const { data: inventoryItems = [], loading: itemsLoading } = useRepository(listInventoryItems, []);
+  const { data: categories = [], loading: categoriesLoading } = useRepository(listInventoryCategories, []);
+  const { data: transfers = [], loading: transfersLoading } = useRepository(listTransfers, []);
+  
+  const loading = itemsLoading || categoriesLoading || transfersLoading;
 
-  // Simulate data loading
-  useEffect(() => {
-    const loadInventoryData = async () => {
-      setLoading(true);
+  // Process real inventory data
+  const inventoryData = React.useMemo(() => {
+    if (loading || !inventoryItems || !inventoryItems.length) return null;
+
+    // Generate alerts from real inventory items
+    const alerts: any[] = [];
+    inventoryItems.forEach((item) => {
+      const currentLevel = item.levels?.current || item.quantity || 0;
+      const minimumLevel = item.levels?.par?.min || item.reorderPoint || 10;
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1100));
-      
-      // Mock inventory data - TODO: Replace with actual API calls
-      const mockAlertsData = [
-        {
-          id: 'alert-1',
-          type: 'low_stock',
-          itemName: 'Burger Buns',
-          currentLevel: 8,
-          minimumLevel: 20,
-          location: 'Main Kitchen',
-          severity: 'high',
-          createdAt: new Date(Date.now() - 1800000).toISOString()
-        },
-        {
-          id: 'alert-2',
-          type: 'expiring',
-          itemName: 'Fresh Lettuce',
-          currentLevel: 15,
-          minimumLevel: 10,
-          location: 'Cold Storage',
-          severity: 'medium',
-          createdAt: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-          id: 'alert-3',
+      if (currentLevel === 0) {
+        alerts.push({
+          id: `alert-out-${item.id}`,
           type: 'out_of_stock',
-          itemName: 'Premium Cheese',
+          itemName: item.name,
           currentLevel: 0,
-          minimumLevel: 5,
-          location: 'Main Kitchen',
+          minimumLevel,
+          location: item.location || 'Main Storage',
           severity: 'high',
-          createdAt: new Date(Date.now() - 7200000).toISOString()
-        }
-      ];
+          createdAt: new Date(Date.now() - Math.random() * 7200000).toISOString()
+        });
+      } else if (currentLevel < minimumLevel) {
+        alerts.push({
+          id: `alert-low-${item.id}`,
+          type: 'low_stock',
+          itemName: item.name,
+          currentLevel,
+          minimumLevel,
+          location: item.location || 'Main Storage',
+          severity: currentLevel < minimumLevel * 0.3 ? 'high' : 'medium',
+          createdAt: new Date(Date.now() - Math.random() * 3600000).toISOString()
+        });
+      }
+    });
 
-      const mockPendingTransactions = [
-        {
-          id: 'tx-1',
-          type: 'Purchase Order',
-          description: 'Weekly ingredients order',
-          items: 25,
-          status: 'pending_approval',
-          createdAt: new Date(Date.now() - 900000).toISOString()
-        },
-        {
-          id: 'tx-2',
-          type: 'Stock Transfer',
-          description: 'Main → Downtown transfer',
-          items: 8,
-          status: 'in_transit',
-          createdAt: new Date(Date.now() - 1800000).toISOString()
-        }
-      ];
+    // Process transfers for pending transactions (using actual transfer status values)
+    const transfersData = Array.isArray(transfers) ? transfers : transfers?.data || [];
+    const pendingTransactions = transfersData
+      .filter((transfer: any) => transfer.status === 'DRAFT' || transfer.status === 'SENT')
+      .slice(0, 5)
+      .map((transfer: any) => ({
+        id: transfer.id,
+        type: 'Stock Transfer',
+        description: `${transfer.sourceLocationId} → ${transfer.destinationLocationId} transfer`,
+        items: transfer.lines?.length || 0,
+        status: transfer.status === 'DRAFT' ? 'pending_approval' : 'in_transit',
+        createdAt: transfer.createdAt || new Date().toISOString()
+      }));
 
-      const mockTopWasted = [
-        { id: 1, primary: 'French Fries', secondary: '12.5 kg wasted', meta: '8.2% of total' },
-        { id: 2, primary: 'Burger Patties', secondary: '8.2 kg wasted', meta: '5.4% of total' },
-        { id: 3, primary: 'Lettuce', secondary: '6.8 kg wasted', meta: '4.1% of total' }
-      ];
+    // Note: Top Consumed and Top Wasted calculations removed
+    // Real consumption tracking would require sales/usage events
+    // Real waste tracking would require waste/spoilage events
 
-      const mockTopConsumed = [
-        { id: 1, primary: 'Burger Buns', secondary: '485 units', meta: '32% of inventory' },
-        { id: 2, primary: 'French Fries', secondary: '380 portions', meta: '28% of inventory' },
-        { id: 3, primary: 'Coca Cola', secondary: '285 bottles', meta: '24% of inventory' }
-      ];
-
-      const transformedAlerts = inventoryAlertsAdapter.transform(mockAlertsData);
-      
-      setInventoryData({
-        alerts: transformedAlerts,
-        pendingTransactions: mockPendingTransactions,
-        topWasted: mockTopWasted,
-        topConsumed: mockTopConsumed,
-        kpis: {
-          purchaseOrders: Math.floor(Math.random() * 15) + 5,
-          completedTransfers: Math.floor(Math.random() * 8) + 3,
-          purchasing: Math.floor(Math.random() * 25000) + 15000
-        }
-      });
-      
-      setLoading(false);
+    const transformedAlerts = inventoryAlertsAdapter.transform(alerts);
+    
+    return {
+      alerts: transformedAlerts,
+      pendingTransactions,
+      kpis: {
+        draftTransfers: transfersData.filter((t: any) => t.status === 'DRAFT').length,
+        completedTransfers: transfersData.filter((t: any) => t.status === 'COMPLETED').length,
+        totalTransfers: transfersData.length
+      }
     };
-
-    loadInventoryData();
-  }, [query]);
+  }, [inventoryItems, transfers, categories, loading]);
 
   const getAlertIcon = (type: InventoryAlert['type']) => {
     switch (type) {
@@ -191,17 +161,17 @@ export default function InventoryTab() {
       {/* Inventory KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard
-          title="Purchase Orders"
-          value={inventoryData?.kpis.purchaseOrders || 0}
-          subtitle="Active orders"
+          title="Draft Transfers"
+          value={inventoryData?.kpis.draftTransfers || 0}
+          subtitle="In progress"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1.5 9H6.5L5 9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
           }
           action={{
-            label: 'View orders',
-            onClick: () => navigate('/inventory/orders')
+            label: 'View transfers',
+            onClick: () => navigate('/inventory/transfers')
           }}
           loading={loading}
         />
@@ -209,7 +179,7 @@ export default function InventoryTab() {
         <KpiCard
           title="Completed Transfers"
           value={inventoryData?.kpis.completedTransfers || 0}
-          subtitle="This period"
+          subtitle="Finished"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -223,17 +193,17 @@ export default function InventoryTab() {
         />
 
         <KpiCard
-          title="Purchasing"
-          value={`${((inventoryData?.kpis.purchasing || 0) / 1000).toFixed(0)}K EGP`}
-          subtitle="Total value"
+          title="Total Transfers"
+          value={inventoryData?.kpis.totalTransfers || 0}
+          subtitle="All time"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
             </svg>
           }
           action={{
-            label: 'View report',
-            onClick: () => navigate('/reports/inventory')
+            label: 'View all transfers',
+            onClick: () => navigate('/inventory/transfers')
           }}
           loading={loading}
         />
@@ -377,37 +347,26 @@ export default function InventoryTab() {
           )}
         </div>
 
-        {/* Top Consumed and Wasted Items */}
-        <div className="space-y-6">
-          <ListCard
-            title="Top Wasted Items"
-            items={inventoryData?.topWasted.map(item => ({
-              ...item,
-              status: 'error' as const,
-              action: () => navigate(`/inventory/waste-report`)
-            })) || []}
-            action={{
-              label: 'View waste report',
-              onClick: () => navigate('/reports/inventory-waste')
-            }}
-            loading={loading}
-            emptyMessage="No waste data available"
-          />
-
-          <ListCard
-            title="Top Consumed Items"
-            items={inventoryData?.topConsumed.map(item => ({
-              ...item,
-              status: 'info' as const,
-              action: () => navigate('/inventory/items')
-            })) || []}
-            action={{
-              label: 'View consumption report',
-              onClick: () => navigate('/reports/inventory-consumption')
-            }}
-            loading={loading}
-            emptyMessage="No consumption data available"
-          />
+        {/* Consumption and Waste Analytics Removed */}
+        <div className="bg-surface border border-border-primary rounded-lg p-6">
+          <div className="text-center">
+            <svg className="w-12 h-12 mx-auto text-text-tertiary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <h3 className="text-lg font-medium text-text-primary mb-2">
+              Advanced Analytics Available
+            </h3>
+            <p className="text-text-secondary mb-4">
+              Consumption and waste tracking requires dedicated event logging.
+              These features will be available when consumption and waste events are implemented.
+            </p>
+            <button
+              onClick={() => navigate('/inventory/items')}
+              className="btn-base btn-primary"
+            >
+              Manage Inventory Items
+            </button>
+          </div>
         </div>
       </div>
     </div>

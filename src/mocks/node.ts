@@ -1,4 +1,4 @@
-import { setupServer } from 'msw/lib/node/index.mjs'
+import { setupServer } from 'msw/node'
 import { handlers } from './handlers'
 
 // This configures a request interception server with the given request handlers.

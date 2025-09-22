@@ -55,9 +55,9 @@ export function usePermissions() {
       return dynamicRBACService.hasPermission(currentUser.id, permissionId, context);
     },
     
-    hasModuleAccess: (module: string, action: string, context: any = {}) => {
+    hasModuleAccess: (module: string, action: string) => {
       if (!currentUser) return false;
-      return dynamicRBACService.hasModuleAccess(currentUser.id, module, action, context);
+      return dynamicRBACService.hasModuleAccess(currentUser.id, module, action);
     },
     
     getUserRoles: () => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { cn, formatCurrency } from '../../lib/utils';
 import { Modal } from '../../components/Modal';
 import { format } from 'date-fns';

@@ -1,17 +1,17 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
-import { cn } from '../../lib/utils';
+// cn removed as it's not used
 import { Badge } from '../../components/Badge';
-import { useApi } from '../../hooks/useApi';
+import { useRepository } from '../../hooks/useRepository';
 import { useToast } from '../../hooks/useToast';
+import { listInventoryCategories, listInventoryItemTypes, listInventoryCounts, listStorageAreas } from '../../inventory/repository';
+import { listBranches } from '../../management/repository';
 import { CountsList } from '../../components/inventory/counts/CountsList';
 import NewCountWizard from '../../components/inventory/counts/NewCountWizard';
 import type { 
-  InventoryCount, 
   CountQuery,
-  CountsResponse,
   CountStatus 
 } from '../../inventory/counts/types';
 
@@ -34,45 +34,25 @@ export default function Counts({ newCount = false }: CountsProps) {
   });
 
   // Mock data - replace with actual API calls
-  const countsUrl = React.useMemo(() => {
-    const params = new URLSearchParams();
-    params.set('page', String(queryParams.page || 1));
-    params.set('pageSize', String(queryParams.pageSize || 25));
-    if (queryParams.sortBy) params.set('sortBy', String(queryParams.sortBy));
-    if (queryParams.sortOrder) params.set('sortOrder', String(queryParams.sortOrder));
-    if ((queryParams as any).status) params.set('status', String((queryParams as any).status));
-    if ((queryParams as any).branchId) params.set('branchId', String((queryParams as any).branchId));
-    if ((queryParams as any).search) params.set('search', String((queryParams as any).search));
-    return `/api/inventory/counts?${params.toString()}`;
-  }, [queryParams]);
+  // Fetch counts using repository
+  const { data: countsResponse, loading, refetch } = useRepository(
+    () => listInventoryCounts({
+      page: queryParams.page || 1,
+      pageSize: queryParams.pageSize || 25,
+      sortBy: queryParams.sortBy as any,
+      sortOrder: queryParams.sortOrder || 'desc',
+      status: (queryParams as any).status,
+      branchId: (queryParams as any).branchId,
+      search: (queryParams as any).search,
+    }),
+    [queryParams]
+  );
 
-  const { data: countsResponse, loading, error, refetch } = useApi<CountsResponse>(countsUrl);
-
-  // Mock data for development
-  const branches = [
-    { id: 'main-restaurant', name: 'Main Restaurant', type: 'restaurant' },
-    { id: 'downtown-location', name: 'Downtown Location', type: 'restaurant' },
-    { id: 'warehouse', name: 'Central Warehouse', type: 'warehouse' }
-  ];
-
-  // Load categories and item types from API for audit scope selection
-  const { data: categories = [] } = useApi<Array<{ id: string; name: string }>>(`/api/inventory/categories?branchId=${queryParams.branchId}`, [], {
-    execute: !!queryParams.branchId,
-  });
-  const { data: itemTypes = [] } = useApi<Array<{ id: string; name: string }>>(`/api/inventory/item-types?branchId=${queryParams.branchId}`, [], {
-    execute: !!queryParams.branchId,
-  });
-
-  // Supplier list removed from system
-
-  const storageAreas = [
-    { id: 'dry-storage', name: 'Dry Storage' },
-    { id: 'walk-in-cooler', name: 'Walk-in Cooler' },
-    { id: 'freezer', name: 'Freezer' },
-    { id: 'prep-kitchen', name: 'Prep Kitchen' },
-    { id: 'bar-storage', name: 'Bar Storage' },
-    { id: 'back-office', name: 'Back Office' }
-  ];
+  // Load real data from repositories
+  const { data: branches = [] } = useRepository(listBranches, []);
+  const { data: categories = [] } = useRepository(listInventoryCategories, []);
+  const { data: itemTypes = [] } = useRepository(listInventoryItemTypes, []);
+  const { data: storageAreas = [] } = useRepository(listStorageAreas, []);
 
   // Ensure counts is always an array
   const counts = countsResponse?.data || [];
@@ -125,22 +105,22 @@ export default function Counts({ newCount = false }: CountsProps) {
   }, []);
 
   const handleSortChange = useCallback((sortBy: string, sortOrder: 'asc' | 'desc') => {
-    setQueryParams(prev => ({ ...prev, sortBy, sortOrder }));
+    setQueryParams(prev => ({ ...prev, sortBy: sortBy as any, sortOrder }));
   }, []);
 
   const handleFilterChange = useCallback((filters: Partial<CountQuery>) => {
     setQueryParams(prev => ({ ...prev, ...filters, page: 1 }));
   }, []);
 
-  const handleViewCount = useCallback((count: InventoryCount) => {
+  const handleViewCount = useCallback((count: any) => {
     navigate(`/inventory/counts/${count.id}`);
   }, [navigate]);
 
-  const handleResumeCount = useCallback((count: InventoryCount) => {
+  const handleResumeCount = useCallback((count: any) => {
     navigate(`/inventory/counts/${count.id}/entry`);
   }, [navigate]);
 
-  const handleExportCount = useCallback((count: InventoryCount) => {
+  const handleExportCount = useCallback((_count: any) => {
     showToast({
       title: 'Export Started',
       description: 'Your export is being prepared and will be ready shortly.',
@@ -159,9 +139,7 @@ export default function Counts({ newCount = false }: CountsProps) {
     navigate(`/inventory/counts/${countId}/entry`);
   }, [navigate, refetch, showToast]);
 
-  const handleCountSheetsClick = useCallback(() => {
-    navigate('/inventory/count-sheets');
-  }, [navigate]);
+  // handleCountSheetsClick removed as it's not used
 
   return (
     <div className="space-y-6 p-6">
@@ -243,7 +221,7 @@ export default function Counts({ newCount = false }: CountsProps) {
                 <p className="text-2xl font-bold text-text-primary">
                   {stats.totalVariance.toLocaleString('en-US', {
                     style: 'currency',
-                    currency: 'USD'
+                    currency: 'EGP'
                   })}
                 </p>
               </div>
@@ -268,7 +246,7 @@ export default function Counts({ newCount = false }: CountsProps) {
               ].map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => handleTabChange(tab.id)}
+                  onClick={() => handleTabChange(tab.id as 'all' | CountStatus)}
                   className={activeTab === tab.id 
                     ? 'inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md bg-brand text-text-inverse'
                     : 'inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors'
@@ -277,7 +255,7 @@ export default function Counts({ newCount = false }: CountsProps) {
                   {tab.label}
                   {tab.count > 0 && (
                     <Badge 
-                      variant={activeTab === tab.id ? "secondary" : "outline"}
+                      variant={activeTab === tab.id ? "secondary" : "secondary"}
                       className="ml-2"
                     >
                       {tab.count}
@@ -303,6 +281,7 @@ export default function Counts({ newCount = false }: CountsProps) {
             onViewCount={handleViewCount}
             onResumeCount={handleResumeCount}
             onExportCount={handleExportCount}
+            onCreateNewCount={() => setIsNewCountOpen(true)}
           />
         </CardContent>
       </Card>
@@ -312,10 +291,10 @@ export default function Counts({ newCount = false }: CountsProps) {
         isOpen={isNewCountOpen}
         onClose={() => setIsNewCountOpen(false)}
         onSuccess={handleCountCreated}
-        branches={branches}
-        categories={categories}
-        itemTypes={itemTypes}
-        storageAreas={storageAreas}
+        branches={branches || []}
+        categories={categories || []}
+        itemTypes={itemTypes || []}
+        storageAreas={storageAreas || []}
         loading={loading}
         simpleMode={true}
       />

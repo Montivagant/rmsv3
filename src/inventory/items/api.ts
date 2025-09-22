@@ -29,7 +29,6 @@ const mockUnits = new Map<string, UnitOfMeasure>();
 const mockLocations = new Map<string, StorageLocation>();
 let nextItemId = 1;
 let nextMovementId = 1;
-const nextAlertId = 1;
 
 // Initialize default data
 function initializeMockData(branchId: string) {
@@ -209,7 +208,8 @@ function initializeMockData(branchId: string) {
       id,
       sku: item.sku || `SKU-${index + 1}`,
       name: item.name || `Item ${index + 1}`,
-      description: item.description,
+      itemTypeId: 'standard', // Added default value
+      ...(item.description && { description: item.description }),
       categoryId: item.categoryId || 'food',
       uom: item.uom || {
         base: 'piece',
@@ -219,7 +219,7 @@ function initializeMockData(branchId: string) {
       },
       storage: {
         locationId: 'loc_1',
-        requirements: item.storage?.requirements
+        ...(item.storage?.requirements && { requirements: item.storage.requirements })
       },
       tracking: item.tracking || {
         lotTracking: false,
@@ -305,7 +305,7 @@ const validateItemName = (name: string): string | null => {
   return null;
 };
 
-const validateParLevels = (levels: any): string | null => {
+const validateParLevels = (levels: Partial<InventoryItem['levels']['par']>): string | null => {
   if (levels.min !== undefined && levels.max !== undefined) {
     if (levels.min >= levels.max) {
       return 'Minimum stock level must be less than maximum stock level';
@@ -326,6 +326,9 @@ export const inventoryItemApiHandlers = [
     const url = new URL(request.url);
     const branchId = url.searchParams.get('branchId') || 'main-restaurant';
     
+    if (!Object.keys(mockInventoryItemsByBranch).includes(branchId)) {
+      return new HttpResponse(null, { status: 404, statusText: 'Branch not found' });
+    }
     const branchItems = mockInventoryItemsByBranch[branchId];
     if (!branchItems) {
       return HttpResponse.json({ items: [], total: 0 });
@@ -425,7 +428,10 @@ export const inventoryItemApiHandlers = [
   http.get('/api/inventory/items/:id', async ({ params }) => {
     const { id } = params;
     const branchId = params.branchId || 'main-restaurant'; // Assuming branchId is part of params
-    const branchItems = mockInventoryItemsByBranch[branchId];
+    if (!Object.keys(mockInventoryItemsByBranch).includes(branchId as string)) {
+      return new HttpResponse(null, { status: 404, statusText: 'Branch not found' });
+    }
+    const branchItems = mockInventoryItemsByBranch[branchId as string];
 
     if (!branchItems) {
       return new HttpResponse(null, { 
@@ -452,6 +458,12 @@ export const inventoryItemApiHandlers = [
     const itemData = await request.json() as Partial<InventoryItem>;
     
     const branchId = request.headers.get('X-Branch-Id') || 'main-restaurant'; // Assuming branchId is in headers
+    if (!Object.keys(mockInventoryItemsByBranch).includes(branchId)) {
+      return new HttpResponse(JSON.stringify({ error: 'Branch not found' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
     const branchItems = mockInventoryItemsByBranch[branchId];
 
     if (!branchItems) {
@@ -511,7 +523,7 @@ export const inventoryItemApiHandlers = [
       id: itemId,
       sku: itemData.sku!.trim(),
       name: itemData.name!.trim(),
-      description: itemData.description?.trim(),
+      ...(itemData.description?.trim() && { description: itemData.description.trim() }),
       categoryId: itemData.categoryId,
       itemTypeId: (itemData as any).itemTypeId,
       uom: {
@@ -521,8 +533,8 @@ export const inventoryItemApiHandlers = [
         conversions: itemData.uom?.conversions || []
       },
       storage: {
-        locationId: itemData.storage?.locationId,
-        requirements: itemData.storage?.requirements
+        ...(itemData.storage?.locationId && { locationId: itemData.storage.locationId }),
+        ...(itemData.storage?.requirements && { requirements: itemData.storage.requirements })
       },
       tracking: {
         lotTracking: itemData.tracking?.lotTracking || false,
@@ -545,16 +557,16 @@ export const inventoryItemApiHandlers = [
       costing: {
         averageCost: itemData.costing?.averageCost || 0,
         lastCost: itemData.costing?.lastCost || 0,
-        standardCost: itemData.costing?.standardCost,
+        ...(itemData.costing?.standardCost != null && { standardCost: itemData.costing.standardCost }),
         currency: itemData.costing?.currency || 'USD',
         costMethod: itemData.costing?.costMethod || 'AVERAGE'
       },
       quality: {
-        shelfLifeDays: itemData.quality?.shelfLifeDays,
+        ...(itemData.quality?.shelfLifeDays != null && { shelfLifeDays: itemData.quality.shelfLifeDays }),
         allergens: itemData.quality?.allergens || [],
         certifications: itemData.quality?.certifications || [],
         hazmat: itemData.quality?.hazmat || false,
-        temperatureAbuse: itemData.quality?.temperatureAbuse
+        ...(itemData.quality?.temperatureAbuse && { temperatureAbuse: itemData.quality.temperatureAbuse })
       },
       lots: [],
       status: itemData.status || 'active',
@@ -570,7 +582,7 @@ export const inventoryItemApiHandlers = [
         createdAt: now,
         updatedAt: now,
         createdBy: 'current-user',
-        notes: itemData.metadata?.notes,
+        ...(itemData.metadata?.notes && { notes: itemData.metadata.notes }),
         tags: itemData.metadata?.tags || []
       }
     };
@@ -587,7 +599,10 @@ export const inventoryItemApiHandlers = [
     const updates = await request.json() as Partial<InventoryItem>;
     
     const branchId = params.branchId || 'main-restaurant'; // Assuming branchId is part of params
-    const branchItems = mockInventoryItemsByBranch[branchId];
+    if (!Object.keys(mockInventoryItemsByBranch).includes(branchId as string)) {
+      return new HttpResponse(null, { status: 404, statusText: 'Branch not found' });
+    }
+    const branchItems = mockInventoryItemsByBranch[branchId as string];
 
     if (!branchItems) {
       return new HttpResponse(null, { 
@@ -671,7 +686,10 @@ export const inventoryItemApiHandlers = [
   http.delete('/api/inventory/items/:id', async ({ params }) => {
     const { id } = params;
     const branchId = params.branchId || 'main-restaurant'; // Assuming branchId is part of params
-    const branchItems = mockInventoryItemsByBranch[branchId];
+    if (!Object.keys(mockInventoryItemsByBranch).includes(branchId as string)) {
+      return new HttpResponse(null, { status: 404, statusText: 'Branch not found' });
+    }
+    const branchItems = mockInventoryItemsByBranch[branchId as string];
 
     if (!branchItems) {
       return new HttpResponse(null, { 
@@ -724,7 +742,10 @@ export const inventoryItemApiHandlers = [
     };
     
     const branchId = params.branchId || 'main-restaurant'; // Assuming branchId is part of params
-    const branchItems = mockInventoryItemsByBranch[branchId];
+    if (!Object.keys(mockInventoryItemsByBranch).includes(branchId as string)) {
+      return new HttpResponse(null, { status: 404, statusText: 'Branch not found' });
+    }
+    const branchItems = mockInventoryItemsByBranch[branchId as string];
 
     if (!branchItems) {
       return new HttpResponse(null, { 
@@ -776,7 +797,7 @@ export const inventoryItemApiHandlers = [
       movementType: adjustment > 0 ? 'receipt' : 'adjustment',
       quantity: Math.abs(adjustment),
       unit: item.uom.base,
-      lotNumber,
+      ...(lotNumber && { lotNumber }),
       reason,
       timestamp: new Date().toISOString(),
       performedBy: 'current-user'

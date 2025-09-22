@@ -5,9 +5,8 @@
  * and integration scenarios.
  */
 
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import { 
-  itemFormSchema, 
   validateItemForm, 
   generateSKU, 
   validateBarcode,
@@ -39,14 +38,13 @@ describe('ItemForm Schema Validation', () => {
   test('validates field length constraints', () => {
     const longName = 'a'.repeat(121); // Exceeds 120 char limit
     const shortSKU = 'AB'; // Below 3 char minimum
-    const longSKU = 'a'.repeat(21); // Exceeds 20 char limit
     
     const data = {
       name: longName,
       sku: shortSKU,
       categoryId: 'cat1',
-      storageUnit: 'kg',
-      ingredientUnit: 'g'
+      storageUnitId: 'kg',
+      ingredientUnitId: 'g'
     };
     
     const result = validateItemForm(data);
@@ -63,8 +61,8 @@ describe('ItemForm Schema Validation', () => {
         name: 'Test Item',
         sku,
         categoryId: 'cat1',
-        storageUnit: 'kg',
-        ingredientUnit: 'g'
+        storageUnitId: 'kg',
+        ingredientUnitId: 'g'
       };
       
       const result = validateItemForm(data);
@@ -78,8 +76,8 @@ describe('ItemForm Schema Validation', () => {
       name: 'Test Item',
       sku: 'TEST-123',
       categoryId: 'cat1',
-      storageUnit: 'kg',
-      ingredientUnit: 'g',
+      storageUnitId: 'kg',
+      ingredientUnitId: 'g',
       minimumLevel: 10,
       parLevel: 5, // Invalid: par < min
       maximumLevel: 15
@@ -95,8 +93,8 @@ describe('ItemForm Schema Validation', () => {
       name: 'Test Item',
       sku: 'TEST-123',
       categoryId: 'cat1',
-      storageUnit: 'kg',
-      ingredientUnit: 'g',
+      storageUnitId: 'kg',
+      ingredientUnitId: 'g',
       parLevel: 10,
       maximumLevel: 5 // Invalid: max < par
     };
@@ -111,8 +109,8 @@ describe('ItemForm Schema Validation', () => {
       name: 'Test Item',
       sku: 'TEST-123',
       categoryId: 'cat1',
-      storageUnit: 'kg',
-      ingredientUnit: 'g',
+      storageUnitId: 'kg',
+      ingredientUnitId: 'g',
       barcode: '1234567890123',
       cost: 10.50,
       minimumLevel: 5,
@@ -182,8 +180,8 @@ describe('Data Transformation', () => {
       name: 'Test Item',
       sku: 'TEST-123',
       categoryId: 'cat1',
-      storageUnit: 'kg',
-      ingredientUnit: 'g',
+      storageUnitId: 'kg',
+      ingredientUnitId: 'g',
       barcode: '1234567890123',
       cost: 10.50,
       minimumLevel: 5,
@@ -224,8 +222,8 @@ describe('Data Transformation', () => {
       name: 'Test Item',
       sku: 'TEST-123',
       categoryId: 'cat1',
-      storageUnit: 'kg',
-      ingredientUnit: 'g'
+      storageUnitId: 'kg',
+      ingredientUnitId: 'g'
     };
     
     const payload = mapFormDataToCreatePayload(minimalData);
@@ -252,8 +250,8 @@ describe('Data Transformation', () => {
       name: 'Test Item',
       sku: 'TEST-123',
       categoryId: 'cat1',
-      storageUnit: 'kg',
-      ingredientUnit: 'g',
+      storageUnitId: 'kg',
+      ingredientUnitId: 'g',
       cost: 10.50
     };
     
@@ -320,7 +318,7 @@ describe('API Error Mapping', () => {
     const formErrors = mapAPIErrorsToFormErrors(apiErrors);
     
     expect(formErrors).toEqual({
-      storageUnit: 'Storage unit is required',
+      storageUnitId: 'Storage unit is required',
       minimumLevel: 'Minimum level must be positive'
     });
   });
@@ -346,8 +344,8 @@ describe('Form State Management', () => {
       name: '',
       sku: '',
       categoryId: '',
-      storageUnit: '',
-      ingredientUnit: '',
+      storageUnitId: '',
+      ingredientUnitId: '',
       barcode: '',
       cost: undefined,
       minimumLevel: undefined,
@@ -362,13 +360,6 @@ describe('Form State Management', () => {
       name: 'Test Item',
       sku: 'TEST-123',
       categoryId: 'cat1',
-      uom: {
-        base: 'kg',
-        purchase: 'kg',
-        recipe: 'g',
-        conversions: []
-      },
-      barcode: '1234567890123',
       costing: {
         averageCost: 10.50,
         lastCost: 10.50,
@@ -395,8 +386,8 @@ describe('Form State Management', () => {
       name: 'Test Item',
       sku: 'TEST-123',
       categoryId: 'cat1',
-      storageUnit: 'kg',
-      ingredientUnit: 'g',
+      storageUnitId: 'kg',
+      ingredientUnitId: 'g',
       barcode: '1234567890123',
       cost: 10.50,
       minimumLevel: 5,

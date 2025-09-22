@@ -1,6 +1,5 @@
-import React from 'react';
 import { PageHeader } from '../../components/pos/PageHeader';
-import { EmptyState } from '../../components/inventory/EmptyState';
+import { EmptyState } from '../../components/EmptyState';
 
 export default function OrderHistory() {
   return (
@@ -26,3 +25,4 @@ export default function OrderHistory() {
     </div>
   );
 }
+

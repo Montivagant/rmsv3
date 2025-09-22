@@ -500,7 +500,7 @@ export const AuditUtils = {
   } {
     const auditedQty = item.auditedQty ?? item.countedQty;
     
-    if (auditedQty === null) {
+    if (auditedQty === null || auditedQty === undefined) {
       return {
         varianceQty: 0,
         varianceValue: 0,

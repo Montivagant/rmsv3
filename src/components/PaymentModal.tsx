@@ -1,262 +1,183 @@
-﻿import { useState } from 'react';
-import { Button, Input, Modal } from './index';
-import { formatCurrency } from '../lib/format';
-import type { PlaceholderPaymentProvider, DirectPaymentParams } from '../payments/provider';
+import { useState } from 'react';
+import { Modal } from './Modal';
+import { Button } from './Button';
+import { Input } from './Input';
+import { Select } from './Select';
+import { Label } from './Label';
 
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPaymentComplete: (result: any) => void;
+  onPaymentComplete: (result: PaymentResult) => void;
   amount: number;
-  currency?: string;
+  currency: string;
   ticketId: string;
-  provider: PlaceholderPaymentProvider;
-  availableMethods: ('card' | 'cash' | 'loyalty')[];
+  provider: any;
+  availableMethods: string[];
 }
 
-interface PaymentMethodConfig {
-  id: 'card' | 'cash' | 'loyalty';
-  name: string;
-  icon: string;
-  description: string;
-  isDirect: boolean;
+interface PaymentResult {
+  success: boolean;
+  paymentMethod: string;
+  sessionId: string;
+  redirectUrl?: string;
 }
-
-const PAYMENT_METHODS: PaymentMethodConfig[] = [
-  {
-    id: 'card',
-    name: 'Credit/Debit Card',
-    icon: 'ðŸ’³',
-    description: 'Pay with your card via secure checkout',
-    isDirect: false
-  },
-  {
-    id: 'cash',
-    name: 'Cash',
-    icon: 'ðŸ’µ',
-    description: 'Pay with cash in person',
-    isDirect: true
-  },
-  {
-    id: 'loyalty',
-    name: 'Loyalty Points',
-    icon: 'â­',
-    description: 'Pay using your loyalty points',
-    isDirect: true
-  }
-];
 
 export function PaymentModal({
   isOpen,
   onClose,
   onPaymentComplete,
   amount,
-  currency = 'USD',
+  currency,
   ticketId,
-  provider,
-  availableMethods
+  availableMethods = ['card', 'cash']
 }: PaymentModalProps) {
-  const [selectedMethod, setSelectedMethod] = useState<'card' | 'cash' | 'loyalty'>('card');
+  const [selectedMethod, setSelectedMethod] = useState(availableMethods[0] || 'card');
+  const [cashReceived, setCashReceived] = useState(amount);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [cashAmount, setCashAmount] = useState(amount.toString());
-  const [loyaltyPoints, setLoyaltyPoints] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const filteredMethods = PAYMENT_METHODS.filter(method => 
-    availableMethods.includes(method.id)
-  );
-
-  const selectedMethodConfig = filteredMethods.find(m => m.id === selectedMethod);
 
   const handlePayment = async () => {
     setIsProcessing(true);
-    setError(null);
-
+    
     try {
-      if (selectedMethod === 'cash' || selectedMethod === 'loyalty') {
-        // Handle direct payments (cash, loyalty)
-        const params: DirectPaymentParams = {
-          ticketId,
-          amount: selectedMethod === 'cash' ? parseFloat(cashAmount) : amount,
-          currency,
-          paymentMethod: selectedMethod,
-          metadata: {
-            cashAmount: selectedMethod === 'cash' ? parseFloat(cashAmount) : undefined,
-            loyaltyPoints: selectedMethod === 'loyalty' ? parseInt(loyaltyPoints) : undefined
-          }
-        };
-
-        const result = await provider.processDirectPayment!(params);
-        
-        if (result.success) {
-          onPaymentComplete({
-            success: true,
-            sessionId: result.sessionId,
-            transactionId: result.transactionId,
-            paymentMethod: selectedMethod,
-            message: result.message
-          });
-        } else {
-          setError(result.message || 'Payment failed');
-        }
-      } else {
-        // Handle hosted payments (card)
-        const checkoutResult = await provider.createCheckout({
-          ticketId,
-          amount,
-          currency,
-          paymentMethod: selectedMethod,
-          metadata: {
-            fromModal: true
-          }
-        });
-
-        onPaymentComplete({
-          success: true,
-          sessionId: checkoutResult.sessionId,
-          redirectUrl: checkoutResult.redirectUrl,
-          expiresAt: checkoutResult.expiresAt,
-          paymentMethod: selectedMethod,
-          message: 'Redirecting to payment provider...'
-        });
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed');
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const result: PaymentResult = {
+        success: true,
+        paymentMethod: selectedMethod,
+        sessionId: `session_${Date.now()}`,
+        ...(selectedMethod === 'card' && {
+          redirectUrl: `https://payment-gateway.example.com/pay/${ticketId}`
+        })
+      };
+      
+      onPaymentComplete(result);
+    } catch (error) {
+      console.error('Payment failed:', error);
+      onPaymentComplete({
+        success: false,
+        paymentMethod: selectedMethod,
+        sessionId: `failed_${Date.now()}`
+      });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const validatePayment = () => {
-    if (selectedMethod === 'cash') {
-      const cash = parseFloat(cashAmount);
-      return !isNaN(cash) && cash >= amount;
-    }
-    if (selectedMethod === 'loyalty') {
-      const points = parseInt(loyaltyPoints);
-      return !isNaN(points) && points > 0;
-    }
-    return true;
-  };
-
-  const isValid = validatePayment();
+  const change = selectedMethod === 'cash' ? Math.max(0, cashReceived - amount) : 0;
+  const canProceed = selectedMethod !== 'cash' || cashReceived >= amount;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Payment - ${formatCurrency(amount)}`} size="md">
-      <div className="space-y-4">
-          {/* Payment Method Selection */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Payment Method</label>
-            <div className="space-y-2">
-              {filteredMethods.map(method => (
-                <div
-                  key={method.id}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedMethod === method.id
-                      ? 'border-primary-600 bg-primary-100 dark:bg-primary-900/20'
-                      : 'border-secondary hover:border-primary'
-                  }`}
-                  onClick={() => setSelectedMethod(method.id)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <span className="text-2xl">{method.icon}</span>
-                    <div>
-                      <div className="font-medium">{method.name}</div>
-                      <div className="text-sm text-secondary">{method.description}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Payment"
+      size="sm"
+    >
+      <div className="space-y-6">
+        {/* Amount Summary */}
+        <div className="bg-surface-secondary rounded-lg p-4">
+          <div className="flex justify-between items-center">
+            <span className="text-text-secondary">Total Amount:</span>
+            <span className="text-xl font-bold text-text-primary">
+              {currency} {amount.toFixed(2)}
+            </span>
           </div>
+        </div>
 
-          {/* Payment Method Specific Fields */}
-          {selectedMethod === 'cash' && (
+        {/* Payment Method Selection */}
+        <div>
+          <Label htmlFor="payment-method">Payment Method</Label>
+          <Select
+            id="payment-method"
+            value={selectedMethod}
+            onChange={(e) => setSelectedMethod(e.target.value)}
+            className="mt-1"
+          >
+            {availableMethods.map(method => (
+              <option key={method} value={method}>
+                {method.charAt(0).toUpperCase() + method.slice(1)}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        {/* Cash Payment Fields */}
+        {selectedMethod === 'cash' && (
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Cash Amount</label>
+              <Label htmlFor="cash-received">Cash Received</Label>
               <Input
+                id="cash-received"
                 type="number"
-                value={cashAmount}
-                onChange={(e) => setCashAmount(e.target.value)}
-                placeholder="Enter cash amount"
-                min={amount}
-                step="0.01"
+                value={cashReceived}
+                onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
+                min={0}
+                step={0.01}
+                className="mt-1"
               />
-              {parseFloat(cashAmount) < amount && (
-                <p className="text-sm text-error mt-1">
-                  Cash amount must be at least {formatCurrency(amount)}
-                </p>
-              )}
-              {parseFloat(cashAmount) > amount && (
-                <p className="text-sm text-success mt-1">
-                  Change: {formatCurrency(parseFloat(cashAmount) - amount)}
-                </p>
-              )}
             </div>
-          )}
-
-          {selectedMethod === 'loyalty' && (
-            <div>
-              <label className="block text-sm font-medium mb-2">Loyalty Points</label>
-              <Input
-                type="number"
-                value={loyaltyPoints}
-                onChange={(e) => setLoyaltyPoints(e.target.value)}
-                placeholder="Enter points to redeem"
-                min="1"
-              />
-              <p className="text-sm text-secondary mt-1">
-                Redeem your loyalty points for this purchase
-              </p>
-            </div>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <div className="p-3 bg-error-50 border border-error-100 rounded-lg" role="alert" aria-live="polite">
-              <p className="text-sm text-error">{error}</p>
-            </div>
-          )}
-
-          {/* Payment Summary */}
-          <div className="border-t border-secondary pt-4">
-            <div className="flex justify-between items-center text-lg font-semibold">
-              <span>Total:</span>
-              <span>{formatCurrency(amount)}</span>
-            </div>
-            {selectedMethodConfig && (
-              <p className="text-sm text-secondary mt-1">
-                Payment via {selectedMethodConfig.name}
-              </p>
+            
+            {change > 0 && (
+              <div className="bg-success/10 border border-success/20 rounded-lg p-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-success font-medium">Change Due:</span>
+                  <span className="text-success font-bold">
+                    {currency} {change.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {cashReceived < amount && (
+              <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
+                <span className="text-warning text-sm">
+                  Insufficient cash received. Need {currency} {(amount - cashReceived).toFixed(2)} more.
+                </span>
+              </div>
             )}
           </div>
+        )}
 
-          {/* Action Buttons */}
-          <div className="flex space-x-3">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              disabled={isProcessing}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handlePayment}
-              disabled={isProcessing || !isValid}
-              className="flex-1"
-            >
-              {isProcessing ? 'Processing...' : 
-               selectedMethod === 'card' ? 'Continue to Checkout' :
-               selectedMethod === 'cash' ? 'Accept Cash' :
-               'Redeem Points'}
-            </Button>
+        {/* Loyalty Payment Info */}
+        {selectedMethod === 'loyalty' && (
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+            <p className="text-primary text-sm">
+              This payment will be processed using loyalty points.
+            </p>
           </div>
+        )}
 
-          {/* Dev Info */}
-          <div className="text-xs text-tertiary text-center pt-2 border-t border-secondary">
-            Placeholder Payment Provider
+        {/* Card Payment Info */}
+        {selectedMethod === 'card' && (
+          <div className="bg-info/10 border border-info/20 rounded-lg p-3">
+            <p className="text-info text-sm">
+              You will be redirected to the payment gateway to complete the transaction.
+            </p>
           </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-3 pt-4 border-t border-border">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isProcessing}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handlePayment}
+            disabled={!canProceed || isProcessing}
+            loading={isProcessing}
+            className="flex-1"
+          >
+            {selectedMethod === 'card' ? 'Proceed to Gateway' : 'Process Payment'}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

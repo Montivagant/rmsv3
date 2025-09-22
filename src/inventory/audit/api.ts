@@ -8,7 +8,6 @@ import { eventStore } from '../../events/store';
 import type {
   InventoryCount,
   CountItem,
-  CountQuery,
   CountsResponse,
   CreateCountRequest,
   UpdateCountItemRequest,
@@ -122,6 +121,7 @@ function initializeMockCounts() {
     sku: `BEV${String(i + 1).padStart(3, '0')}`,
     name: `Beverage Item ${i + 1}`,
     unit: i % 3 === 0 ? 'bottles' : i % 3 === 1 ? 'cases' : 'liters',
+    auditedQty: i < 10 ? Math.floor(Math.random() * 100) : null,
     categoryName: i < 30 ? 'Beverages' : 'Alcohol',
     
     // Snapshot data
@@ -131,8 +131,8 @@ function initializeMockCounts() {
     
     // Count data (some items already counted)
     countedQty: i < 23 ? Math.floor(Math.random() * 100) + 8 : null,
-    countedBy: i < 23 ? 'jane.supervisor' : undefined,
-    countedAt: i < 23 ? '2024-12-29T15:30:00Z' : undefined,
+    ...(i < 23 && { countedBy: 'jane.supervisor' }),
+    ...(i < 23 && { countedAt: '2024-12-29T15:30:00Z' }),
     
     // Calculated fields (would be computed)
     varianceQty: 0,
@@ -145,12 +145,12 @@ function initializeMockCounts() {
 
   // Calculate variances for counted items  
   sampleCountItems.forEach(item => {
-    if (item.countedQty !== null) {
+    if (item.countedQty !== null && item.countedQty !== undefined) {
       // Manual variance calculation to avoid circular dependency
       const varianceQty = item.countedQty - item.snapshotQty;
       const varianceValue = varianceQty * item.snapshotAvgCost;
       const variancePercentage = item.snapshotQty === 0 ? 
-        (item.countedQty > 0 ? 100 : 0) :
+        ((item.countedQty || 0) > 0 ? 100 : 0) :
         (varianceQty / item.snapshotQty) * 100;
       
       Object.assign(item, {
@@ -284,8 +284,8 @@ export const inventoryCountApiHandlers = [
       },
       metadata: {
         lastSavedAt: now,
-        notes: requestData.notes,
-        estimatedDurationMinutes: requestData.estimatedDurationMinutes
+        ...(requestData.notes && { notes: requestData.notes }),
+        ...(requestData.estimatedDurationMinutes != null && { estimatedDurationMinutes: requestData.estimatedDurationMinutes })
       }
     };
 
@@ -310,6 +310,7 @@ export const inventoryCountApiHandlers = [
       name: `Item ${i + 1}`,
       unit: ['pieces', 'kg', 'liters', 'cases'][i % 4],
       categoryName: ['Produce', 'Meat', 'Dairy', 'Beverages'][i % 4],
+      auditedQty: null,
       
       snapshotQty: Math.floor(Math.random() * 100) + 10,
       snapshotAvgCost: Math.round((Math.random() * 20 + 2) * 100) / 100,
@@ -406,9 +407,12 @@ export const inventoryCountApiHandlers = [
         
         // Update count data
         item.countedQty = update.countedQty;
+        item.auditedQty = update.countedQty;
         item.countedBy = 'current-user';
         item.countedAt = new Date().toISOString();
-        item.notes = update.notes;
+        if (update.notes) {
+          item.notes = update.notes;
+        }
 
         // Recalculate variance manually to avoid circular dependency
         const varianceQty = item.countedQty - item.snapshotQty;
@@ -468,7 +472,7 @@ export const inventoryCountApiHandlers = [
   // POST /api/inventory/counts/:id/submit - Submit count
   http.post('/api/inventory/counts/:id/submit', async ({ params, request }) => {
     const { id } = params;
-    const submitRequest = await request.json() as SubmitCountRequest;
+    await request.json() as SubmitCountRequest;
     
     const count = mockCounts.get(id as string);
     const items = mockCountItems.get(id as string) || [];
@@ -622,7 +626,7 @@ export const inventoryCountApiHandlers = [
               timestamp: new Date(ev.at).toISOString(),
               reference: ev.id,
               performedBy: ev.payload?.markedBy || 'system',
-              reason: ev.payload?.reason,
+              ...(ev.payload?.reason && { reason: ev.payload.reason }),
             });
             break;
           }
@@ -651,7 +655,11 @@ export const inventoryCountApiHandlers = [
 
     const movementsDuringAudit = {
       hasMovements: movements.length > 0,
-      movements,
+      movements: movements.map(m => ({
+        ...m,
+        performedBy: m.performedBy || 'system',
+        reason: m.reason || 'System generated movement'
+      })),
       message: movements.length > 0
         ? `${movements.length} inventory movements occurred during this audit.`
         : 'No stock movements occurred during the audit.'

@@ -21,14 +21,14 @@ export interface FormField {
   label: string;
   type: 'text' | 'email' | 'tel' | 'number' | 'currency' | 'sku' | 'textarea' | 'select';
   required?: boolean;
-  placeholder?: string;
-  helpText?: string;
-  options?: { value: string; label: string }[];
-  validationRules?: ValidationRule[];
-  inputMask?: keyof typeof inputMasks;
-  formatter?: keyof typeof valueFormatters;
-  dependencies?: string[]; // Fields that affect this field's visibility/validation
-  visible?: (allValues: Record<string, any>) => boolean;
+  placeholder?: string | undefined;
+  helpText?: string | undefined;
+  options?: { value: string; label: string }[] | undefined;
+  validationRules?: ValidationRule[] | undefined;
+  inputMask?: keyof typeof inputMasks | undefined;
+  formatter?: keyof typeof valueFormatters | undefined;
+  dependencies?: string[] | undefined; // Fields that affect this field's visibility/validation
+  visible?: ((allValues: Record<string, any>) => boolean) | undefined;
 }
 
 export interface SmartFormProps {
@@ -68,7 +68,7 @@ export function SmartForm({
   const [visibleFields, setVisibleFields] = useState<Set<string>>(new Set());
   
   const formRef = useRef<HTMLFormElement>(null);
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use the new validation framework
   const {
@@ -279,14 +279,14 @@ export function SmartForm({
           value={fieldValue as string}
           onChange={(value) => handleFieldChange(field.name, value)}
           validationRules={field.validationRules || []}
-          required={field.required}
-          placeholder={field.placeholder}
-          helpText={field.helpText}
+          required={field.required || false}
+          {...(field.placeholder && { placeholder: field.placeholder })}
+          {...(field.helpText && { helpText: field.helpText })}
           disabled={disabled || isSubmitting}
-          inputMask={field.inputMask ? inputMasks[field.inputMask] : undefined}
-          formatValue={field.formatter ? valueFormatters[field.formatter] : undefined}
-          error={hasError ? fieldState?.errors?.[0] : undefined}
-          warning={hasWarning ? fieldState?.warnings?.[0] : undefined}
+          {...(field.inputMask && inputMasks[field.inputMask] && { inputMask: inputMasks[field.inputMask] })}
+          {...(field.formatter && valueFormatters[field.formatter] && { formatValue: valueFormatters[field.formatter] })}
+          {...(hasError && fieldState?.errors?.[0] && { error: fieldState.errors[0] })}
+          {...(hasWarning && fieldState?.warnings?.[0] && { warning: fieldState.warnings[0] })}
           retainFocusOnError={true}
           showValidationIcon={true}
         />

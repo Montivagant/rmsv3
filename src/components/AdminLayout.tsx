@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { getCurrentUser, setCurrentUser } from '../rbac/roles';
 import { AdminSidebar } from './navigation/AdminSidebar';

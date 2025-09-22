@@ -3,6 +3,7 @@ export interface Event {
   seq: number
   type: string
   at: number
+  version?: number // Optional for backward compatibility
   aggregate: {
     id: string
     type: string
@@ -13,6 +14,9 @@ export interface Event {
 export type KnownEvent = 
   | SaleRecordedEvent
   | InventoryAdjustedEvent
+  | InventorySnapshotEvent
+  | CustomerProfileUpsertedEvent
+  | CustomerLoyaltyAdjustedEvent
   | LoyaltyAccruedEvent
   | LoyaltyRedeemedEvent
   | PaymentInitiatedEvent
@@ -39,6 +43,14 @@ export type KnownEvent =
   | DeliveryReceivedEvent
   | ShiftStartedEvent
   | ShiftEndedEvent
+  | OrderCreatedEvent
+  | OrderStatusUpdatedEvent
+  | { type: 'sale.recorded.v1', payload: SaleRecordedPayload, at: number, id: string, seq: number, aggregate: { id: string, type: string } }
+  | { type: 'sale.recorded.v2', payload: SaleRecordedPayload, at: number, id: string, seq: number, aggregate: { id: string, type: string } }
+  | { type: 'inventory.adjusted.v1', payload: InventoryAdjustedPayload, at: number, id: string, seq: number, aggregate: { id: string, type: string } }
+  | { type: 'payment.failed.v1', payload: PaymentFailedPayload, at: number, id: string, seq: number, aggregate: { id: string, type: string } }
+  | { type: 'audit.logged.v1', payload: AuditLoggedPayload, at: number, id: string, seq: number, aggregate: { id: string, type: string } }
+  | { type: 'inventory.reorder_alert.created.v1', payload: any, at: number, id: string, seq: number, aggregate: { id: string, type: string } }
 
 export interface SaleRecordedEvent extends Event {
   type: 'sale.recorded'
@@ -61,6 +73,7 @@ export interface SaleRecordedPayload {
     total: number
   }
   customerId?: string
+  notes?: string
 }
 
 export interface InventoryAdjustedEvent extends Event {
@@ -73,6 +86,50 @@ export interface InventoryAdjustedPayload {
   oldQty: number
   newQty: number
   reason: string
+  delta?: number
+  reference?: string
+  actorId?: string
+}
+
+export interface InventorySnapshotEvent extends Event {
+  type: 'inventory.snapshot.set'
+  payload: {
+    sku: string
+    quantity: number
+    reason?: string
+    recordedAt: number
+    recordedBy?: string
+  }
+}
+
+export interface CustomerProfileUpsertedEvent extends Event {
+  type: 'customer.profile.upserted'
+  payload: {
+    customerId: string
+    name: string
+    email?: string
+    phone?: string
+    loyaltyPoints: number
+    visits: number
+    totalSpent: number
+    lastVisit?: number
+    tags?: string[]
+    createdAt: number
+    updatedAt: number
+    metadata?: Record<string, unknown>
+  }
+}
+
+export interface CustomerLoyaltyAdjustedEvent extends Event {
+  type: 'customer.loyalty.adjusted'
+  payload: {
+    customerId: string
+    delta: number
+    reason: string
+    balance: number
+    adjustedAt: number
+    adjustedBy?: string
+  }
 }
 
 export interface LoyaltyAccruedEvent extends Event {
@@ -137,6 +194,7 @@ export interface PaymentFailedPayload {
   sessionId: string
   currency?: string
   reason?: string
+  orderId?: string;
 }
 
 export interface AuditLoggedPayload {
@@ -151,6 +209,7 @@ export interface AuditLoggedPayload {
   timestamp: number
   userAgent?: string
   ipAddress?: string
+  message?: string;
 }
 
 export interface AuditLoggedEvent extends Event {
@@ -211,8 +270,50 @@ export interface ZReportFinalizedPayload {
   }
 }
 
+export type OrderStatus = 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
+
+export interface OrderItemPayload {
+  id: string;
+  name?: string;
+  categoryId?: string;
+  quantity: number;
+  price: number;
+}
+
+export interface OrderCreatedEvent extends Event {
+  type: 'order.created'
+  payload: {
+    orderId: string;
+    ticketId: string;
+    branchId: string;
+    source: string;
+    status: OrderStatus;
+    items: OrderItemPayload[];
+    totals: { subtotal: number; discount: number; tax: number; total: number };
+    discount?: number;
+    customerId?: string;
+    customerName?: string;
+    notes?: string;
+    channel?: string;
+    createdAt: number;
+  }
+}
+
+export interface OrderStatusUpdatedEvent extends Event {
+  type: 'order.status.updated'
+  payload: {
+    orderId: string;
+    status: OrderStatus;
+    previousStatus?: OrderStatus;
+    updatedAt: number;
+    actorId?: string;
+    actorName?: string;
+    reason?: string;
+  }
+}
+
 export interface AppendOptions {
-  key?: string
+  key: string
   params?: any
   timestamp?: number
   aggregate?: {
@@ -236,6 +337,7 @@ export interface EventStore {
   append(type: string, payload: any, options: AppendOptions): AppendResult
   getAll(): Event[]
   getEventsForAggregate(aggregateId: string): Event[]
+  query(filter?: any): Event[]
   reset(): Promise<void>
 }
 
@@ -388,7 +490,24 @@ export interface BatchWastedEvent extends Event {
   }
 }
 
-// Supplier events removed from system
+// Supplier events
+export interface SupplierCreatedEvent extends Event {
+  type: 'inventory.supplier.created',
+  payload: {
+    supplier: any; // Supplier type
+    createdBy: string;
+  }
+}
+
+export interface SupplierUpdatedEvent extends Event {
+  type: 'inventory.supplier.updated',
+  payload: {
+    supplierId: string;
+    changes: any;
+    updatedBy: string;
+  }
+}
+
 
 export interface DeliveryReceivedEvent extends Event {
   type: 'inventory.delivery.received'
@@ -423,3 +542,7 @@ export interface ShiftEndedEvent extends Event {
     endedAt: number
   }
 }
+
+
+
+

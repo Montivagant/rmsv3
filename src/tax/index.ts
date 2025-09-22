@@ -9,6 +9,9 @@ export { TaxCalculationEngine } from './engine';
 export { TaxService, createTaxService } from './service';
 export { taxConfigurationManager, TaxConfigurationManager } from './configuration';
 
+// Import for internal use
+import { taxConfigurationManager } from './configuration';
+
 // React components
 export { TaxConfigurationPanel } from './components/TaxConfigurationPanel';
 

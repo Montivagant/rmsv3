@@ -261,7 +261,7 @@ export function TaxConfigurationPanel({ onConfigurationChange }: TaxConfiguratio
         <CardContent>
           {showNewExemptionForm && (
             <NewTaxExemptionForm 
-              onSave={(exemption) => {
+              onSave={() => {
                 // TODO: Add exemption to configuration
                 setShowNewExemptionForm(false);
                 loadConfigurations();
@@ -354,13 +354,13 @@ function NewTaxRateForm({ onSave, onCancel }: NewTaxRateFormProps) {
       displayName: formData.displayName,
       rate: parseFloat(formData.rate) / 100, // Convert percentage to decimal
       type: formData.type,
-      description: formData.description || undefined,
       effectiveDate: new Date().toISOString(),
       isActive: true,
       jurisdiction: {
         country: formData.country,
-        state: formData.state || undefined
-      }
+        ...(formData.state && { state: formData.state })
+      },
+      ...(formData.description && { description: formData.description })
     };
 
     onSave(rate);

@@ -164,7 +164,8 @@ export const categoryApiHandlers = [
   // GET /api/inventory/categories/:id/path - Get category path/breadcrumb
   http.get('/api/inventory/categories/:id/path', async ({ params }) => {
     const { id } = params;
-    const category = mockCategoriesByBranch['main-restaurant']?.get(id); // Assuming default branch for path
+    const categoryId = Array.isArray(id) ? id[0] : id || '';
+    const category = mockCategoriesByBranch['main-restaurant']?.get(categoryId); // Assuming default branch for path
     
     if (!category) {
       return new HttpResponse(null, { 
@@ -173,7 +174,7 @@ export const categoryApiHandlers = [
       });
     }
 
-    const path = buildCategoryPath(id);
+    const path = buildCategoryPath(categoryId);
     console.log('🧭 MSW: Category path API called for', id);
     return HttpResponse.json(path);
   }),
@@ -263,9 +264,10 @@ export const categoryApiHandlers = [
   // PATCH /api/inventory/categories/:id - Update category
   http.patch('/api/inventory/categories/:id', async ({ params, request }) => {
     const { id } = params;
+    const categoryId = Array.isArray(id) ? id[0] : id || '';
     const input = await request.json() as CategoryUpdateInput;
     
-    const category = mockCategoriesByBranch['main-restaurant']?.get(id);
+    const category = mockCategoriesByBranch['main-restaurant']?.get(categoryId);
     if (!category) {
       return new HttpResponse(null, { 
         status: 404,
@@ -295,7 +297,7 @@ export const categoryApiHandlers = [
 
     // Check for circular reference if changing parent
     if (input.parentId !== undefined && input.parentId !== category.parentId) {
-      if (wouldCreateCircularReference(id, input.parentId)) {
+      if (wouldCreateCircularReference(categoryId, input.parentId)) {
         return new HttpResponse(JSON.stringify({ 
           error: 'Cannot set parent: would create circular reference' 
         }), { 
@@ -322,10 +324,10 @@ export const categoryApiHandlers = [
       updatedCategory.level = newParent ? newParent.level + 1 : 0;
       
       // Update paths for descendants
-      updateDescendantPaths(id, updatedCategory.path, updatedCategory.level);
+      updateDescendantPaths(categoryId, updatedCategory.path, updatedCategory.level);
     }
 
-    mockCategoriesByBranch['main-restaurant']?.set(id, updatedCategory);
+    mockCategoriesByBranch['main-restaurant']?.set(categoryId, updatedCategory);
     updateParentChildCounts('main-restaurant');
 
     console.log('📁 MSW: Updated category:', updatedCategory.name);
@@ -335,10 +337,11 @@ export const categoryApiHandlers = [
   // DELETE /api/inventory/categories/:id - Archive category
   http.delete('/api/inventory/categories/:id', async ({ params, request }) => {
     const { id } = params;
-    const body = await request.json().catch(() => ({}));
-    const reason = body.reason;
+    const categoryId = Array.isArray(id) ? id[0] : id || '';
+    const body = await request.json().catch(() => ({})) as any;
+    const reason = body?.reason;
     
-    const category = mockCategoriesByBranch['main-restaurant']?.get(id);
+    const category = mockCategoriesByBranch['main-restaurant']?.get(categoryId);
     if (!category) {
       return new HttpResponse(null, { 
         status: 404,
@@ -379,7 +382,7 @@ export const categoryApiHandlers = [
       }
     };
     
-    mockCategoriesByBranch['main-restaurant']?.set(id, archivedCategory);
+    mockCategoriesByBranch['main-restaurant']?.set(categoryId, archivedCategory);
     updateParentChildCounts('main-restaurant');
 
     console.log('📁 MSW: Archived category:', category.name, reason ? `(${reason})` : '');

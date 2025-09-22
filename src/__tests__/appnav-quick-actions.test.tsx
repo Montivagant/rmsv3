@@ -1,14 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { AppNav } from '../components/navigation/AppNav';
+import { Sidebar } from '../components/navigation/Sidebar';
 
 function renderNav() {
   return render(
     <MemoryRouter initialEntries={['/']}>
-      <AppNav userRole="admin" onNewAction={() => {}} />
+      <Sidebar userRole="admin" onNewAction={() => {}} />
     </MemoryRouter>
   );
 }

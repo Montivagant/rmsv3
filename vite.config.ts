@@ -1,7 +1,10 @@
-/// <reference types="vitest" />
+﻿/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { fileURLToPath } from 'node:url'
+
+const resolveProjectPath = (relativePath: string) => fileURLToPath(new URL(relativePath, import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -28,9 +31,38 @@ export default defineConfig({
         include: [
           'react', 
           'react-dom', 
-          'react-router-dom'
+          'react-router-dom',
+          // Include CommonJS modules so our polyfills can import them
+          'spark-md5',
+          'vuvuzela',
+          'vuvuzela-original',
+          'events',
+          'level-codec',
+          'ltgt',
+          'readable-stream',
+          'double-ended-queue',
+          'levelup',
+          'through2',
+          'memdown',
+          'assert',
+          'util'
         ],
-        exclude: ['spark-md5', 'vuvuzela', 'pouchdb', 'pouchdb-adapter-idb', 'pouchdb-replication', 'pouchdb-adapter-memory', 'pouchdb-browser'],
+        exclude: [
+          // Exclude all PouchDB modules to prevent ES module import conflicts
+          'pouchdb', 
+          'pouchdb-adapter-idb', 
+          'pouchdb-replication', 
+          'pouchdb-adapter-memory', 
+          'pouchdb-browser',
+          'pouchdb-md5',
+          'pouchdb-core',
+          'pouchdb-utils',
+          'pouchdb-json',
+          'pouchdb-adapter-leveldb-core',
+          'sublevel-pouchdb',
+          'pouchdb-find',
+          'pouchdb-mapreduce-utils'
+        ],
         force: true
       },
   define: {
@@ -43,26 +75,47 @@ export default defineConfig({
     jsx: 'automatic'
   },
   resolve: {
-    alias: {
-      '@': new URL('./src', import.meta.url).pathname,
-      '@/components': new URL('./src/components', import.meta.url).pathname,
-      '@/pages': new URL('./src/pages', import.meta.url).pathname,
-      '@/utils': new URL('./src/utils', import.meta.url).pathname,
-      '@/hooks': new URL('./src/hooks', import.meta.url).pathname,
-      '@/api': new URL('./src/api', import.meta.url).pathname,
-      '@/types': new URL('./src/types', import.meta.url).pathname,
-      'spark-md5': 'spark-md5/spark-md5.js',
-      'vuvuzela': 'vuvuzela/index.js'
-    },
+    alias: [
+      { find: '@/components', replacement: resolveProjectPath('./src/components') },
+      { find: '@/pages', replacement: resolveProjectPath('./src/pages') },
+      { find: '@/utils', replacement: resolveProjectPath('./src/utils') },
+      { find: '@/hooks', replacement: resolveProjectPath('./src/hooks') },
+      { find: '@/api', replacement: resolveProjectPath('./src/api') },
+      { find: '@/types', replacement: resolveProjectPath('./src/types') },
+      { find: '@', replacement: resolveProjectPath('./src') },
+      { find: 'shared', replacement: resolveProjectPath('./src/shared') },
+      // Polyfill CommonJS modules for PouchDB ES modules
+      { find: /^spark-md5$/, replacement: resolveProjectPath('./src/lib/spark-md5-polyfill.js') },
+      { find: /^vuvuzela$/, replacement: resolveProjectPath('./src/lib/vuvuzela-polyfill.js') },
+      { find: /^vuvuzela-original$/, replacement: resolveProjectPath('./node_modules/vuvuzela/index.js') },
+      { find: /^level-codec$/, replacement: resolveProjectPath('./src/lib/level-codec-polyfill.js') },
+      { find: /^ltgt$/, replacement: resolveProjectPath('./src/lib/ltgt-polyfill.js') },
+      { find: /^readable-stream$/, replacement: resolveProjectPath('./src/lib/readable-stream-polyfill.js') },
+      { find: /^double-ended-queue$/, replacement: resolveProjectPath('./src/lib/double-ended-queue-polyfill.js') },
+      { find: /^levelup$/, replacement: resolveProjectPath('./src/lib/levelup-polyfill.js') },
+      { find: /^through2$/, replacement: resolveProjectPath('./src/lib/through2-polyfill.js') },
+      { find: /^memdown$/, replacement: resolveProjectPath('./src/lib/memdown-polyfill.js') },
+      { find: /^events$/, replacement: resolveProjectPath('./src/lib/events-polyfill.js') },
+      { find: /^assert$/, replacement: resolveProjectPath('./node_modules/assert/build/assert.js') },
+      { find: /^util$/, replacement: resolveProjectPath('./node_modules/util/util.js') }
+    ],
     dedupe: ['react', 'react-dom'],
-    conditions: ['import', 'module', 'node', 'browser', 'default']
+    conditions: ['require', 'node', 'import', 'module', 'browser', 'default']
   },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
     target: 'es2020',
     minify: 'esbuild',
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true
+    },
     rollupOptions: {
+      external: (_id) => {
+        // Let spark-md5 be bundled but handle it carefully
+        return false
+      },
       onwarn(warning, warn) {
         if (warning.code === 'THIS_IS_UNDEFINED') return
         if (warning.code === 'MISSING_EXPORT') return
@@ -88,3 +141,8 @@ export default defineConfig({
     }
   },
 })
+
+
+
+
+

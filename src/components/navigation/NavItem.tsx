@@ -9,7 +9,7 @@ interface NavItemProps {
   collapsed?: boolean;
   depth?: number;
   isActive?: boolean;
-  onClick?: () => void;
+  onClick?: (() => void) | undefined;
   className?: string;
 }
 

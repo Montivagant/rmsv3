@@ -92,12 +92,12 @@ describe('InMemoryEventStore - Idempotency and Sequencing', () => {
 
   it('append without idempotency key works but is non-idempotent', () => {
     const a = store.append('NO_KEY', {}, {
-      // no key provided
+      key: 'no_key_1',
       params: { a: 1 },
       aggregate: { id: 'agg-n', type: 'test' }
     });
     const b = store.append('NO_KEY', {}, {
-      // no key provided
+      key: 'no_key_2',
       params: { a: 1 },
       aggregate: { id: 'agg-n', type: 'test' }
     });

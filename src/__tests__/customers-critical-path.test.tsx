@@ -1,6 +1,5 @@
 import { beforeAll, afterAll, afterEach, describe, it, expect, vi } from 'vitest';
 import { screen, render, waitFor, fireEvent, within, cleanup } from '@testing-library/react';
-import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Customers from '../pages/Customers';
@@ -192,11 +191,8 @@ describe('Customers critical-path flows', () => {
       phone: '',
       orders: 0,
       totalSpent: 0,
-      visits: 0,
       points: 10,
-      lastVisit: new Date().toISOString(),
       status: 'active',
-      tags: [],
     };
     
     render(
@@ -221,11 +217,8 @@ describe('Customers critical-path flows', () => {
       phone: '',
       orders: 0,
       totalSpent: 0,
-      visits: 0,
       points: 10,
-      lastVisit: new Date().toISOString(),
       status: 'active',
-      tags: [],
     };
 
     render(
@@ -274,11 +267,8 @@ describe('Customers critical-path flows', () => {
       phone: '',
       orders: 0,
       totalSpent: 0,
-      visits: 0,
       points: 10,
-      lastVisit: new Date().toISOString(),
       status: 'active',
-      tags: [],
     };
 
     render(

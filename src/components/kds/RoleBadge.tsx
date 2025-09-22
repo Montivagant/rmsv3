@@ -1,6 +1,5 @@
-import React from 'react';
 import { cn } from '../../lib/utils';
-import { getRole, Role } from '../../rbac/roles';
+import { Role } from '../../rbac/roles';
 
 interface RoleBadgeProps {
   className?: string;
@@ -9,7 +8,6 @@ interface RoleBadgeProps {
 
 export function RoleBadge({ className, size = 'md' }: RoleBadgeProps) {
   // Get the authenticated user's role from live auth/session state
-  const currentRole = getRole();
 
   // Display Business Owner for all users since that's our only role
   const displayRole = 'Business Owner';

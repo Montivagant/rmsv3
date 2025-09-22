@@ -1,5 +1,4 @@
-﻿import React from 'react';
-import { Badge } from '../../Badge';
+﻿import { Badge } from '../../Badge';
 import type { TransferStatus } from '../../../inventory/transfers/types';
 import { TransferUtils } from '../../../inventory/transfers/types';
 
@@ -13,11 +12,11 @@ function TransferStatusBadgeBase({ status, className }: TransferStatusBadgeProps
   const label = TransferUtils.getStatusDisplayText(status);
 
   // Map our variants to Badge component variants
-  const badgeVariant = variant === 'destructive' ? 'error' : variant;
+  const badgeVariant = variant as 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error';
 
   return (
     <Badge 
-      variant={badgeVariant as any}
+      variant={badgeVariant}
       className={className}
     >
       {label}

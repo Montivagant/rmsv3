@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '../components';
 import { AUTH_STRINGS } from '../locales/en/auth';

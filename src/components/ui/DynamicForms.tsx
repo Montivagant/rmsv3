@@ -313,8 +313,6 @@ export interface WizardStepProps {
   totalSteps: number
   isActive: boolean
   isCompleted: boolean
-  canNavigate: boolean
-  onNavigate: () => void
   children: React.ReactNode
   className?: string
 }
@@ -325,8 +323,6 @@ export const WizardStep: React.FC<WizardStepProps> = ({
   totalSteps,
   isActive,
   isCompleted,
-  canNavigate,
-  onNavigate,
   children,
   className
 }) => {

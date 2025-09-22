@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useEventStore } from '../../events/context';
 
 type Row = {
@@ -115,5 +115,6 @@ export default function KDSReport() {
     </div>
   );
 }
+
 
 

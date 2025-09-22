@@ -6,8 +6,8 @@ import { Button } from '../Button';
 interface DashboardFiltersProps {
   period: 'day' | 'week' | 'month' | 'custom';
   onPeriodChange: (period: 'day' | 'week' | 'month' | 'custom') => void;
-  startDate?: string;
-  endDate?: string;
+  startDate: string | undefined;
+  endDate: string | undefined;
   onDateRangeChange: (startDate: string, endDate: string) => void;
   branches: string[];
   onBranchesChange: (branches: string[]) => void;
@@ -84,8 +84,8 @@ function PeriodPicker({
 }: {
   period: 'day' | 'week' | 'month' | 'custom';
   onPeriodChange: (period: 'day' | 'week' | 'month' | 'custom') => void;
-  startDate?: string;
-  endDate?: string;
+  startDate: string | undefined;
+  endDate: string | undefined;
   onDateRangeChange: (startDate: string, endDate: string) => void;
   periodLabel: string;
 }) {
@@ -137,7 +137,7 @@ function PeriodPicker({
   };
 
   return (
-    <div ref={layerRef} className="relative">
+    <div ref={layerRef as React.RefObject<HTMLDivElement>} className="relative">
       <Button
         ref={triggerRef}
         variant="outline"
@@ -284,7 +284,7 @@ function BranchSelector({
   };
 
   return (
-    <div ref={layerRef} className="relative">
+    <div ref={layerRef as React.RefObject<HTMLDivElement>} className="relative">
       <Button
         ref={triggerRef}
         variant="outline"

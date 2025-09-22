@@ -491,9 +491,9 @@ export const AuditUtils = {
     variancePercentage: number;
     hasDiscrepancy: boolean;
   } {
-    const auditedQty = item.auditedQty ?? item.countedQty;
+    const auditedQty = item.auditedQty;
     
-    if (auditedQty === null) {
+    if (auditedQty === undefined || auditedQty === null) {
       return {
         varianceQty: 0,
         varianceValue: 0,

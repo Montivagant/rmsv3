@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../lib/utils';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'success';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   icon?: ReactNode;
@@ -31,6 +31,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       outline: 'btn-outline',
       ghost: 'btn-ghost',
       destructive: 'bg-error text-text-inverse hover:bg-error/90 focus:ring-error',
+      success: 'bg-success-600 text-text-inverse hover:bg-success-700 focus:ring-success-500',
     };
     
     const sizeClasses = {

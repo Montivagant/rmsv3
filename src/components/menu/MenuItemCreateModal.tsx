@@ -10,7 +10,7 @@ import { Select } from '../Select';
 import { Textarea } from '../Textarea';
 import { Button } from '../Button';
 import { Checkbox } from '../Checkbox';
-import { useToast } from '../../hooks/useToast';
+// import { ImageUpload } from '../ImageUpload'; // TODO: Create ImageUpload component
 import type { 
   MenuItem, 
   MenuItemFormData, 
@@ -29,11 +29,6 @@ import {
 } from '../../menu/items/types';
 import { menuItemsApi } from '../../menu/items/api';
 
-interface Branch {
-  id: string;
-  name: string;
-  type: string;
-}
 
 interface MenuItemCreateModalProps {
   isOpen: boolean;
@@ -55,7 +50,6 @@ export default function MenuItemCreateModal({
   const [errors, setErrors] = useState<MenuItemFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { showToast } = useToast();
 
   const isEditing = !!editingItem;
 
@@ -76,6 +70,7 @@ export default function MenuItemCreateModal({
           isActive: editingItem.isActive,
           isAvailable: editingItem.isAvailable,
           branchIds: editingItem.branchIds,
+          image: editingItem.image,
         });
       } else {
         setFormData(createDefaultMenuItemData());
@@ -186,6 +181,7 @@ export default function MenuItemCreateModal({
             isActive: formData.isActive,
             isAvailable: formData.isAvailable,
             branchIds: formData.branchIds,
+            image: formData.image,
           } as UpdateMenuItemRequest
         : {
             sku: formData.sku,
@@ -197,6 +193,7 @@ export default function MenuItemCreateModal({
             isActive: formData.isActive,
             isAvailable: formData.isAvailable,
             branchIds: formData.branchIds,
+            image: formData.image,
           } as CreateMenuItemRequest;
 
       if (isEditing) {
@@ -288,6 +285,22 @@ export default function MenuItemCreateModal({
             maxLength={200}
             rows={3}
           />
+
+          {/* Item Image */}
+          <div>
+            <label htmlFor="item-image" className="block text-sm font-medium text-foreground mb-2">
+              Item Image (optional)
+            </label>
+            {/* TODO: Implement ImageUpload component */}
+            <Input
+              id="item-image"
+              type="text"
+              value={formData.image || ''}
+              onChange={(e) => handleFieldChange('image', e.target.value)}
+              placeholder="Image URL (optional)"
+              disabled={isSubmitting}
+            />
+          </div>
         </div>
 
         {/* Category and Pricing */}

@@ -4,7 +4,7 @@
  * Form for creating and editing branches with validation
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { SmartForm } from '../forms/SmartForm';
 import type { FormField } from '../forms/SmartForm';
 import type { Branch, BranchFormData } from '../../types/branch';
@@ -46,12 +46,12 @@ export function BranchForm({ branch, onSubmit, onCancel, isSubmitting }: BranchF
     type: branch.type,
     street: branch.address.street,
     city: branch.address.city,
-    state: branch.address.state,
-    postalCode: branch.address.postalCode,
+    ...(branch.address.state && { state: branch.address.state }),
+    ...(branch.address.postalCode && { postalCode: branch.address.postalCode }),
     country: branch.address.country,
-    phone: branch.contact?.phone,
-    email: branch.contact?.email,
-    manager: branch.contact?.manager,
+    ...(branch.contact?.phone && { phone: branch.contact.phone }),
+    ...(branch.contact?.email && { email: branch.contact.email }),
+    ...(branch.contact?.manager && { manager: branch.contact.manager }),
     isActive: branch.isActive,
   } : {
     type: 'restaurant',
@@ -66,7 +66,11 @@ export function BranchForm({ branch, onSubmit, onCancel, isSubmitting }: BranchF
       type: 'text',
       required: true,
       placeholder: 'e.g., Main Restaurant',
-      validation: [(value) => validateName(value as string, 'Branch name')],
+      validationRules: [{
+        id: 'branchName',
+        message: 'Invalid branch name',
+        validate: (value: string) => validateName(value)
+      }],
     },
     {
       name: 'type',
@@ -74,12 +78,6 @@ export function BranchForm({ branch, onSubmit, onCancel, isSubmitting }: BranchF
       type: 'select',
       required: true,
       options: BRANCH_TYPES,
-    },
-    {
-      name: 'isMain',
-      label: 'Set as Main Branch',
-      type: 'checkbox',
-      helpText: 'Only one branch can be marked as main',
     },
     {
       name: 'street',
@@ -119,26 +117,28 @@ export function BranchForm({ branch, onSubmit, onCancel, isSubmitting }: BranchF
       label: 'Phone Number',
       type: 'tel',
       placeholder: 'e.g., +20 2 1234 5678',
-      validation: [(value) => value ? validatePhone(value as string) : { isValid: true }],
+      validationRules: [{
+        id: 'branchPhone',
+        message: 'Invalid phone number',
+        validate: (value: string) => value ? validatePhone(value) : { isValid: true }
+      }],
     },
     {
       name: 'email',
       label: 'Email Address',
       type: 'email',
       placeholder: 'e.g., branch@restaurant.com',
-      validation: [(value) => value ? validateEmail(value as string) : { isValid: true }],
+      validationRules: [{
+        id: 'branchEmail',
+        message: 'Invalid email address',
+        validate: (value: string) => value ? validateEmail(value) : { isValid: true }
+      }],
     },
     {
       name: 'manager',
       label: 'Branch Manager',
       type: 'text',
       placeholder: 'e.g., John Doe',
-    },
-    {
-      name: 'isActive',
-      label: 'Active',
-      type: 'checkbox',
-      helpText: 'Inactive branches won\'t appear in selection lists',
     },
   ];
 
@@ -168,7 +168,7 @@ export function BranchForm({ branch, onSubmit, onCancel, isSubmitting }: BranchF
         onSubmit={handleSubmit}
         onCancel={onCancel}
         submitLabel={branch ? 'Update Branch' : 'Create Branch'}
-        disabled={isSubmitting}
+        disabled={isSubmitting || false}
       />
 
       {/* Storage Areas Section */}

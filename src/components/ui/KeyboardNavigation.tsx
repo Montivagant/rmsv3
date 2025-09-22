@@ -106,7 +106,7 @@ export function useRovingTabIndex<T extends HTMLElement>(
 
 // Advanced focus trap with customizable behavior
 export function useFocusTrap(
-  containerRef: React.RefObject<HTMLElement>,
+  containerRef: React.RefObject<HTMLElement | null>,
   options: {
     active?: boolean
     initialFocus?: 'first' | 'last' | HTMLElement | (() => HTMLElement | null)
@@ -298,7 +298,6 @@ export const AccessibleMenu: React.FC<AccessibleMenuProps> = ({
   onOpenChange
 }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [activeIndex, setActiveIndex] = useState(-1)
   const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLElement>(null)
 
@@ -359,7 +358,7 @@ export const AccessibleMenu: React.FC<AccessibleMenuProps> = ({
         'aria-haspopup': 'menu',
         'aria-expanded': isOpen,
         'aria-controls': isOpen ? 'menu' : undefined
-      })}
+      } as any)}
 
       {/* Menu */}
       {isOpen && (
@@ -465,8 +464,6 @@ export const AccessibleTabs: React.FC<AccessibleTabsProps> = ({
   const tabsRef = useRef<HTMLDivElement>(null)
 
   const enabledTabs = tabs.filter(tab => !tab.disabled)
-  const activeTabIndex = enabledTabs.findIndex(tab => tab.id === activeTab)
-  const activeTabContent = tabs.find(tab => tab.id === activeTab)?.content
 
   const { handleKeyDown } = useRovingTabIndex(
     enabledTabs.map((_, index) => 
@@ -503,7 +500,7 @@ export const AccessibleTabs: React.FC<AccessibleTabsProps> = ({
         )}
         onKeyDown={(e) => handleKeyDown(e.nativeEvent)}
       >
-        {tabs.map((tab, index) => {
+        {tabs.map((tab) => {
           const isActive = tab.id === activeTab
           const enabledIndex = enabledTabs.findIndex(t => t.id === tab.id)
           

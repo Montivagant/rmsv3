@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
@@ -9,8 +9,8 @@ import SettingCard from '../../settings/ui/SettingCard';
 import SettingRow from '../../settings/ui/SettingRow';
 import { Input } from '../../components/Input';
 import { Select } from '../../components/Select';
-import { PhoneInputEG, toE164EG } from '../../components/PhoneInputEG';
-import { PinInput, generateSecurePin, validatePin } from '../../components/ui/PinInput';
+import { PhoneInputEG } from '../../components/PhoneInputEG';
+import { PinInput, validatePin } from '../../components/ui/PinInput';
 import FormActions from '../../components/ui/FormActions';
 import { Button } from '../../components/Button';
 

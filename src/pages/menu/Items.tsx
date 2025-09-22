@@ -3,29 +3,39 @@
  * CRUD interface for menu items with search, filtering, and availability management
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Button } from '../../components/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
+import { Card, CardContent } from '../../components/Card';
 import { Input } from '../../components/Input';
 import { Select } from '../../components/Select';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import { DropdownMenu, DropdownMenuItem } from '../../components/DropdownMenu';
-import { useApi } from '../../hooks/useApi';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
 import { useToast } from '../../hooks/useToast';
 import { cn } from '../../lib/utils';
 import MenuItemCreateModal from '../../components/menu/MenuItemCreateModal';
 import type { 
   MenuItem, 
-  MenuItemQuery, 
-  MenuItemsResponse 
+  MenuItemQuery
 } from '../../menu/items/types';
-import type { MenuCategory } from '../../menu/categories/types';
-import { menuItemsApi } from '../../menu/items/api';
+import { 
+  getMenuItems, 
+  deleteMenuItem, 
+  toggleMenuItemAvailability 
+} from '../../menu/items/repository';
+import { listCategories } from '../../menu/categories/repository';
 
 export default function MenuItems() {
   const { showToast } = useToast();
+  
+  // Repository mutations
+  const deleteItemMutation = useRepositoryMutation(deleteMenuItem);
+  const toggleAvailabilityMutation = useRepositoryMutation(
+    ({ id, isAvailable }: { id: string; isAvailable: boolean }) => 
+      toggleMenuItemAvailability(id, isAvailable)
+  );
   
   // State
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,27 +51,65 @@ export default function MenuItems() {
     sortOrder: 'asc'
   });
 
-  // API calls
-  const itemsUrl = useMemo(() => {
-    const params = new URLSearchParams();
-    Object.entries(queryParams).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        params.set(key, String(value));
-      }
+  // Repository-based data fetching
+  const { data: allItems, loading: itemsLoading, error, refetch } = useRepository(
+    () => getMenuItems({}), // Get all items, we'll filter client-side
+    []
+  );
+  const { data: allCategories, loading: categoriesLoading } = useRepository(
+    listCategories,
+    []
+  );
+
+  const categories = allCategories || [];
+  
+  // Client-side filtering and pagination
+  const filteredItems = useMemo(() => {
+    if (!allItems?.items) return [];
+    
+    let filtered = allItems.items;
+    
+    // Apply search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.name.toLowerCase().includes(term) ||
+        item.sku?.toLowerCase().includes(term) ||
+        item.description?.toLowerCase().includes(term)
+      );
+    }
+    
+    // Apply category filter
+    if (selectedCategory) {
+      filtered = filtered.filter(item => item.categoryId === selectedCategory);
+    }
+    
+    // Apply status filter
+    if (selectedStatus === 'active') {
+      filtered = filtered.filter(item => item.isActive);
+    } else if (selectedStatus === 'inactive') {
+      filtered = filtered.filter(item => !item.isActive);
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      const aValue = a[queryParams.sortBy as keyof MenuItem];
+      const bValue = b[queryParams.sortBy as keyof MenuItem];
+      const result = String(aValue).localeCompare(String(bValue));
+      return queryParams.sortOrder === 'desc' ? -result : result;
     });
-    if (searchTerm) params.set('search', searchTerm);
-    if (selectedCategory) params.set('categoryId', selectedCategory);
-    if (selectedStatus === 'active') params.set('isActive', 'true');
-    if (selectedStatus === 'inactive') params.set('isActive', 'false');
-    return `/api/menu/items?${params.toString()}`;
-  }, [queryParams, searchTerm, selectedCategory, selectedStatus]);
+    
+    return filtered;
+  }, [allItems?.items, searchTerm, selectedCategory, selectedStatus, queryParams.sortBy, queryParams.sortOrder]);
 
-  const { data: itemsResponse, loading, error, refetch } = useApi<MenuItemsResponse>(itemsUrl);
-  const { data: categoriesResponse } = useApi<{ categories: MenuCategory[] }>('/api/menu/categories');
-
-  const items = itemsResponse?.items || [];
-  const total = itemsResponse?.total || 0;
-  const categories = categoriesResponse?.categories || [];
+  // Pagination
+  const page = queryParams.page ?? 1;
+  const pageSize = queryParams.pageSize ?? 25;
+  const total = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const startIndex = (page - 1) * pageSize;
+  const items = filteredItems.slice(startIndex, startIndex + pageSize);
+  const loading = itemsLoading || categoriesLoading;
 
   // Event handlers
   const handleSearch = useCallback((term: string) => {
@@ -83,14 +131,6 @@ export default function MenuItems() {
     setQueryParams(prev => ({ ...prev, page }));
   }, []);
 
-  const handleSort = useCallback((field: string) => {
-    setQueryParams(prev => ({
-      ...prev,
-      sortBy: field as any,
-      sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
-      page: 1,
-    }));
-  }, []);
 
   const handleItemCreated = useCallback(() => {
     setIsCreateModalOpen(false);
@@ -120,7 +160,7 @@ export default function MenuItems() {
 
   const handleToggleAvailability = useCallback(async (item: MenuItem) => {
     try {
-      await menuItemsApi.toggleAvailability(item.id, !item.isAvailable);
+      await toggleAvailabilityMutation.mutate({ id: item.id, isAvailable: !item.isAvailable });
       refetch();
       showToast({
         title: 'Success',
@@ -134,7 +174,7 @@ export default function MenuItems() {
         variant: 'error'
       });
     }
-  }, [refetch, showToast]);
+  }, [toggleAvailabilityMutation, refetch, showToast]);
 
   const handleDeleteItem = useCallback(async (item: MenuItem) => {
     if (!confirm(`Are you sure you want to delete "${item.name}"? This action cannot be undone.`)) {
@@ -142,7 +182,7 @@ export default function MenuItems() {
     }
 
     try {
-      await menuItemsApi.delete(item.id);
+      await deleteItemMutation.mutate(item.id);
       refetch();
       showToast({
         title: 'Success',
@@ -156,7 +196,7 @@ export default function MenuItems() {
         variant: 'error'
       });
     }
-  }, [refetch, showToast]);
+  }, [deleteItemMutation, refetch, showToast]);
 
   // Get category name
   const getCategoryName = useCallback((categoryId: string) => {
@@ -379,27 +419,27 @@ export default function MenuItems() {
       )}
 
       {/* Pagination */}
-      {total > (queryParams.pageSize || 25) && (
+      {total > pageSize && (
         <div className="flex justify-center">
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange((queryParams.page || 1) - 1)}
-              disabled={!queryParams.page || queryParams.page <= 1}
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1}
             >
               Previous
             </Button>
             
             <span className="text-sm text-text-muted">
-              Page {queryParams.page || 1} of {Math.ceil(total / (queryParams.pageSize || 25))}
+              Page {page} of {totalPages}
             </span>
             
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handlePageChange((queryParams.page || 1) + 1)}
-              disabled={(queryParams.page || 1) >= Math.ceil(total / (queryParams.pageSize || 25))}
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages}
             >
               Next
             </Button>

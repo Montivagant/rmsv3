@@ -1,6 +1,4 @@
-import type PouchDB from 'pouchdb';
-import type { Event } from './types';
-import { type EventStore } from './store';
+import type { Event, EventStore } from './types';
 import { putEvent, allEvents, type DBEvent } from '../db/pouch';
 
 // Local type to match event structure
@@ -18,11 +16,11 @@ export function createPersistedEventStore(mem: EventStore, db: PouchDB.Database<
     const events = await allEvents(db);
     for (const e of events) {
       if (typeof m.ingest === 'function') {
-        m.ingest(e);
+        m.ingest({ ...e, timestamp: e.at });
       } else {
         // Fallback: only add if not present via idempotent append on a shadow key
         try {
-          mem.append(e.type as any, (e as any).payload, {
+          mem.append(e.type, e.payload, {
             key: `rehydrate:${e.id}`,
             params: { id: e.id },
             aggregate: e.aggregate,

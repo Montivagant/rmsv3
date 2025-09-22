@@ -8,9 +8,8 @@ import type {
 import { IdempotencyConflictError } from './types';
 import { stableHash } from './hash';
 import { logEvent } from './log';
-// PouchDB integration disabled in development mode
-// import { openLocalDBLegacy, type PouchDBAdapter } from '../db/pouch';
-type PouchDBAdapter = any; // Placeholder type
+// PouchDB integration for offline-first sync
+import { openLocalDBLegacy, type PouchDBAdapter } from '../db/pouch';
 
 /**
  * In-memory event store with strict idempotency
@@ -25,9 +24,15 @@ export class InMemoryEventStore implements IEventStore {
   private pouchAdapter?: PouchDBAdapter;
 
   constructor(options: { persistToPouch?: boolean; dbName?: string } = {}) {
-    // Skip PouchDB initialization in development mode
-    // PouchDB is handled by the bootstrap layer with proper fallbacks
-    // Note: React StrictMode may cause multiple initializations in development
+    // Initialize PouchDB adapter if persistence is requested
+    if (options.persistToPouch) {
+      try {
+        this.pouchAdapter = openLocalDBLegacy(options.dbName || 'rmsv3_events');
+      } catch (error) {
+        console.warn('Failed to initialize PouchDB adapter:', error);
+        // Continue without persistence adapter - graceful fallback
+      }
+    }
   }
 
   append(type: string, payload: any, opts: AppendOptions): AppendResult {
@@ -109,6 +114,20 @@ export class InMemoryEventStore implements IEventStore {
 
   getEventsForAggregate(aggregateId: string): Event[] {
     return this.events.filter(event => event.aggregate?.id === aggregateId);
+  }
+
+  query(filter?: any): Event[] {
+    if (!filter) {
+      return this.getAll();
+    }
+    
+    // Simple filtering implementation
+    return this.events.filter(event => {
+      if (filter.type && event.type !== filter.type) return false;
+      if (filter.aggregateId && event.aggregate?.id !== filter.aggregateId) return false;
+      if (filter.aggregateType && event.aggregate?.type !== filter.aggregateType) return false;
+      return true;
+    });
   }
 
   getByAggregate(id: string): Event[] {

@@ -8,7 +8,7 @@
  * - Transfers
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock fetch for testing
 global.fetch = vi.fn();
@@ -67,7 +67,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   
   // Mock fetch responses
-  vi.mocked(fetch).mockImplementation((url: string, options?: RequestInit) => {
+  vi.mocked(fetch).mockImplementation((input: string | Request | URL, _init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input.toString();
     // Categories endpoint
     if (url === '/api/inventory/categories') {
       return Promise.resolve({

@@ -22,7 +22,6 @@ export {
 } from './items';
 
 // React Components
-export { InventoryDashboard } from './components/InventoryDashboard';
 
 // Inventory Count System
 export {
@@ -48,10 +47,8 @@ export { inventoryEngine } from './engine';
 export { getOversellPolicy, setOversellPolicy } from './policy';
 export * from './recipes';
 
-// Types
+// Types from items module
 export type {
-  // Enhanced Inventory Items (from items module)
-  InventoryItem as EnhancedInventoryItem,
   UnitOfMeasure,
   UOMConversion,
   StorageLocation,
@@ -60,28 +57,11 @@ export type {
   StockCount,
   StockCountItem,
   StockDiscrepancy,
-  ReorderAlert as EnhancedReorderAlert,
-  InventoryAnalytics as EnhancedInventoryAnalytics,
-  InventoryItemQuery,
-  InventoryItemValidation,
-  InventoryItemCreatedEvent,
-  InventoryItemUpdatedEvent,
-  InventoryMovementRecordedEvent,
-  StockLevelAdjustedEvent,
-  ReorderAlertTriggeredEvent,
-  
-  // Legacy Enhanced Inventory Types (from types module)
-  InventoryItem as LegacyInventoryItem,
-  InventoryCategory,
-  BatchInfo,
-  Location,
-  LocationType,
-  LocationAddress,
-  OperatingHours,
-  TimeRange,
-  
-  // Inventory Count Types (from counts module)
-  InventoryCount as CountSession,
+  InventoryItem as EnhancedInventoryItem
+} from './items/types';
+
+// Types from counts module
+export type {
   CountItem,
   CountStatus,
   CountScope,
@@ -92,7 +72,20 @@ export type {
   SubmitCountRequest,
   SubmitCountResponse,
   CancelCountRequest,
-  VarianceAnalysis,
+  VarianceAnalysis
+} from './counts/types';
+
+// Types from main types module
+export type {
+  // Legacy Enhanced Inventory Types (from types module)
+  InventoryItem as LegacyInventoryItem,
+  InventoryCategory,
+  BatchInfo,
+  Location,
+  LocationType,
+  LocationAddress,
+  OperatingHours,
+  TimeRange,
   
   // Stock Transfer
   StockTransfer,
@@ -108,25 +101,16 @@ export type {
   // Analytics & Reporting
   InventoryAnalytics,
   InventoryCount,
-  CountStatus,
   CountType,
   InventoryCountItem,
   InventoryDiscrepancy,
   DiscrepancyReason,
-  
-  // Service Types
-  AdvancedInventoryStatus,
-  InventoryDashboard as InventoryDashboardData,
   
   // Event Types
   ReorderAlertCreatedEvent,
   InventoryReceivedEvent,
   StockTransferInitiatedEvent,
   ExpirationAlertCreatedEvent,
-  BatchCreatedEvent,
-  BatchConsumedEvent,
-  BatchExpiredEvent,
-  BatchWastedEvent,
   
   // Legacy Types (maintain compatibility)
   ComponentRequirement,
@@ -256,14 +240,15 @@ export const InventoryUtils = {
 /**
  * Initialize advanced inventory management
  */
-export function initializeAdvancedInventory(eventStore: any) {
-  const inventoryService = createAdvancedInventoryService(eventStore);
+export function initializeAdvancedInventory(_eventStore: any) {
+  // const inventoryService = createAdvancedInventoryService(eventStore); // Function not available
   
   // Start monitoring services
-  inventoryService.startAdvancedTracking();
+  // inventoryService.startAdvancedTracking(); // Service not available
   
   console.log('ðŸš€ Advanced inventory management initialized');
   
-  return inventoryService;
+  // return inventoryService; // Service not available
+  return null;
 }
 

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useFlags } from '../store/flags';
 import type { Flags } from '../lib/flags';
 import { useUI, type Density, type DateFormat, type NumberFormat } from '../store/ui';

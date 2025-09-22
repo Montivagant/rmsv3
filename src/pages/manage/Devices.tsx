@@ -1,13 +1,13 @@
-import React from 'react';
-import { PageStub } from '../../components/PageStub';
-import { ADMIN_ICONS } from '../../config/admin-nav.config';
+﻿import { PageStub } from '../../components';
+
+const DEVICE_ICON = 'M8 5h8a2 2 0 012 2v10a2 2 0 01-2 2H8a2 2 0 01-2-2V7a2 2 0 012-2zm3 14h2m-3-16h4';
 
 export default function Devices() {
   return (
     <PageStub
       title="Devices"
       description="Manage POS terminals, printers, and other hardware devices."
-      icon={ADMIN_ICONS.devices}
+      icon={DEVICE_ICON}
       backPath="/manage"
       backLabel="Back to Manage"
       features={[

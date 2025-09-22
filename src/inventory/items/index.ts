@@ -12,7 +12,6 @@ export type {
   UOMConversion,
   StorageLocation,
   LotInfo,
-  SupplierInfo,
   InventoryMovement,
   StockCount,
   StockCountItem,

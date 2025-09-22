@@ -1,4 +1,4 @@
-import React from 'react';
+// import React from 'react'; // Unused
 import { Modal } from '../Modal';
 import { Button } from '../Button';
 
@@ -30,7 +30,7 @@ export function ConfirmDialog({
       isOpen={isOpen} 
       onClose={onClose}
       size="sm"
-      hideCloseButton={isLoading}
+      showCloseButton={!isLoading}
     >
       <div className="p-6">
         <div className="flex items-start space-x-4">

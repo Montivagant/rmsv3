@@ -7,7 +7,6 @@ import { http, HttpResponse } from 'msw';
 import type {
   Transfer,
   TransferLine,
-  TransferQuery,
   TransfersResponse,
   CreateTransferRequest,
   CompleteTransferRequest,
@@ -290,7 +289,7 @@ export const inventoryTransferApiHandlers = [
         sku: item.sku,
         name: item.name,
         unit: item.unit,
-        qtyPlanned: line.qtyPlanned
+        qtyPlanned: line.qtyPlanned || 0
       };
     });
 
@@ -301,7 +300,7 @@ export const inventoryTransferApiHandlers = [
       destinationLocationId: createRequest.destinationLocationId,
       status: 'DRAFT',
       lines,
-      notes: createRequest.notes,
+      ...(createRequest.notes && { notes: createRequest.notes }),
       createdBy: 'current-user'
     };
 
@@ -338,7 +337,7 @@ export const inventoryTransferApiHandlers = [
           sku: existing?.sku || `SKU-${line.itemId.slice(-6).toUpperCase()}`,
           name: existing?.name || `Item ${line.itemId.slice(-4)}`,
           unit: existing?.unit || 'each',
-          qtyPlanned: line.qtyPlanned
+          qtyPlanned: line.qtyPlanned || 0
         };
       });
     }
@@ -430,7 +429,7 @@ export const inventoryTransferApiHandlers = [
   // POST /api/inventory/transfers/:id/cancel - Cancel transfer
   http.post('/api/inventory/transfers/:id/cancel', async ({ params, request }) => {
     const transferId = params.id as string;
-    const cancelRequest = await request.json() as CancelTransferRequest;
+    await request.json() as CancelTransferRequest;
     
     const transfer = mockTransfers.get(transferId);
     if (!transfer) {

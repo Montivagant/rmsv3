@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint'
 import { globalIgnores } from 'eslint/config'
 
 export default tseslint.config([
-  globalIgnores(['dist', 'public/mockServiceWorker.js', 'src/index.ts', 'src/pages/Inventory-new.tsx']),
+  globalIgnores(['dist', 'public/mockServiceWorker.js', 'src/index.ts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

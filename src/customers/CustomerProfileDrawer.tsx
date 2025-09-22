@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Drawer, Button, Card, CardHeader, CardTitle, CardContent, EmptyState, Modal, FormField, Label, Input, Textarea } from '../components';
 import type { Customer } from './types';
-import { apiPost } from '../hooks/useApi';
+import { adjustCustomerPoints } from './repository';
 import { Role, getRole, hasPermission } from '../rbac/roles';
 
 interface Props {
@@ -43,13 +43,8 @@ export function CustomerProfileDrawer({ open, onClose, customer }: Props) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const updated = await apiPost<{ points: number }>(`/api/customers/${customer.id}/loyalty-adjust`, {
-        delta: parsed,
-        reason: reason?.trim() || undefined,
-      });
-      if (typeof (updated as any).points === 'number') {
-        setCurrentPoints((updated as any).points);
-      }
+      const updated = await adjustCustomerPoints(customer.id, parsed, reason?.trim() || 'Manual adjustment', 'POS Terminal');
+      setCurrentPoints(updated.points);
       setShowAdjust(false);
       resetAdjustForm();
     } catch (err) {

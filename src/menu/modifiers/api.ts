@@ -190,10 +190,10 @@ export const menuModifiersApiHandlers = [
   
   // POST /api/menu/modifiers - Create modifier group
   http.post('/api/menu/modifiers', async ({ request }) => {
-    const requestData = await request.json();
+    const requestData = await request.json() as any;
     
     // Basic validation
-    if (!requestData.name || requestData.name.trim().length === 0) {
+    if (!requestData || !requestData.name || requestData.name.trim().length === 0) {
       return new HttpResponse(JSON.stringify({ 
         error: 'Group name is required' 
       }), { 
@@ -205,7 +205,7 @@ export const menuModifiersApiHandlers = [
     // Check for duplicate names
     const existingGroups = Array.from(mockModifierGroups.values());
     const isDuplicate = existingGroups.some(group => 
-      group.name.toLowerCase() === requestData.name.trim().toLowerCase()
+      group.name.toLowerCase() === (requestData?.name?.trim() || '').toLowerCase()
     );
     
     if (isDuplicate) {
@@ -223,15 +223,15 @@ export const menuModifiersApiHandlers = [
     
     const newGroup: ModifierGroup = {
       id: groupId,
-      name: requestData.name.trim(),
-      description: requestData.description?.trim() || undefined,
-      type: requestData.type || 'single',
-      isRequired: requestData.isRequired || false,
-      minSelections: requestData.minSelections || 1,
-      maxSelections: requestData.maxSelections || 1,
-      displayOrder: requestData.displayOrder || (existingGroups.length + 1),
-      isActive: requestData.isActive ?? true,
-      options: requestData.options || [],
+      name: requestData?.name?.trim() || '',
+      description: requestData?.description?.trim() || undefined,
+      type: requestData?.type || 'single',
+      isRequired: requestData?.isRequired || false,
+      minSelections: requestData?.minSelections || 1,
+      maxSelections: requestData?.maxSelections || 1,
+      displayOrder: requestData?.displayOrder || (existingGroups.length + 1),
+      isActive: requestData?.isActive ?? true,
+      options: requestData?.options || [],
       createdAt: now,
       updatedAt: now,
     };

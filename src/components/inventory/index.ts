@@ -1,4 +1,3 @@
-export { KpiCard } from './KpiCard';
 export { FormDrawer } from './FormDrawer';
 export { DataTable } from './DataTable';
 export { DataToolbar } from './DataToolbar';

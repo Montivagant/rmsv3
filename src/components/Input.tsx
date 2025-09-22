@@ -4,8 +4,8 @@ import { cn } from '../lib/utils';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
-  error?: string;
-  helpText?: string;
+  error?: string | undefined;
+  helpText?: string | undefined;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
   variant?: 'default' | 'filled';

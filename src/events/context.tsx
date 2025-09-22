@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { eventStore as defaultEventStore } from './store';
 import type { EventStore } from './store';
-import { getPersistedEventStore } from './persistedStore';
+import { bootstrapEventStore } from '../bootstrap/persist';
 
 interface EventStoreContextValue {
   store: EventStore;
@@ -40,8 +40,8 @@ export function EventStoreProvider({ children, store }: EventStoreProviderProps)
           return;
         }
 
-        // Otherwise, create a persisted store (async)
-        const storeToUse = await getPersistedEventStore();
+        // Otherwise, create the canonical bootstrap store (async)
+        const { store: storeToUse } = await bootstrapEventStore();
         if (!cancelled) {
           setEventStore(storeToUse);
           setIsReady(true);

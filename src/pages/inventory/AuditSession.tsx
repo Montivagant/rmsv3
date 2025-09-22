@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -7,15 +7,15 @@ import { Badge } from '../../components/Badge';
 import { Modal } from '../../components/Modal';
 import { Skeleton } from '../../components/Skeleton';
 import { useToast } from '../../hooks/useToast';
-import { useApi } from '../../hooks/useApi';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
+import { getInventoryAuditById, updateInventoryAuditItems } from '../../inventory/repository';
 import { AuditStatusBadge } from '../../components/inventory/audit/AuditStatusBadge';
 import { VarianceIndicator } from '../../components/inventory/audit/VarianceIndicator';
 import type { 
-  InventoryCount, 
-  CountItem, 
   UpdateCountItemRequest,
+  UpdateAuditItemRequest,
   SubmitCountRequest 
-} from '../../inventory/audit/types';
+} from '../../inventory/counts/types';
 import { CountUtils } from '../../inventory/audit/types';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
@@ -27,16 +27,22 @@ export default function AuditSession() {
   // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
-  const [showConfirmCancel, setShowConfirmCancel] = useState(false);
+  // Removed unused showConfirmCancel state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(new Map<string, UpdateCountItemRequest>());
   
-  // Data fetching
-  const { data: countData, loading, error, refetch } = useApi<{
-    count: InventoryCount;
-    items: CountItem[];
-  }>(`/api/inventory/counts/${countId}`);
+  // Data fetching with repository
+  const { data: countData, loading, error, refetch } = useRepository(
+    () => getInventoryAuditById(countId!),
+    [countId]
+  );
+  
+  // Mutation for updating audit items
+  const updateItemsMutation = useRepositoryMutation(
+    ({ auditId, updates }: { auditId: string; updates: UpdateAuditItemRequest[] }) => 
+      updateInventoryAuditItems(auditId, updates)
+  );
 
   const count = countData?.count;
   const items = countData?.items || [];
@@ -86,7 +92,7 @@ export default function AuditSession() {
     const update: UpdateCountItemRequest = {
       itemId,
       countedQty: numericValue || 0,
-      notes: undefined
+      notes: ''
     };
 
     setUnsavedChanges(prev => new Map(prev.set(itemId, update)));
@@ -98,17 +104,13 @@ export default function AuditSession() {
 
     setIsSaving(true);
     try {
-      const updates = Array.from(unsavedChanges.values());
+      const updates = Array.from(unsavedChanges.values()).map(update => ({
+        itemId: update.itemId,
+        auditedQty: update.countedQty || 0,
+        notes: update.notes || '',
+      }));
       
-      const response = await fetch(`/api/inventory/counts/${countId}/items`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save changes');
-      }
+      await updateItemsMutation.mutate({ auditId: countId!, updates });
 
       setUnsavedChanges(new Map());
       refetch();
@@ -120,7 +122,7 @@ export default function AuditSession() {
     } finally {
       setIsSaving(false);
     }
-  }, [unsavedChanges, countId, refetch, showToast]);
+  }, [unsavedChanges, countId, refetch, showToast, updateItemsMutation]);
 
   // Submit count and create adjustments
   const handleSubmitCount = useCallback(async () => {
@@ -277,7 +279,7 @@ export default function AuditSession() {
                 }>
                   {currentTotals.varianceValue.toLocaleString('en-US', {
                     style: 'currency',
-                    currency: 'USD',
+                    currency: 'EGP',
                     signDisplay: 'always'
                   })}
                 </p>
@@ -331,7 +333,7 @@ export default function AuditSession() {
                 const hasChanges = pendingUpdate !== undefined;
                 
                 // Calculate real-time variance
-                const variance = currentCountedQty !== null 
+                const variance = currentCountedQty !== null && currentCountedQty !== undefined
                   ? CountUtils.calculateItemVariance({
                       ...item,
                       countedQty: currentCountedQty
@@ -357,7 +359,7 @@ export default function AuditSession() {
                           SKU: {item.sku} � {item.unit}
                         </div>
                         {item.categoryName && (
-                          <Badge variant="outline" className="text-xs mt-1">
+                          <Badge variant="secondary" className="text-xs mt-1">
                             {item.categoryName}
                           </Badge>
                         )}

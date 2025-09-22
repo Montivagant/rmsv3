@@ -58,7 +58,7 @@ export default function DangerAction({
         isOpen={open}
         onClose={() => (!pending ? setOpen(false) : undefined)}
         title="Confirm action"
-        description={typeof description === 'string' ? description : undefined}
+        {...(typeof description === 'string' && { description })}
         size="md"
         showCloseButton={!pending}
       >

@@ -11,8 +11,7 @@ import { Input } from '../Input';
 import { Select } from '../Select';
 import { Button } from '../Button';
 import { useToast } from '../../hooks/useToast';
-import { useApi } from '../../hooks/useApi';
-import { useDismissableLayer } from '../../hooks/useDismissableLayer';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
 import type { ItemFormData, ItemFormErrors } from '../../schemas/itemForm';
 import { 
   validateItemForm, 
@@ -22,6 +21,14 @@ import {
   FIELD_HELP_TEXT 
 } from '../../schemas/itemForm';
 import { mapFormToAPI } from '../../lib/inventory/mapItemForm';
+import {
+  listInventoryCategories,
+  listInventoryUnits,
+  listInventoryItems,
+  listInventoryItemTypes,
+  createInventoryItem,
+  type CreateInventoryItemInput
+} from '../../inventory/repository';
 
 // API types for options
 interface CategoryOption {
@@ -63,17 +70,22 @@ export default function InventoryItemCreateModal({
 
   // Hooks
   const { showToast } = useToast();
+  
+  // Repository mutation for creating items
+  const createItemMutation = useRepositoryMutation(createInventoryItem);
 
-  // Remote data for dropdowns and SKU list (align with tests)
-  const { data: remoteCategories, loading: loadingCategories, error: errorCategories } = useApi<any[]>('/api/inventory/categories', [] as any);
-  const { data: remoteUnits, loading: loadingUnits, error: errorUnits } = useApi<any[]>('/api/inventory/units', [] as any);
-  const { data: remoteSkus, loading: loadingSkus, error: errorSkus } = useApi<any>('/api/inventory/items?fields=sku', { items: [] } as any);
+  // Remote data for dropdowns and SKU list using repository
+  const { data: remoteCategories = [], loading: loadingCategories, error: errorCategories } = useRepository(listInventoryCategories, []);
+  const { data: remoteUnits = [], loading: loadingUnits, error: errorUnits } = useRepository(listInventoryUnits, []);
+  const { data: remoteItemTypes = [], loading: loadingItemTypes } = useRepository(listInventoryItemTypes, []);
+  const { data: allInventoryItems = [], loading: loadingSkus, error: errorSkus } = useRepository(listInventoryItems, []);
 
   const allCategories = (remoteCategories || categories) as any[];
   const allUnits = (remoteUnits || units) as any[];
-  const takenSkus: string[] = (remoteSkus?.items || existingSKUs || []).map((r: any) => (r?.sku || '').toUpperCase()).filter(Boolean);
+  const allItemTypes = (remoteItemTypes || []) as any[];
+  const takenSkus: string[] = (allInventoryItems || existingSKUs || []).map((r: any) => (r?.sku || '').toUpperCase()).filter(Boolean);
 
-  const loadingAny = isLoading || loadingCategories || loadingUnits || loadingSkus;
+  const loadingAny = isLoading || loadingCategories || loadingUnits || loadingItemTypes || loadingSkus;
   const errorToString = (err: any): string => {
     if (!err) return '';
     if (typeof err === 'string') return err;
@@ -119,7 +131,7 @@ export default function InventoryItemCreateModal({
     }));
     
     // Clear field error when user starts typing
-    if (errors[field]) {
+    if (field in errors && errors[field as keyof ItemFormErrors]) {
       setErrors(prev => ({
         ...prev,
         [field]: undefined,
@@ -178,29 +190,15 @@ export default function InventoryItemCreateModal({
     setIsSubmitting(true);
     
     try {
-      // Transform to API payload
+      // Transform to repository input format
       const payload = mapFormToAPI(effectiveForm as ItemFormData);
       
-      // Call API (this would be replaced with actual API call)
-      const response = await fetch('/api/inventory/items', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create item');
-      }
-
-      const result = await response.json();
+      // Create inventory item using repository
+      const result = await createItemMutation.mutate(payload as unknown as CreateInventoryItemInput);
       
       // Success handling
       showToast('Item created successfully!', 'success');
-      if (onSuccess) onSuccess(result.id);
+      if (onSuccess && result) onSuccess(result.id);
       onClose();
       
     } catch (error) {
@@ -213,9 +211,6 @@ export default function InventoryItemCreateModal({
   }, [formData, showToast, onSuccess, onClose, allCategories, allUnits, takenSkus]);
 
   // Check if form is valid for save button - using proper validation
-  const validation = validateItemForm(formData);
-  const isSchemaValid = validation.isValid;
-  const isFormValid = isSchemaValid && Object.keys(errors).filter(key => key !== '_form').length === 0;
 
   const categoryOptions = (allCategories || []).map(cat => ({
     value: cat.id,
@@ -226,7 +221,11 @@ export default function InventoryItemCreateModal({
     value: unit.id,
     label: `${unit.name} (${unit.abbreviation})`
   }));
-  // Removed unused item type options to avoid ReferenceError; add when item types are supported in this modal
+
+  const itemTypeOptions = (allItemTypes || []).map(itemType => ({
+    value: itemType.id,
+    label: itemType.description ? `${itemType.name} - ${itemType.description}` : itemType.name
+  }));
 
   return (
     <Modal
@@ -263,7 +262,7 @@ export default function InventoryItemCreateModal({
               label={FIELD_LABELS.name}
               value={formData.name || ''}
               onChange={(e) => handleFieldChange('name', e.target.value)}
-              error={errors.name}
+              {...(errors.name && { error: errors.name })}
               helpText={FIELD_HELP_TEXT.name}
               required
               disabled={isSubmitting}
@@ -279,7 +278,7 @@ export default function InventoryItemCreateModal({
                 label={FIELD_LABELS.sku}
                 value={formData.sku || ''}
                 onChange={(e) => handleFieldChange('sku', e.target.value.toUpperCase())}
-                error={errors.sku}
+                {...(errors.sku && { error: errors.sku })}
                 helpText={FIELD_HELP_TEXT.sku}
                 required
                 disabled={isSubmitting}
@@ -309,12 +308,10 @@ export default function InventoryItemCreateModal({
                 const val = e.target.value;
                 handleFieldChange('storageUnitId', val);
                 handleFieldChange('ingredientUnitId', val);
-                // maintain legacy mirrors for mapping
-                handleFieldChange('storageUnit', val as any);
-                handleFieldChange('ingredientUnit', val as any);
+                // Legacy mirrors are handled by the schema transform
               }}
               options={unitOptions}
-              error={errors.unit}
+              {...(errors.storageUnit && { error: errors.storageUnit })}
               helpText={FIELD_HELP_TEXT.unit}
               disabled={isSubmitting || isLoading}
               placeholder="Select unit (e.g., each, kg, liter)"
@@ -325,35 +322,33 @@ export default function InventoryItemCreateModal({
           <div className="border-t border-border pt-6 space-y-4">
             <h3 className="text-sm font-medium text-text-secondary mb-3">Optional Information</h3>
             
-            {/* Category - Optional */}
+            {/* Category - Required */}
             <Select
               id="item-category"
               label={FIELD_LABELS.categoryId}
               value={formData.categoryId || ''}
               onChange={(e) => handleFieldChange('categoryId', e.target.value)}
               options={categoryOptions}
-              error={errors.categoryId}
+                {...(errors.categoryId && { error: errors.categoryId })}
               helpText={FIELD_HELP_TEXT.categoryId}
               disabled={isSubmitting || isLoading}
-              placeholder="Select category (optional)"
+              placeholder="Select category *"
+            />
+
+            {/* Item Type - Optional */}
+            <Select
+              id="item-type"
+              label="Item Type"
+              value={formData.itemTypeId || ''}
+              onChange={(e) => handleFieldChange('itemTypeId', e.target.value)}
+              options={itemTypeOptions}
+              disabled={isSubmitting || loadingItemTypes}
+              placeholder="Select item type (optional)"
+              helpText="Choose the type to classify this inventory item"
             />
 
             {/* Two-column layout for quantity and cost */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Quantity - Optional */}
-              <Input
-                id="item-quantity"
-                label={FIELD_LABELS.quantity}
-                type="number"
-                value={formData.quantity?.toString() || ''}
-                onChange={(e) => handleFieldChange('quantity', e.target.value ? parseFloat(e.target.value) : undefined)}
-                error={errors.quantity}
-                helpText={FIELD_HELP_TEXT.quantity}
-                disabled={isSubmitting}
-                placeholder="0"
-                min={0}
-                step={0.01}
-              />
 
               {/* Cost - Optional */}
               <Input
@@ -362,7 +357,7 @@ export default function InventoryItemCreateModal({
                 type="number"
                 value={formData.cost?.toString() || ''}
                 onChange={(e) => handleFieldChange('cost', e.target.value ? parseFloat(e.target.value) : undefined)}
-                error={errors.cost}
+                {...(errors.cost && { error: errors.cost })}
                 helpText={FIELD_HELP_TEXT.cost}
                 disabled={isSubmitting}
                 placeholder="0.00"
@@ -379,7 +374,7 @@ export default function InventoryItemCreateModal({
                 type="number"
                 value={formData.minimumLevel?.toString() || ''}
                 onChange={(e) => handleFieldChange('minimumLevel', e.target.value ? parseFloat(e.target.value) : undefined)}
-                error={errors.minimumLevel}
+                {...(errors.minimumLevel && { error: errors.minimumLevel })}
                 disabled={isSubmitting}
                 placeholder="0"
                 min={0}
@@ -391,7 +386,7 @@ export default function InventoryItemCreateModal({
                 type="number"
                 value={formData.maximumLevel?.toString() || ''}
                 onChange={(e) => handleFieldChange('maximumLevel', e.target.value ? parseFloat(e.target.value) : undefined)}
-                error={errors.maximumLevel}
+                {...(errors.maximumLevel && { error: errors.maximumLevel })}
                 disabled={isSubmitting}
                 placeholder="0"
                 min={0}

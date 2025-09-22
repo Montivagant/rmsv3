@@ -1,323 +1,192 @@
 /**
- * Menu Categories Management Page
- * CRUD interface for menu categories with search, filtering, and bulk operations
+ * Menu Categories Management
+ * Lightweight view for reviewing, creating, and editing menu categories.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { Button } from '../../components/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
+import { Card, CardContent } from '../../components/Card';
 import { Input } from '../../components/Input';
 import { Badge } from '../../components/Badge';
-import { EmptyState } from '../../components/EmptyState';
-import { Skeleton } from '../../components/Skeleton';
-import { DropdownMenu, DropdownMenuItem } from '../../components/DropdownMenu';
-import { useApi } from '../../hooks/useApi';
+import { DataTable } from '../../components/inventory/DataTable';
 import { useToast } from '../../hooks/useToast';
-import { cn } from '../../lib/utils';
-import { ADMIN_ICONS } from '../../config/admin-nav.config';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
+import {
+  listCategories,
+  deleteCategory,
+  type MenuCategory,
+} from '../../menu/categories/repository';
 import CategoryCreateModal from '../../components/menu/CategoryCreateModal';
-import type { 
-  MenuCategory, 
-  CategoryQuery, 
-  CategoriesResponse 
-} from '../../menu/categories/types';
-import { menuCategoriesApi } from '../../menu/categories/api';
+import { formatDate } from '../../lib/format';
 
 export default function Categories() {
   const { showToast } = useToast();
-  
-  // State
+  const { data: categoriesData, loading, refetch } = useRepository<MenuCategory[]>(listCategories, []);
+  const categories = categoriesData ?? [];
+  const deleteCategoryMutation = useRepositoryMutation((id: string) => deleteCategory(id));
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<MenuCategory | null>(null);
-  const [queryParams, setQueryParams] = useState<CategoryQuery>({
-    page: 1,
-    pageSize: 25,
-    sortBy: 'displayOrder',
-    sortOrder: 'asc'
-  });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // API call with query parameters
-  const categoriesUrl = useMemo(() => {
-    const params = new URLSearchParams();
-    Object.entries(queryParams).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        params.set(key, String(value));
+  const filteredCategories = useMemo(() => {
+    if (!searchTerm.trim()) return categories;
+    const term = searchTerm.toLowerCase();
+    return categories.filter((category) => category.name.toLowerCase().includes(term));
+  }, [categories, searchTerm]);
+
+  const handleCreate = useCallback(() => {
+    setEditingCategory(null);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleEdit = useCallback((category: MenuCategory) => {
+    setEditingCategory(category);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleDelete = useCallback(
+    async (category: MenuCategory) => {
+      if (!confirm(`Delete category "${category.name}"?`)) return;
+      setIsDeleting(true);
+      try {
+        await deleteCategoryMutation.mutate(category.id);
+        showToast({ title: 'Category deleted', variant: 'success' });
+        refetch();
+      } catch (error) {
+        const err = error instanceof Error ? error : undefined;
+        showToast({ title: 'Error', description: err?.message ?? 'Failed to delete category', variant: 'error' });
+      } finally {
+        setIsDeleting(false);
       }
-    });
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    }
-    return `/api/menu/categories?${params.toString()}`;
-  }, [queryParams, searchTerm]);
+    },
+    [deleteCategoryMutation, refetch, showToast],
+  );
 
-  const { data: categoriesResponse, loading, error, refetch } = useApi<CategoriesResponse>(categoriesUrl);
-
-  const categories = categoriesResponse?.categories || [];
-  const total = categoriesResponse?.total || 0;
-
-  // Event handlers
-  const handleSearch = useCallback((term: string) => {
-    setSearchTerm(term);
-    setQueryParams(prev => ({ ...prev, page: 1 }));
+  const handleModalClose = useCallback(() => {
+    setIsModalOpen(false);
+    setEditingCategory(null);
   }, []);
 
-  const handlePageChange = useCallback((page: number) => {
-    setQueryParams(prev => ({ ...prev, page }));
-  }, []);
-
-  const handleSort = useCallback((field: string) => {
-    setQueryParams(prev => ({
-      ...prev,
-      sortBy: field as any,
-      sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
-      page: 1,
-    }));
-  }, []);
-
-  const handleCategoryCreated = useCallback(() => {
-    setIsCreateModalOpen(false);
+  const handleModalSuccess = useCallback(() => {
+    handleModalClose();
     refetch();
-    showToast({
-      title: 'Success',
-      description: 'Category created successfully',
-      variant: 'success'
-    });
-  }, [refetch, showToast]);
+    showToast({ title: 'Category saved', variant: 'success' });
+  }, [handleModalClose, refetch, showToast]);
 
-  const handleEditCategory = useCallback((category: MenuCategory) => {
-    setSelectedCategory(category);
-    setIsEditModalOpen(true);
-  }, []);
-
-  const handleCategoryUpdated = useCallback(() => {
-    setIsEditModalOpen(false);
-    setSelectedCategory(null);
-    refetch();
-    showToast({
-      title: 'Success',
-      description: 'Category updated successfully',
-      variant: 'success'
-    });
-  }, [refetch, showToast]);
-
-  const handleDeleteCategory = useCallback(async (category: MenuCategory) => {
-    if (!confirm(`Are you sure you want to delete "${category.name}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      await menuCategoriesApi.delete(category.id);
-
-      refetch();
-      showToast({
-        title: 'Success',
-        description: 'Category deleted successfully',
-        variant: 'success'
-      });
-    } catch (error) {
-      showToast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to delete category',
-        variant: 'error'
-      });
-    }
-  }, [refetch, showToast]);
-
-  // Loading state
-  if (loading && categories.length === 0) {
-    return (
-      <div className="p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 w-full" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="text-center py-12">
-          <p className="text-error mb-4">Failed to load categories</p>
-          <Button onClick={refetch} variant="outline">
-            Try Again
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const columns = useMemo(
+    () => [
+      {
+        key: 'name',
+        header: 'Name',
+        accessor: (category: MenuCategory) => (
+          <div>
+            <div className="font-semibold text-text-primary">{category.name}</div>
+            <div className="text-xs text-text-secondary">Order: {category.displayOrder}</div>
+          </div>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        accessor: (category: MenuCategory) => (
+          <Badge variant={category.isActive ? 'success' : 'secondary'} size="sm">
+            {category.isActive ? 'Active' : 'Inactive'}
+          </Badge>
+        ),
+      },
+      {
+        key: 'branches',
+        header: 'Branches',
+        accessor: (category: MenuCategory) => (
+          <span className="text-sm text-text-secondary">{category.branchIds.length} linked</span>
+        ),
+      },
+      {
+        key: 'createdAt',
+        header: 'Created',
+        accessor: (category: MenuCategory) => (
+          <span className="text-sm text-text-secondary">{formatDate(category.createdAt.getTime())}</span>
+        ),
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        accessor: (category: MenuCategory) => (
+          <div className="flex gap-2 justify-end">
+            <Button variant="ghost" size="sm" onClick={() => handleEdit(category)}>
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-error-600"
+              onClick={() => handleDelete(category)}
+              disabled={isDeleting}
+            >
+              Delete
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [handleDelete, handleEdit, isDeleting],
+  );
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-h1 text-primary mb-1">Menu Categories</h1>
-          <p className="text-body text-secondary">
-            Organize your menu items into logical categories
-          </p>
-        </div>
-        <Button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="min-h-[44px]"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Add Category
-        </Button>
-      </div>
-
-      {/* Search and Filters */}
+    <div className="space-y-6">
       <Card>
-        <CardContent className="py-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-64">
-              <Input
-                placeholder="Search categories..."
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="w-full"
-              />
-            </div>
-            <div className="flex items-center gap-2 text-sm text-text-muted">
-              {total} {total === 1 ? 'category' : 'categories'}
-            </div>
+        <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-text-primary">Menu Categories</h1>
+            <p className="text-sm text-text-secondary">
+              Organise your menu by grouping items into manageable categories.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <Input
+              placeholder="Search categories"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="md:w-64"
+            />
+            <Button onClick={handleCreate}>New Category</Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Categories Grid */}
-      {categories.length === 0 && !loading ? (
-        <EmptyState
-          title="No categories found"
-          description={searchTerm ? "No categories match your search." : "Create your first menu category to organize items."}
-          action={{
-            label: "Add Category",
-            onClick: () => setIsCreateModalOpen(true)
-          }}
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.map((category) => (
-            <Card 
-              key={category.id}
-              className={cn(
-                "hover:shadow-md transition-shadow cursor-pointer",
-                !category.isActive && "opacity-60"
-              )}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-text-primary mb-1">
-                      {category.name}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm text-text-muted">
-                      <span>Order: {category.displayOrder}</span>
-                      <span>•</span>
-                      <span>{category.branchIds.length} branches</span>
-                    </div>
-                  </div>
-                  
-                  <DropdownMenu
-                    trigger={
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                      </Button>
-                    }
-                  >
-                    <DropdownMenuItem onClick={() => handleEditCategory(category)}>
-                      Edit Category
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      onClick={() => handleDeleteCategory(category)}
-                      className="text-error"
-                    >
-                      Delete Category
-                    </DropdownMenuItem>
-                  </DropdownMenu>
-                </div>
+      <Card>
+        <CardContent>
+          <DataTable
+            data={filteredCategories}
+            columns={columns}
+            keyExtractor={(category) => category.id}
+            loading={loading}
+            emptyState={{
+              title: 'No categories found',
+              description: searchTerm
+                ? 'Try adjusting your search term.'
+                : 'Create your first category to get started.',
+              action: {
+                label: 'Add Category',
+                onClick: handleCreate,
+              },
+            }}
+          />
+        </CardContent>
+      </Card>
 
-                <div className="flex items-center justify-between">
-                  <Badge 
-                    variant={category.isActive ? 'success' : 'secondary'}
-                    size="sm"
-                  >
-                    {category.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                  
-                  <span className="text-xs text-text-muted">
-                    Created {new Date(category.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {total > (queryParams.pageSize || 25) && (
-        <div className="flex justify-center">
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange((queryParams.page || 1) - 1)}
-              disabled={!queryParams.page || queryParams.page <= 1}
-            >
-              Previous
-            </Button>
-            
-            <span className="text-sm text-text-muted">
-              Page {queryParams.page || 1} of {Math.ceil(total / (queryParams.pageSize || 25))}
-            </span>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePageChange((queryParams.page || 1) + 1)}
-              disabled={(queryParams.page || 1) >= Math.ceil(total / (queryParams.pageSize || 25))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Create Category Modal */}
-      <CategoryCreateModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={handleCategoryCreated}
-      />
-
-      {/* Edit Category Modal */}
-      {selectedCategory && (
+      {isModalOpen && (
         <CategoryCreateModal
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false);
-            setSelectedCategory(null);
-          }}
-          onSuccess={handleCategoryUpdated}
-          editingCategory={selectedCategory}
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleModalSuccess}
+          editingCategory={editingCategory}
         />
       )}
     </div>
   );
 }
+
+

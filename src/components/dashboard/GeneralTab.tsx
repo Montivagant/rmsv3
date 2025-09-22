@@ -1,17 +1,10 @@
-import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { KpiCard } from '../ui/KpiCard';
 import { ChartCard } from '../cards/ChartCard';
 import { ListCard } from '../cards/ListCard';
 import { useDashboardQuery } from '../../lib/dashboard/useDashboardQuery';
-import { 
-  ordersAdapter, 
-  salesAdapter, 
-  formatCurrency, 
-  formatCount,
-  generateSparkline
-} from '../../lib/dashboard/adapters';
-import type { MockOrderData, MockSalesData } from '../../lib/dashboard/types';
+import { useAnalytics, formatCurrency, formatCount } from '../../hooks/useAnalytics';
+import { generateSparkline } from '../../lib/dashboard/adapters';
 
 /**
  * General dashboard tab - Today/period overview with KPIs, trends, and insights
@@ -19,88 +12,141 @@ import type { MockOrderData, MockSalesData } from '../../lib/dashboard/types';
  */
 export default function GeneralTab() {
   const navigate = useNavigate();
-  const { query, dateRange } = useDashboardQuery();
-  const [loading, setLoading] = useState(true);
-  const [kpiData, setKpiData] = useState<{
-    orders: MockOrderData;
-    sales: MockSalesData;
-  } | null>(null);
+  const { query } = useDashboardQuery();
+  
+  // Get period from query, default to 'today'
+  const period = query.period === 'day' ? 'today' : 
+                query.period === 'week' ? 'week' : 
+                query.period === 'month' ? 'month' : 'today';
+  
+  // Use real analytics data
+  const { analytics, loading, error, refresh } = useAnalytics({ 
+    period,
+    refreshInterval: 5 * 60 * 1000 // 5 minutes
+  });
 
-  // Simulate data loading
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock data based on query period
-      const baseMultiplier = query.period === 'day' ? 1 : query.period === 'week' ? 7 : 30;
-      
-      setKpiData({
-        orders: {
-          count: Math.floor(Math.random() * 50 * baseMultiplier) + 10,
-          amount: Math.floor(Math.random() * 5000 * baseMultiplier) + 1000,
-          trend: (Math.random() - 0.5) * 30 // -15% to +15%
-        },
-        sales: {
-          netSales: Math.floor(Math.random() * 10000 * baseMultiplier) + 5000,
-          netPayments: Math.floor(Math.random() * 9500 * baseMultiplier) + 4800,
-          returns: Math.floor(Math.random() * 500 * baseMultiplier) + 100,
-          discounts: Math.floor(Math.random() * 800 * baseMultiplier) + 200
-        }
-      });
-      
-      setLoading(false);
-    };
+  // Transform real analytics data for UI components
+  const ordersKpi = analytics ? {
+    title: 'Orders',
+    value: formatCount(analytics.ordersKpi.count, 'order'),
+    subtitle: `${formatCurrency(analytics.ordersKpi.averageOrderValue)} avg`,
+    trend: {
+      value: Math.abs(analytics.ordersKpi.trend),
+      isPositive: analytics.ordersKpi.trend >= 0
+    }
+  } : null;
 
-    loadData();
-  }, [query.period, query.branches, dateRange]);
+  const salesKpis = analytics ? [
+    {
+      title: 'Net Sales',
+      value: formatCurrency(analytics.salesKpi.netSales),
+      subtitle: period === 'today' ? 'Today' : `This ${period}`,
+      trend: {
+        value: Math.abs(analytics.salesKpi.trends.netSalesTrend),
+        isPositive: analytics.salesKpi.trends.netSalesTrend >= 0
+      },
+      link: '/reports/sales'
+    },
+    {
+      title: 'Payments',
+      value: formatCurrency(analytics.salesKpi.netPayments),
+      subtitle: 'Processed',
+      trend: {
+        value: Math.abs(analytics.salesKpi.trends.paymentsTrend),
+        isPositive: analytics.salesKpi.trends.paymentsTrend >= 0
+      },
+      link: '/reports/payments'
+    },
+    {
+      title: 'Returns',
+      value: formatCurrency(analytics.salesKpi.returns),
+      subtitle: 'Refunded',
+      trend: {
+        value: Math.abs(analytics.salesKpi.trends.returnsTrend),
+        isPositive: analytics.salesKpi.trends.returnsTrend >= 0
+      }
+    },
+    {
+      title: 'Discounts',
+      value: formatCurrency(analytics.salesKpi.discounts),
+      subtitle: 'Applied',
+      trend: {
+        value: Math.abs(analytics.salesKpi.trends.discountsTrend),
+        isPositive: analytics.salesKpi.trends.discountsTrend >= 0
+      }
+    }
+  ] : [];
 
-  // Transform data using adapters
-  const ordersKpi = kpiData ? ordersAdapter.transform(kpiData.orders) : null;
-  const salesKpis = kpiData ? salesAdapter.transform(kpiData.sales) : [];
+  // Generate sparkline data from recent trends
+  const orderSparkline = analytics ? 
+    generateSparkline([
+      Math.max(0, analytics.ordersKpi.count - 7),
+      Math.max(0, analytics.ordersKpi.count - 6),
+      Math.max(0, analytics.ordersKpi.count - 5),
+      Math.max(0, analytics.ordersKpi.count - 4),
+      Math.max(0, analytics.ordersKpi.count - 3),
+      Math.max(0, analytics.ordersKpi.count - 2),
+      analytics.ordersKpi.count
+    ]) : generateSparkline([0, 0, 0, 0, 0, 0, 0]);
 
-  // Generate sparkline data
-  const orderSparkline = generateSparkline([45, 52, 38, 65, 42, 58, kpiData?.orders.count || 50]);
+  // Chart data from real analytics
+  const orderTypesData = analytics ? 
+    analytics.orderTypes.map(type => ({
+      label: type.type,
+      value: type.percentage
+    })) : [];
 
-  // Chart data
-  const orderTypesData = [
-    { label: 'Dine In', value: 45 },
-    { label: 'Takeout', value: 30 },
-    { label: 'Delivery', value: 25 }
-  ];
+  const hourlySalesData = analytics ? 
+    analytics.hourlySales
+      .filter(hour => parseInt(hour.hour.split(':')[0]) >= 9 && parseInt(hour.hour.split(':')[0]) <= 15)
+      .map(hour => ({
+        label: hour.hour.replace(':00', hour.hour.includes('12') ? 'PM' : 'AM'),
+        value: hour.sales
+      })) : [];
 
-  const hourlySalesData = [
-    { label: '9AM', value: 450 },
-    { label: '10AM', value: 580 },
-    { label: '11AM', value: 720 },
-    { label: '12PM', value: 1250 },
-    { label: '1PM', value: 1450 },
-    { label: '2PM', value: 980 },
-    { label: '3PM', value: 650 }
-  ];
+  // Real insights data
+  const topProducts = analytics ? 
+    analytics.topProducts.map((product) => ({
+      id: product.id,
+      primary: product.name,
+      secondary: formatCount(product.soldCount, 'sold'),
+      meta: formatCurrency(product.revenue),
+      action: () => navigate(`/inventory/items`)
+    })) : [];
 
-  // Insights data
-  const topProducts = [
-    { id: 1, primary: 'Classic Burger', secondary: '142 sold today', meta: formatCurrency(1420) },
-    { id: 2, primary: 'French Fries', secondary: '98 sold today', meta: formatCurrency(490) },
-    { id: 3, primary: 'Coca Cola', secondary: '87 sold today', meta: formatCurrency(261) },
-    { id: 4, primary: 'Chicken Wings', secondary: '76 sold today', meta: formatCurrency(912) },
-    { id: 5, primary: 'Caesar Salad', secondary: '54 sold today', meta: formatCurrency(648) }
-  ];
+  const topPayments = analytics ? 
+    analytics.paymentMethods.map((method, index) => ({
+      id: index + 1,
+      primary: method.method,
+      secondary: `${method.percentage.toFixed(1)}% of transactions`,
+      meta: formatCurrency(method.amount)
+    })) : [];
 
-  const topPayments = [
-    { id: 1, primary: 'Cash', secondary: '45% of transactions', meta: formatCurrency(2280) },
-    { id: 2, primary: 'Credit Card', secondary: '35% of transactions', meta: formatCurrency(1778) },
-    { id: 3, primary: 'Mobile Pay', secondary: '20% of transactions', meta: formatCurrency(1016) }
-  ];
+  const topBranches = analytics ? 
+    analytics.branchPerformance.map(branch => ({
+      id: branch.id,
+      primary: branch.name,
+      secondary: formatCount(branch.orderCount, 'order'),
+      meta: formatCurrency(branch.revenue),
+      action: () => navigate('/dashboard?tab=branches')
+    })) : [];
 
-  const topBranches = [
-    { id: 1, primary: 'Main Branch', secondary: formatCount(28, 'order'), meta: formatCurrency(3200) },
-    { id: 2, primary: 'Downtown', secondary: formatCount(22, 'order'), meta: formatCurrency(2680) },
-    { id: 3, primary: 'Shopping Mall', secondary: formatCount(18, 'order'), meta: formatCurrency(2150) }
-  ];
+  // Handle error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Failed to load dashboard data: {error}</p>
+          <button 
+            onClick={refresh}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -140,10 +186,12 @@ export default function GeneralTab() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             }
-            action={kpi.link ? {
-              label: 'View report',
-              onClick: () => navigate(kpi.link!)
-            } : undefined}
+            {...(kpi.link && {
+              action: {
+                label: 'View report',
+                onClick: () => navigate(kpi.link!)
+              }
+            })}
             loading={loading}
           />
         ))}

@@ -12,8 +12,8 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Format currency values consistently across the app
  */
-export function formatCurrency(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
+export function formatCurrency(amount: number, currency = 'EGP'): string {
+  return new Intl.NumberFormat('en-EG', {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,

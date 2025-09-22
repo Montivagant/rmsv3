@@ -1,12 +1,10 @@
-import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import { TransferStatusBadge } from '../../components/inventory/transfers/TransferStatusBadge';
 // Component moved; use VarianceIndicator from counts for visual tests
 import { VarianceIndicator as TransferVarianceIndicator } from '../../components/inventory/counts/VarianceIndicator';
-import type { TransferLine } from '../../inventory/transfers/types';
 
 describe('Transfer Components', () => {
   describe('TransferStatusBadge', () => {
@@ -39,35 +37,62 @@ describe('Transfer Components', () => {
 
     it('should show no variance message for zero variance', () => {
       const line = createMockLine(0);
-      render(<TransferVarianceIndicator line={line} />);
+      render(<TransferVarianceIndicator 
+        varianceQty={line.varianceQty}
+        varianceValue={line.varianceValue}
+        variancePercentage={0}
+        unit={line.unit}
+      />);
       
-      expect(screen.getByTestId('variance-indicator')).toBeInTheDocument();
+      expect(screen.getByText('No variance')).toBeInTheDocument();
     });
 
     it('should show positive variance (missing items)', () => {
       const line = createMockLine(2, 'Items damaged in transit');
-      render(<TransferVarianceIndicator line={line} />);
+      render(<TransferVarianceIndicator 
+        varianceQty={line.varianceQty}
+        varianceValue={line.varianceValue}
+        variancePercentage={40} // 2/5 * 100
+        unit={line.unit}
+      />);
       
       expect(screen.getByTestId('variance-indicator')).toBeInTheDocument();
     });
 
     it('should show negative variance (over-received)', () => {
       const line = createMockLine(-1);
-      render(<TransferVarianceIndicator line={line} />);
+      render(<TransferVarianceIndicator 
+        varianceQty={line.varianceQty}
+        varianceValue={line.varianceValue}
+        variancePercentage={-20} // -1/5 * 100
+        unit={line.unit}
+      />);
       
       expect(screen.getByTestId('variance-indicator')).toBeInTheDocument();
     });
 
     it('should show value when enabled', () => {
       const line = createMockLine(2);
-      render(<TransferVarianceIndicator line={line} showValue={true} />);
+      render(<TransferVarianceIndicator 
+        varianceQty={line.varianceQty}
+        varianceValue={line.varianceValue}
+        variancePercentage={40}
+        unit={line.unit}
+        showValue={true}
+      />);
       
       expect(screen.getByTestId('variance-indicator')).toBeInTheDocument();
     });
 
     it('should hide value when disabled', () => {
       const line = createMockLine(2);
-      render(<TransferVarianceIndicator line={line} showValue={false} />);
+      render(<TransferVarianceIndicator 
+        varianceQty={line.varianceQty}
+        varianceValue={line.varianceValue}
+        variancePercentage={40}
+        unit={line.unit}
+        showValue={false}
+      />);
       
       // Should not show currency value
       expect(screen.queryByText('+$10.00')).not.toBeInTheDocument();
@@ -92,7 +117,12 @@ describe('Transfer Components', () => {
           notes: 'Spillage during transport',
         };
       })();
-      render(<TransferVarianceIndicator line={line} />);
+      render(<TransferVarianceIndicator 
+        varianceQty={line.varianceQty}
+        varianceValue={line.varianceValue}
+        variancePercentage={60}
+        unit={line.unit}
+      />);
       
       expect(screen.getByTestId('variance-indicator')).toBeInTheDocument();
     });

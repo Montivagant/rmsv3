@@ -80,7 +80,7 @@ describe('Item Form Validation', () => {
       
       const result = validateItemForm(data);
       expect(result.isValid).toBe(false);
-      expect(result.errors.storageUnitId).toBe('Storage unit is required');
+      expect(result.errors.storageUnit).toBe('Storage unit is required');
     });
 
     it('should require ingredient unit field', () => {
@@ -89,7 +89,7 @@ describe('Item Form Validation', () => {
       
       const result = validateItemForm(data);
       expect(result.isValid).toBe(false);
-      expect(result.errors.ingredientUnitId).toBe('Ingredient unit is required');
+      expect(result.errors.ingredientUnit).toBe('Ingredient unit is required');
     });
   });
 

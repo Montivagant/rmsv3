@@ -1,0 +1,135 @@
+name: CI
+
+# Required secrets for full functionality:
+# - SNYK_TOKEN: For security scanning (optional)
+# - NETLIFY_AUTH_TOKEN: For preview deployments (optional)
+# - NETLIFY_SITE_ID: For preview deployments (optional)
+# - LHCI_GITHUB_APP_TOKEN: For Lighthouse CI reporting (optional)
+# - PREVIEW_API_BASE: For preview environment API (optional)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: TypeScript type check
+      run: npm run typecheck
+      
+    - name: ESLint code quality
+      run: npm run lint
+      
+    - name: Run tests
+      run: npm run test:coverage
+      
+    - name: Security audit
+      run: npm audit --audit-level moderate
+      
+    - name: Build production bundle
+      run: npm run build
+      
+    - name: Upload test coverage
+      uses: codecov/codecov-action@v3
+      if: success()
+      with:
+        fail_ci_if_error: false
+
+  # lighthouse:
+  #   runs-on: ubuntu-latest
+  #   needs: quality
+  #   if: github.event_name == 'pull_request'
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #     
+  #   - name: Setup Node.js
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: '18'
+  #       cache: 'npm'
+  #       
+  #   - name: Install dependencies
+  #     run: npm ci
+  #     
+  #   - name: Build for Lighthouse
+  #     run: npm run build
+  #     
+  #   - name: Lighthouse CI
+  #     run: npm run lighthouse
+  #     env:
+  #       # Optional: Lighthouse CI GitHub App token for enhanced reporting
+  #       LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+  # security:
+  #   runs-on: ubuntu-latest
+  #   needs: quality
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #     
+  #   - name: Run Snyk security scan
+  #     uses: snyk/actions/node@master
+  #     continue-on-error: true
+  #     env:
+  #       # Required: Snyk authentication token for security scanning
+  #       SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  #     with:
+  #       args: --severity-threshold=high
+
+  # deploy-preview:
+  #   runs-on: ubuntu-latest
+  #   needs: [quality]  # Removed security dependency since it's commented out
+  #   if: github.event_name == 'pull_request'
+  #   
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #     
+  #   - name: Setup Node.js
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: '18'
+  #       cache: 'npm'
+  #       
+  #   - name: Install dependencies
+  #     run: npm ci
+  #     
+  #   - name: Build production
+  #     run: npm run build
+  #     env:
+  #       # Optional: API base URL for preview deployments
+  #       VITE_API_BASE: ${{ secrets.PREVIEW_API_BASE }}
+  #       
+  #   - name: Deploy preview
+  #     uses: nwtgck/actions-netlify@v3.0
+  #     with:
+  #       publish-dir: './dist'
+  #       production-branch: main
+  #       github-token: ${{ secrets.GITHUB_TOKEN }}
+  #       deploy-message: "Deploy from GitHub Actions"
+  #       enable-pull-request-comment: false
+  #       enable-commit-comment: true
+  #       overwrites-pull-request-comment: true
+  #     env:
+  #       # Required: Netlify authentication token and site ID for deployments
+  #       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+  #       NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}

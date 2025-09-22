@@ -14,7 +14,6 @@ import type {
   InventoryItemValidation,
   InventoryMovement,
   ReorderAlert,
-  InventoryAnalytics,
   UnitOfMeasure,
   UOMConversion,
   StorageLocation,
@@ -22,7 +21,8 @@ import type {
   InventoryItemUpdatedEvent,
   InventoryMovementRecordedEvent,
   StockLevelAdjustedEvent,
-  ReorderAlertTriggeredEvent
+  ReorderAlertTriggeredEvent,
+  InventoryAnalytics
 } from './types';
 import { DEFAULT_UNITS, DEFAULT_STORAGE_LOCATIONS } from './types';
 
@@ -61,8 +61,6 @@ export class InventoryItemService {
   private buildConversionMaps() {
     for (const unit of this.units.values()) {
       if (unit.baseUnit && unit.conversionFactor) {
-        const key = `${unit.id}-${unit.baseUnit}`;
-        const reverseKey = `${unit.baseUnit}-${unit.id}`;
         
         if (!this.conversions.has(unit.id)) {
           this.conversions.set(unit.id, []);
@@ -150,16 +148,17 @@ export class InventoryItemService {
       sku: itemData.sku || '',
       name: itemData.name || '',
       categoryId: itemData.categoryId || '',
+      itemTypeId: itemData.itemTypeId || 'regular',
       uom: {
         base: itemData.uom?.base || 'piece',
         purchase: itemData.uom?.purchase || itemData.uom?.base || 'piece',
         recipe: itemData.uom?.recipe || itemData.uom?.base || 'piece',
         conversions: itemData.uom?.conversions || []
       },
-      storage: {
-        locationId: itemData.storage?.locationId,
-        requirements: itemData.storage?.requirements
-      },
+      storage: itemData.storage ? {
+        ...(itemData.storage.locationId !== undefined && { locationId: itemData.storage.locationId }),
+        ...(itemData.storage.requirements !== undefined && { requirements: itemData.storage.requirements })
+      } : {},
       tracking: {
         lotTracking: itemData.tracking?.lotTracking || false,
         expiryTracking: itemData.tracking?.expiryTracking || false,
@@ -181,18 +180,15 @@ export class InventoryItemService {
       costing: {
         averageCost: itemData.costing?.averageCost || 0,
         lastCost: itemData.costing?.lastCost || 0,
-        standardCost: itemData.costing?.standardCost,
         currency: itemData.costing?.currency || 'USD',
         costMethod: itemData.costing?.costMethod || 'AVERAGE'
       },
       quality: {
-        shelfLifeDays: itemData.quality?.shelfLifeDays,
         allergens: itemData.quality?.allergens || [],
         certifications: itemData.quality?.certifications || [],
-        hazmat: itemData.quality?.hazmat || false,
-        temperatureAbuse: itemData.quality?.temperatureAbuse
+        hazmat: itemData.quality?.hazmat || false
       },
-      lots: itemData.lots || [],
+      lots: [],
       status: itemData.status || 'active',
       flags: {
         isCritical: itemData.flags?.isCritical || false,
@@ -206,33 +202,48 @@ export class InventoryItemService {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         createdBy: currentUser,
-        notes: itemData.metadata?.notes,
         tags: itemData.metadata?.tags || []
       }
     };
 
+    if (itemData.costing?.standardCost) {
+        defaultItem.costing.standardCost = itemData.costing.standardCost;
+    }
+    if (itemData.quality?.shelfLifeDays) {
+        defaultItem.quality.shelfLifeDays = itemData.quality.shelfLifeDays;
+    }
+    if (itemData.quality?.temperatureAbuse) {
+        defaultItem.quality.temperatureAbuse = itemData.quality.temperatureAbuse;
+    }
+    if (itemData.metadata?.notes) {
+        defaultItem.metadata.notes = itemData.metadata.notes;
+    }
+
+    const item = { ...defaultItem, ...itemData, id: itemId };
+
     const event: InventoryItemCreatedEvent = {
       type: 'inventory.item.created',
       payload: {
-        itemId,
-        sku: defaultItem.sku,
-        name: defaultItem.name,
-        categoryId: defaultItem.categoryId,
-        uom: defaultItem.uom,
-        tracking: defaultItem.tracking,
-        levels: defaultItem.levels,
-        costing: defaultItem.costing,
+        itemId: item.id,
+        sku: item.sku,
+        name: item.name,
+        categoryId: item.categoryId,
+        uom: item.uom,
+        tracking: item.tracking,
+        levels: item.levels,
+        costing: item.costing,
         createdBy: currentUser
       },
       timestamp: new Date().toISOString(),
-      aggregateId: itemId
+      aggregateId: item.id
     };
 
     await this.eventStore.append(event.type, event.payload, {
-      aggregate: { id: itemId, type: 'inventory-item' }
+      key: `item-created-${item.id}`,
+      aggregate: { id: item.id, type: 'inventory-item' }
     });
 
-    return itemId;
+    return item.id;
   }
 
   async updateItem(itemId: string, updates: Partial<InventoryItem>): Promise<void> {
@@ -263,6 +274,7 @@ export class InventoryItemService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `item-updated-${itemId}`,
       aggregate: { id: itemId, type: 'inventory-item' }
     });
   }
@@ -294,7 +306,7 @@ export class InventoryItemService {
 
     // Build items from events
     const items: InventoryItem[] = [];
-    for (const [itemId, events] of itemEvents) {
+    for (const [_itemId, events] of itemEvents) {
       const item = this.buildItemFromEvents(events);
       if (item) {
         items.push(item);
@@ -328,24 +340,31 @@ export class InventoryItemService {
       movementType: adjustment > 0 ? 'receipt' : 'adjustment',
       quantity: Math.abs(adjustment),
       unit: item.uom.base,
-      lotNumber,
       reason,
       timestamp: new Date().toISOString(),
       performedBy: currentUser
     };
+    if (lotNumber) {
+      movement.lotNumber = lotNumber;
+    }
 
     // Record movement event
-    const movementEvent: InventoryMovementRecordedEvent = {
-      type: 'inventory.movement.recorded',
-      payload: {
+    const movementPayload: InventoryMovementRecordedEvent['payload'] = {
         movementId,
         itemId,
         movementType: movement.movementType,
         quantity: movement.quantity,
         unit: movement.unit,
-        lotNumber,
-        performedBy: currentUser
-      },
+        performedBy: currentUser,
+    };
+
+    if (lotNumber) {
+        movementPayload.lotNumber = lotNumber;
+    }
+
+    const movementEvent: InventoryMovementRecordedEvent = {
+      type: 'inventory.movement.recorded',
+      payload: movementPayload,
       timestamp: movement.timestamp,
       aggregateId: movementId
     };
@@ -367,10 +386,12 @@ export class InventoryItemService {
     };
 
     await this.eventStore.append(movementEvent.type, movementEvent.payload, {
+      key: `movement-recorded-${movementId}`,
       aggregate: { id: movementId, type: 'inventory-movement' }
     });
 
     await this.eventStore.append(adjustmentEvent.type, adjustmentEvent.payload, {
+      key: `stock-adjusted-${itemId}`,
       aggregate: { id: itemId, type: 'inventory-item' }
     });
 
@@ -434,6 +455,7 @@ export class InventoryItemService {
       };
 
       await this.eventStore.append(alertEvent.type, alertEvent.payload, {
+        key: `reorder-alert-${alert.id}`,
         aggregate: { id: alert.id, type: 'reorder-alert' }
       });
     }
@@ -484,7 +506,7 @@ export class InventoryItemService {
       .slice(0, 5);
   }
 
-  private async getRecentMovements(limit: number): Promise<InventoryMovement[]> {
+  private async getRecentMovements(_limit: number): Promise<InventoryMovement[]> {
     // Would implement based on movement events
     return [];
   }
@@ -536,7 +558,7 @@ export class InventoryItemService {
     };
   }
 
-  private validateItemUpdate(itemId: string, updates: Partial<InventoryItem>): InventoryItemValidation {
+  private validateItemUpdate(_itemId: string, updates: Partial<InventoryItem>): InventoryItemValidation {
     // Similar validation logic for updates
     return this.validateItem(updates);
   }
@@ -559,9 +581,10 @@ export class InventoryItemService {
             id: payload.itemId,
             sku: payload.sku,
             name: payload.name,
+            itemTypeId: payload.itemTypeId,
             categoryId: payload.categoryId,
             uom: payload.uom,
-            storage: { locationId: undefined, requirements: undefined },
+            storage: {},
             tracking: payload.tracking,
             levels: payload.levels,
             costing: payload.costing,

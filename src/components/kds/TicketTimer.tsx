@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getKdsSettings } from '../../settings/kds';
 import { cn } from '../../lib/utils';
 

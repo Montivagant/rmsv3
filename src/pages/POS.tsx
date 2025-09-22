@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useApi } from '../hooks/useApi';
+import type { MenuItem as MenuItemEntity } from '../menu/items/types';
+import type { CustomerRecord } from '../customers/repository';
+import { useMenuItems } from '../hooks/useMenuItems';
+import { useCustomers } from '../hooks/useCustomers';
+import { recordInventoryAdjustments } from '../inventory/repository';
+import { ordersApi } from '../orders/api';
+import { getCurrentBranchId } from '../lib/branch';
 import { computeTotals, type Line } from '../money/totals';
 import { useEventStore } from '../events/context';
+import type { SaleRecordedPayload } from '../events/types';
 import { getRole, RANK, Role } from '../rbac/roles';
 import { inventoryEngine } from '../inventory/engine';
 import { getOversellPolicy } from '../inventory/policy';
@@ -12,57 +19,57 @@ import { useFlags } from '../store/flags';
 import { createPaymentProvider, type PlaceholderPaymentProvider } from '../payments/provider';
 import { generatePaymentKeys, handleWebhook } from '../payments/webhook';
 import { derivePaymentStatus } from '../payments/status';
-import { PaymentModal } from '../components/PaymentModal';
+import { PaymentModal } from '../components';
 import { createTaxService, type TaxCalculationResult, type TaxableItem } from '../tax';
 import { printReceipt, type ReceiptData } from '../utils/receipt';
 import { requireReturnPin, getReturnPin, getReturnStage } from '../settings/returns';
 
 // Import new POS components
-import { PageHeader } from '../components/pos/PageHeader';
 import { FilterTabs } from '../components/pos/FilterTabs';
 import { SearchInput } from '../components/pos/SearchInput';
 import { MenuCard } from '../components/pos/MenuCard';
+import { MenuList } from '../components/pos/MenuList';
+import { ViewToggle, type ViewMode } from '../components/pos/ViewToggle';
 import { CartPanel } from '../components/pos/CartPanel';
 import { cn } from '../lib/utils';
-import { useShiftService, getActiveShift } from '../shifts/service';
+// Clock-in functionality moved to standalone page
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  description?: string;
-  image?: string;
-}
+// function formatCategoryLabel(categoryId: string): string { // Unused
+//   if (!categoryId) return 'General';
+//   const cleaned = categoryId
+//     .replace(/^cat[_-]/i, '')
+//     .replace(/[_-]/g, ' ')
+//     .trim();
+//   if (!cleaned) return 'General';
+//   return cleaned.split(' ').filter(Boolean).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+// }
 
-interface CartItem extends MenuItem {
+interface CartItem extends MenuItemEntity {
   quantity: number;
-}
-
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  points: number;
-  visits: number;
-  totalSpent: number;
-  lastVisit: string;
 }
 
 function POS() {
   const store = useEventStore();
-  const { data: menuItems, loading, error, refetch: refetchMenu } = useApi<MenuItem[]>('/api/menu');
-  const { data: customers } = useApi<Customer[]>('/api/customers');
+  const branchId = getCurrentBranchId();
+  const { items: menuItems, loading: menuLoading, error: menuError } = useMenuItems({ branchId });
+  const {
+    customers: customerDirectory,
+    loading: customersLoading,
+    error: customersError,
+    searchCustomers: searchCustomersRepo,
+  } = useCustomers();
+  const loading = menuLoading || customersLoading;
+  const error = menuError || customersError;
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   const [discount, setDiscount] = useState(0);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<'none' | 'pending' | 'paid' | 'failed'>('none');
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  // const [isProcessingPayment, setIsProcessingPayment] = useState(false); // Unused
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentProvider] = useState<PlaceholderPaymentProvider>(
     createPaymentProvider({ mode: 'placeholder' }) as PlaceholderPaymentProvider
@@ -70,30 +77,27 @@ function POS() {
   const [taxCalculation, setTaxCalculation] = useState<TaxCalculationResult | null>(null);
   const [showMobileCart, setShowMobileCart] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
-  const [isVoiding, setIsVoiding] = useState(false);
-  const [isReturning, setIsReturning] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('card');
+  // const [isVoiding, setIsVoiding] = useState(false); // Unused
+  // const [isReturning, setIsReturning] = useState(false); // Unused
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const currentTicketIdRef = useRef<string | null>(null);
   const toast = useToast();
-  
-  // Shift controls
-  const { startShift, endShift } = useShiftService();
-  const [activeShift, setActiveShiftState] = useState(getActiveShift());
   
   // Tax service instance - memoized to prevent recreation
   const taxService = useMemo(() => createTaxService(store), [store]);
   
   const { flags } = useFlags();
   const paymentsEnabled = flags.payments;
-  const loyaltyEnabled = flags.loyalty;
+  // const loyaltyEnabled = flags.loyalty; // Unused
   
   // Use a ref to track events length and prevent infinite re-renders
   const eventsLengthRef = useRef(0);
   const [eventsVersion, setEventsVersion] = useState(0);
   
   // Update events version when length changes
-  useMemo(() => {
+  useEffect(() => {
     const currentLength = store.getAll().length;
     if (currentLength !== eventsLengthRef.current) {
       eventsLengthRef.current = currentLength;
@@ -110,7 +114,7 @@ function POS() {
     if (ticketId && paymentsEnabled) {
       const events = store.getAll();
       const status = derivePaymentStatus(events, ticketId);
-      setPaymentStatus(status);
+      setPaymentStatus(status || 'none');
     } else {
       setPaymentStatus('none');
     }
@@ -130,17 +134,19 @@ function POS() {
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          category: item.category,
+          category: item.categoryId,
           isTaxIncluded: false
         }));
 
         const taxInput = {
           items: taxableItems,
-          customer: selectedCustomer ? {
-            id: selectedCustomer.id,
-            type: 'individual' as const,
-            isBusinessCustomer: false
-          } : undefined
+          ...(selectedCustomer && {
+            customer: {
+              id: selectedCustomer.id,
+              type: 'individual' as const,
+              isBusinessCustomer: false
+            }
+          })
         };
 
         const result = await taxService.calculateTaxes(taxInput);
@@ -198,11 +204,11 @@ function POS() {
     setSelectedCustomer(null);
     setLoyaltyPoints(0);
     setPaymentStatus('none');
-    setIsProcessingPayment(false);
+    // setIsProcessingPayment(false); // Function commented out
     setShowPaymentModal(false);
     setOrderNotes('');
-    setIsVoiding(false);
-    setIsReturning(false);
+    // setIsVoiding(false); // Function commented out
+    // setIsReturning(false); // Function commented out
     // Focus search after clearing
     setTimeout(() => searchInputRef.current?.focus(), 100);
   }
@@ -237,7 +243,7 @@ function POS() {
       toast.show('Invalid PIN');
       return;
     }
-    setIsVoiding(true);
+    // setIsVoiding(true); // Function commented out
     try {
       const ticketId = getTicketId();
       const idempotencyKey = `ticket:${ticketId}:void`;
@@ -254,7 +260,7 @@ function POS() {
       toast.show('Order voided');
       handleNewTicket();
     } finally {
-      setIsVoiding(false);
+      // setIsVoiding(false); // Function commented out
     }
   }
 
@@ -268,7 +274,7 @@ function POS() {
       toast.show('Invalid PIN');
       return;
     }
-    setIsReturning(true);
+    // setIsReturning(true); // Function commented out
     try {
       const ticketId = getTicketId();
       const idempotencyKey = `ticket:${ticketId}:return`;
@@ -293,11 +299,13 @@ function POS() {
           ticketId,
           timestamp: new Date().toISOString(),
           cashier: 'Current User',
-          customer: selectedCustomer ? {
+        ...(selectedCustomer && {
+          customer: {
             name: selectedCustomer.name,
-            email: selectedCustomer.email,
-            phone: selectedCustomer.phone
-          } : undefined,
+            ...(selectedCustomer.email && { email: selectedCustomer.email }),
+            ...(selectedCustomer.phone && { phone: selectedCustomer.phone })
+          }
+        }),
           items: cartLines.map((line, index) => ({
             name: cart[index]?.name || 'Unknown Item',
             quantity: line.qty,
@@ -324,41 +332,21 @@ function POS() {
       toast.show('Return recorded and receipt printed');
       handleNewTicket();
     } finally {
-      setIsReturning(false);
+      // setIsReturning(false); // Function commented out
     }
   }
 
-  async function handleClockIn() {
-    const pin = window.prompt('Enter your 4-6 digit PIN to start shift');
-    if (!pin) return;
-    const result = await startShift(pin);
-    if (!result.success) {
-      toast.show(result.error || 'Failed to start shift');
-    } else {
-      setActiveShiftState(getActiveShift());
-      toast.show('Shift started');
-    }
-  }
-
-  async function handleClockOut() {
-    const result = await endShift();
-    if (!result.success) {
-      toast.show(result.error || 'Failed to end shift');
-    } else {
-      setActiveShiftState(getActiveShift());
-      toast.show('Shift ended');
-    }
-  }
+  // Clock-in/Clock-out functions moved to standalone Clock-in page
   
   const filteredItems = (menuItems || []).filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'All' || item.categoryId === selectedCategory;
     return matchesSearch && matchesCategory;
   });
   
-  const categories = ['All', ...Array.from(new Set((menuItems || []).map(item => item.category)))];
+  const categories = ['All', ...Array.from(new Set((menuItems || []).map(item => item.categoryId)))];
   
-  const addToCart = (item: MenuItem) => {
+  const addToCart = (item: MenuItemEntity) => {
     setCart(prev => {
       const existing = prev.find(cartItem => cartItem.id === item.id);
       if (existing) {
@@ -411,14 +399,9 @@ function POS() {
   };
   
   // Search customers function
-  const searchCustomers = async (query: string): Promise<Customer[]> => {
-    if (!query || query.length < 2) return [];
-    
-    // Filter customers based on query
-    return (customers || []).filter(customer => {
-      const searchString = `${customer.name} ${customer.email} ${customer.phone}`.toLowerCase();
-      return searchString.includes(query.toLowerCase());
-    });
+  const searchCustomers = async (query: string): Promise<CustomerRecord[]> => {
+    if (!query || query.length < 2) return customerDirectory;
+    return searchCustomersRepo(query);
   };
   
   const handleProceedToPayment = () => {
@@ -426,68 +409,118 @@ function POS() {
     setShowPaymentModal(true);
   };
 
-  const placeOrder = async () => {
-    if (cart.length === 0) return;
+  const finalizeSale = async (markCompleted: boolean) => {
+    const ticketId = getTicketId();
+    const payload: SaleRecordedPayload = {
+      ticketId,
+      lines: cartLines.map((line, index) => ({
+        sku: cart[index]?.id,
+        name: cart[index]?.name || 'Unknown Item',
+        qty: line.qty,
+        price: line.price,
+        taxRate: line.taxRate,
+      })),
+      totals: {
+        subtotal: totals.subtotal,
+        discount: totals.discount,
+        tax: totals.tax,
+        total: totals.total,
+      },
+    };
     
-    // If payments are enabled, show payment modal instead of directly placing order
-    if (paymentsEnabled) {
-      handleProceedToPayment();
-      return;
+    if (selectedCustomer?.id) {
+      payload.customerId = selectedCustomer.id;
     }
     
-    // Direct order placement for when payments are disabled
-    setIsProcessingOrder(true);
+    if (orderNotes) {
+      payload.notes = orderNotes;
+    }
+
+    const saleResult = store.append('sale.recorded', payload, {
+      key: `ticket:${ticketId}:finalize`,
+      params: payload,
+      aggregate: { id: ticketId, type: 'ticket' },
+    });
+
+    if (!saleResult.deduped) {
+      try {
+        const policy = getOversellPolicy();
+        const report = inventoryEngine.applySale(payload, policy);
+        if (report.adjustments.length > 0) {
+          await recordInventoryAdjustments(
+            report.adjustments.map(adj => ({
+              sku: adj.sku,
+              oldQty: adj.oldQty,
+              newQty: adj.newQty,
+              reason: 'sale',
+              reference: ticketId,
+            }))
+          );
+        }
+      } catch (error) {
+        if (error instanceof OversellError) {
+          throw error;
+        }
+        console.error('Inventory adjustment failed:', error);
+      }
+    }
+
+    const orderId = `order-${ticketId}`;
     try {
-      // Finalize the sale locally
-      const ticketId = getTicketId();
-      const idempotencyKey = `ticket:${ticketId}:finalize`;
-      
-      const payload = {
+      await ordersApi.create({
+        orderId,
         ticketId,
-        lines: cartLines.map((line, index) => ({
-          sku: cart[index]?.id,
-          name: cart[index]?.name || 'Unknown Item',
-          qty: line.qty,
-          price: line.price,
-          taxRate: line.taxRate
+        branchId,
+        source: 'POS',
+        status: 'preparing',
+        items: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
         })),
         totals: {
           subtotal: totals.subtotal,
           discount: totals.discount,
           tax: totals.tax,
-          total: totals.total
+          total: totals.total,
         },
-        customerId: selectedCustomer?.id || null,
-        notes: orderNotes || null
-      };
-      
-      const result = store.append('sale.recorded', payload, {
-        key: idempotencyKey,
-        params: payload,
-        aggregate: {
-          id: ticketId,
-          type: 'ticket'
-        }
+        ...(selectedCustomer?.id && { customerId: selectedCustomer.id }),
+        ...(selectedCustomer?.name && { customerName: selectedCustomer.name }),
+        ...(orderNotes && { notes: orderNotes }),
+        channel: 'in_store',
+        createdAt: Date.now(),
       });
-      
-      if (!result.deduped) {
-        // Apply inventory adjustments
-        try {
-          const policy = getOversellPolicy();
-          inventoryEngine.applySale(payload, policy);
-        } catch (error) {
-          if (error instanceof OversellError) {
-            toast.show(`Oversell blocked for ${error.sku}`);
-            return;
-          }
-        }
+      if (markCompleted) {
+        await ordersApi.updateStatus(orderId, { status: 'completed', actorName: 'POS Terminal' });
       }
-      
+    } catch (error) {
+      console.error('Order persistence failed:', error);
+    }
+
+    return { payload, ticketId, orderId };
+  };
+
+  const placeOrder = async () => {
+    if (cart.length === 0) return;
+
+    if (paymentsEnabled) {
+      handleProceedToPayment();
+      return;
+    }
+
+    setIsProcessingOrder(true);
+    try {
+      await finalizeSale(true);
       toast.show('Order placed successfully!');
       handleNewTicket();
     } catch (error) {
-      toast.show('Failed to place order. Please try again.');
-      console.error('Order placement error:', error);
+      if (error instanceof OversellError) {
+        toast.show(`Oversell blocked for ${error.sku}`);
+      } else {
+        toast.show('Failed to place order. Please try again.');
+        console.error('Order placement error:', error);
+      }
     } finally {
       setIsProcessingOrder(false);
     }
@@ -495,91 +528,47 @@ function POS() {
 
   const processOrderAfterPayment = async () => {
     if (cart.length === 0) return;
-    
+
     setIsProcessingOrder(true);
     try {
-      // Finalize the sale locally
-      const ticketId = getTicketId();
-      const idempotencyKey = `ticket:${ticketId}:finalize`;
-      
-      const payload = {
-        ticketId,
-        lines: cartLines.map((line, index) => ({
-          sku: cart[index]?.id,
-          name: cart[index]?.name || 'Unknown Item',
-          qty: line.qty,
-          price: line.price,
-          taxRate: line.taxRate
-        })),
-        totals: {
-          subtotal: totals.subtotal,
-          discount: totals.discount,
-          tax: totals.tax,
-          total: totals.total
-        },
-        customerId: selectedCustomer?.id || null,
-        notes: orderNotes || null
-      };
-      
-      const result = store.append('sale.recorded', payload, {
-        key: idempotencyKey,
-        params: payload,
-        aggregate: {
-          id: ticketId,
-          type: 'ticket'
-        }
-      });
-      
-      if (!result.deduped) {
-        // Apply inventory adjustments
-        try {
-          const policy = getOversellPolicy();
-          inventoryEngine.applySale(payload, policy);
-        } catch (error) {
-          if (error instanceof OversellError) {
-            toast.show(`Oversell blocked for ${error.sku}`);
-            return;
-          }
-        }
-      }
-      
-      // Generate and display receipt
+      const { ticketId } = await finalizeSale(true);
+
       const receiptData: ReceiptData = {
         ticketId,
         timestamp: new Date().toISOString(),
-        cashier: 'Current User', // TODO: Get from auth context
-        customer: selectedCustomer ? {
-          name: selectedCustomer.name,
-          email: selectedCustomer.email,
-          phone: selectedCustomer.phone
-        } : undefined,
+        cashier: 'Current User',
+        ...(selectedCustomer && {
+          customer: {
+            name: selectedCustomer.name,
+            ...(selectedCustomer.email && { email: selectedCustomer.email }),
+            ...(selectedCustomer.phone && { phone: selectedCustomer.phone })
+          }
+        }),
         items: cartLines.map((line, index) => ({
           name: cart[index]?.name || 'Unknown Item',
           quantity: line.qty,
           price: line.price,
           total: line.qty * line.price,
-          taxRate: line.taxRate
+          taxRate: line.taxRate,
         })),
         totals: {
           subtotal: totals.subtotal,
           discount: totals.discount,
           tax: totals.tax,
-          total: totals.total
+          total: totals.total,
         },
         payment: {
-          method: 'processed', // This will be updated from payment result
-          amount: totals.total
+          method: 'processed',
+          amount: totals.total,
         },
         store: {
           name: 'RMS v3 Restaurant',
           address: '123 Main Street, City, State',
           phone: '(555) 123-4567',
-          email: 'info@rmsv3.com'
-        }
+          email: 'info@rmsv3.com',
+        },
       };
-      
-      // For now, just generate and print the receipt
-      // In a real application, you might want to show a receipt modal first
+
       try {
         printReceipt(receiptData);
         toast.show('Order completed! Receipt printed.');
@@ -587,19 +576,23 @@ function POS() {
         console.error('Receipt printing failed:', error);
         toast.show('Order completed! (Receipt printing failed)');
       }
-      
+
       handleNewTicket();
     } catch (error) {
-      toast.show('Failed to place order. Please try again.');
-      console.error('Order placement error:', error);
+      if (error instanceof OversellError) {
+        toast.show(`Oversell blocked for ${error.sku}`);
+      } else {
+        toast.show('Failed to place order. Please try again.');
+        console.error('Order placement error:', error);
+      }
     } finally {
       setIsProcessingOrder(false);
     }
   };
-  
+
   const handlePaymentComplete = async (result: any) => {
     setShowPaymentModal(false);
-    setIsProcessingPayment(true);
+    // setIsProcessingPayment(true); // Function commented out
     
     try {
       const ticketId = getTicketId();
@@ -613,7 +606,7 @@ function POS() {
           provider,
           sessionId: result.sessionId,
           amount: totals.total,
-          currency: 'USD',
+          currency: 'EGP',
           paymentMethod: result.paymentMethod
         }, {
           key: keys.initiated,
@@ -634,7 +627,7 @@ function POS() {
               eventType: 'succeeded',
               ticketId,
               amount: totals.total,
-              currency: 'USD'
+              currency: 'EGP'
             });
             
             if (webhookResult.success) {
@@ -655,7 +648,7 @@ function POS() {
       toast.show('Failed to process payment');
       console.error('Payment processing error:', error);
     } finally {
-      setIsProcessingPayment(false);
+      // setIsProcessingPayment(false); // Function commented out
     }
   };
 
@@ -684,47 +677,13 @@ function POS() {
   return (
     <>
       <div className="h-screen flex flex-col bg-background">
-        {/* Page Header */}
-        <PageHeader
-          title="Point of Sale"
-          breadcrumb={[
-            { label: 'Home', href: '/' },
-            { label: 'POS' }
-          ]}
-          actions={
-            <>
-              <div className="mr-2 inline-flex items-center gap-2">
-                {activeShift ? (
-                  <>
-                    <span className="text-xs text-muted-foreground">On shift</span>
-                    <button
-                      onClick={handleClockOut}
-                      className={cn(
-                        "px-3 py-1 rounded-md",
-                        "border border-border",
-                        "bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
-                        "focus:outline-none focus:ring-2 focus:ring-primary",
-                        "transition-all duration-200"
-                      )}
-                    >
-                      Clock Out
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={handleClockIn}
-                    className={cn(
-                      "px-3 py-1 rounded-md",
-                      "border border-border",
-                      "bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
-                      "focus:outline-none focus:ring-2 focus:ring-primary",
-                      "transition-all duration-200"
-                    )}
-                  >
-                    Clock In
-                  </button>
-                )}
-              </div>
+        {/* POS Header - integrated with layout, no separate page header needed */}
+        <div className="bg-surface border-b border-border px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h1 className="text-xl font-semibold text-foreground">Point of Sale</h1>
+            </div>
+            <div className="flex items-center gap-2">
               {/* existing Manage Menu button remains hidden */}
               {canManageMenu && (
                 <button
@@ -756,14 +715,14 @@ function POS() {
               >
                 New Order (N)
               </button>
-            </>
-          }
-        />
+            </div>
+          </div>
+        </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Main Content - with right margin for fixed cart */}
+        <div className="flex-1 lg:mr-96 overflow-hidden">
           {/* Menu Section */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex flex-col h-full overflow-hidden">
             {/* Search and Filters */}
             <div className="px-4 sm:px-6 lg:px-8 py-4 space-y-4 border-b border-border bg-surface">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -783,10 +742,14 @@ function POS() {
                   onCategoryChange={setSelectedCategory}
                   className="flex-1"
                 />
+                <ViewToggle
+                  currentView={viewMode}
+                  onViewChange={setViewMode}
+                />
               </div>
             </div>
 
-            {/* Menu Grid */}
+            {/* Menu Display - Card or List View */}
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
               {filteredItems.length === 0 ? (
                 <div className="text-center py-12">
@@ -800,42 +763,87 @@ function POS() {
                     </button>
                   )}
                 </div>
-              ) : (
+              ) : viewMode === 'card' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr">
                   {filteredItems.map(item => (
                     <MenuCard
                       key={item.id}
                       {...item}
+                      category={item.categoryId}
                       onAddToCart={() => addToCart(item)}
                     />
                   ))}
                 </div>
+              ) : (
+                <MenuList
+                  items={filteredItems.map(item => ({
+                    ...item,
+                    category: item.categoryId,
+                    onAddToCart: () => addToCart(item)
+                  }))}
+                />
               )}
             </div>
           </div>
+        </div>
 
-          {/* Cart Panel - Desktop */}
-          <div className="hidden lg:block w-96 border-l border-border">
-            <CartPanel
-              items={cart}
-              totals={totals}
-              onUpdateQuantity={updateQuantity}
-              onRemoveItem={removeFromCart}
-              onPlaceOrder={placeOrder}
-              onClearCart={() => setCart([])}
-              isProcessing={isProcessingOrder}
-              discount={discount}
-              onDiscountChange={setDiscount}
-              selectedCustomer={selectedCustomer}
-              onCustomerChange={setSelectedCustomer}
-              searchCustomers={searchCustomers}
-              orderNotes={orderNotes}
-              onOrderNotesChange={setOrderNotes}
-              className="h-full rounded-none border-0"
-              onVoidOrder={handleVoidOrder}
-              onReturnItems={handleReturnItems}
-            />
-          </div>
+        {/* Cart Panel - Desktop (Fixed Position) - Positioned below global navigation and POS header */}
+        <div className="hidden lg:block fixed top-[180px] right-0 w-96 h-[calc(100vh-180px)] border-l border-border bg-surface z-30">
+          <CartPanel
+            items={cart}
+            totals={totals}
+            onUpdateQuantity={updateQuantity}
+            onRemoveItem={removeFromCart}
+            onPlaceOrder={placeOrder}
+            onClearCart={() => setCart([])}
+            isProcessing={isProcessingOrder}
+            discount={discount}
+            onDiscountChange={setDiscount}
+            selectedCustomer={selectedCustomer ? {
+              id: selectedCustomer.id,
+              email: selectedCustomer.email,
+              firstName: selectedCustomer.name.split(' ')[0] || '',
+              lastName: selectedCustomer.name.split(' ').slice(1).join(' ') || '',
+              phone: selectedCustomer.phone,
+              loyaltyPoints: selectedCustomer.points
+            } : null}
+            onCustomerChange={(customer) => {
+              if (customer) {
+                const customerRecord: CustomerRecord = {
+                  id: customer.id,
+                  name: `${customer.firstName} ${customer.lastName}`.trim(),
+                  email: customer.email,
+                  phone: customer.phone || '',
+                  points: customer.loyaltyPoints || 0,
+                  orders: 0,
+                  totalSpent: 0,
+                  visits: 0,
+                  tags: [],
+                  createdAt: Date.now(),
+                  updatedAt: Date.now()
+                };
+                setSelectedCustomer(customerRecord);
+              } else {
+                setSelectedCustomer(null);
+              }
+            }}
+            searchCustomers={async (query) => {
+              const results = await searchCustomers(query);
+              return results.map(record => ({
+                id: record.id,
+                email: record.email,
+                firstName: record.name.split(' ')[0] || '',
+                lastName: record.name.split(' ').slice(1).join(' ') || '',
+                phone: record.phone,
+                loyaltyPoints: record.points
+              }));
+            }}
+            orderNotes={orderNotes}
+            onOrderNotesChange={setOrderNotes}
+            className="h-full rounded-none border-0"
+            onVoidOrder={handleVoidOrder}
+            onReturnItems={handleReturnItems}
+          />
         </div>
 
         {/* Mobile Cart Toggle */}
@@ -919,9 +927,45 @@ function POS() {
                 isProcessing={isProcessingOrder}
                 discount={discount}
                 onDiscountChange={setDiscount}
-                selectedCustomer={selectedCustomer}
-                onCustomerChange={setSelectedCustomer}
-                searchCustomers={searchCustomers}
+                selectedCustomer={selectedCustomer ? {
+                  id: selectedCustomer.id,
+                  email: selectedCustomer.email,
+                  firstName: selectedCustomer.name.split(' ')[0] || '',
+                  lastName: selectedCustomer.name.split(' ').slice(1).join(' ') || '',
+                  phone: selectedCustomer.phone,
+                  loyaltyPoints: selectedCustomer.points
+                } : null}
+                onCustomerChange={(customer) => {
+                  if (customer) {
+                    const customerRecord: CustomerRecord = {
+                      id: customer.id,
+                      name: `${customer.firstName} ${customer.lastName}`.trim(),
+                      email: customer.email,
+                      phone: customer.phone || '',
+                      points: customer.loyaltyPoints || 0,
+                      orders: 0,
+                      totalSpent: 0,
+                      visits: 0,
+                      tags: [],
+                      createdAt: Date.now(),
+                      updatedAt: Date.now()
+                    };
+                    setSelectedCustomer(customerRecord);
+                  } else {
+                    setSelectedCustomer(null);
+                  }
+                }}
+                searchCustomers={async (query) => {
+                  const results = await searchCustomers(query);
+                  return results.map(record => ({
+                    id: record.id,
+                    email: record.email,
+                    firstName: record.name.split(' ')[0] || '',
+                    lastName: record.name.split(' ').slice(1).join(' ') || '',
+                    phone: record.phone,
+                    loyaltyPoints: record.points
+                  }));
+                }}
                 orderNotes={orderNotes}
                 onOrderNotesChange={setOrderNotes}
                 className="h-[calc(100%-73px)] rounded-none border-0"
@@ -939,7 +983,7 @@ function POS() {
         onClose={() => setShowPaymentModal(false)}
         onPaymentComplete={handlePaymentComplete}
         amount={totals.total}
-        currency="USD"
+        currency="EGP"
         ticketId={getTicketId()}
         provider={paymentProvider}
         availableMethods={['card', 'cash', 'loyalty']}
@@ -949,3 +993,12 @@ function POS() {
 }
 
 export default POS;
+
+
+
+
+
+
+
+
+

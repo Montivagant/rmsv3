@@ -1,4 +1,5 @@
 // Enhanced sync manager with network detection and graceful fallbacks
+import type { DBEvent } from './pouch';
 
 export type SyncState = 'idle' | 'active' | 'paused' | 'error' | 'offline' | 'unavailable';
 export type SyncConfig = { 
@@ -17,7 +18,6 @@ class SyncManager {
   private currentState: SyncState = 'idle';
   private config: SyncConfig | null = null;
   private cancelReplication: (() => void) | null = null;
-  private remote: any = null;
   private networkListeners: NetworkStatusListener[] = [];
   private retryTimeout: NodeJS.Timeout | null = null;
 
@@ -141,19 +141,30 @@ class SyncManager {
         return false;
       }
 
-      const remote = syncModule.configureRemote({
+      const remoteConfig: {
+        baseUrl: string;
+        dbPrefix: string;
+        username?: string;
+        password?: string;
+      } = {
         baseUrl: config.baseUrl,
         dbPrefix: config.dbPrefix,
-        username: config.username,
-        password: config.password
-      }, config.branchId);
+      };
 
-      this.remote = remote;
+      if (config.username) {
+        remoteConfig.username = config.username;
+      }
+      if (config.password) {
+        remoteConfig.password = config.password;
+      }
+
+      syncModule.configureRemote(remoteConfig, config.branchId);
+
       this.emit('idle', { configured: true });
       return true;
     } catch (error) {
       console.error('Sync configuration failed:', error);
-      this.emit('error', { reason: 'configuration_failed', error: error.message });
+      this.emit('error', { reason: 'configuration_failed', error: (error as Error).message });
       return false;
     }
   }
@@ -204,7 +215,7 @@ class SyncManager {
         this.emit(state, info);
       });
 
-      syncModule.startReplication(localDb, this.config.branchId);
+      syncModule.startReplication(localDb as PouchDB.Database<DBEvent>, this.config.branchId);
 
       this.cancelReplication = () => {
         unsubscribe();
@@ -214,7 +225,7 @@ class SyncManager {
       return true;
     } catch (error) {
       console.error('Failed to start replication:', error);
-      this.emit('error', { reason: 'start_failed', error: error.message });
+      this.emit('error', { reason: 'start_failed', error: (error as Error).message });
       return false;
     }
   }

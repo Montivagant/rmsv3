@@ -15,6 +15,7 @@ export interface MenuItem {
   isActive: boolean;
   isAvailable: boolean; // Manual availability toggle
   branchIds: string[];
+  image?: string; // URL or base64 data for item image
   // Phase 2 additions (for future)
   recipeId?: string;
   modifierGroups?: string[];
@@ -33,6 +34,7 @@ export interface CreateMenuItemRequest {
   isActive?: boolean;
   isAvailable?: boolean;
   branchIds?: string[];
+  image?: string;
 }
 
 export interface UpdateMenuItemRequest {
@@ -45,6 +47,7 @@ export interface UpdateMenuItemRequest {
   isActive?: boolean;
   isAvailable?: boolean;
   branchIds?: string[];
+  image?: string;
 }
 
 export interface MenuItemsResponse {
@@ -70,24 +73,28 @@ export interface MenuItemQuery {
 export interface MenuItemFormData {
   sku: string;
   name: string;
-  description?: string;
+  description?: string | undefined;
   categoryId: string;
   price: number;
   taxRate: number;
   isActive: boolean;
   isAvailable: boolean;
   branchIds: string[];
+  image?: string | undefined;
 }
 
 export interface MenuItemFormErrors {
-  sku?: string;
-  name?: string;
-  description?: string;
-  categoryId?: string;
-  price?: string;
-  taxRate?: string;
-  branchIds?: string;
-  _form?: string;
+  sku?: string | undefined;
+  name?: string | undefined;
+  description?: string | undefined;
+  categoryId?: string | undefined;
+  price?: string | undefined;
+  taxRate?: string | undefined;
+  branchIds?: string | undefined;
+  isActive?: string | undefined;
+  isAvailable?: string | undefined;
+  image?: string | undefined;
+  _form?: string | undefined;
 }
 
 // Business Rules Constants

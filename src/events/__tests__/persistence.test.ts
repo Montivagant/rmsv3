@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { InMemoryEventStore } from '../store';
 import { openLocalStorageDB } from '../../db/localStorage';
 import { createLocalStoragePersistedEventStore } from '../localStoragePersisted';
-import { getPersistedEventStore, resetPersistedEventStore, getStorageStats } from '../persistedStore';
 
 describe('EventStore Persistence', () => {
   beforeEach(() => {
@@ -14,7 +13,6 @@ describe('EventStore Persistence', () => {
 
   afterEach(async () => {
     // Clean up after each test
-    await resetPersistedEventStore();
     localStorage.clear();
   });
 
@@ -112,55 +110,6 @@ describe('EventStore Persistence', () => {
           aggregate: { id: 'agg-1', type: 'test' }
         });
       }).toThrow('Idempotency conflict');
-    });
-  });
-
-  describe('Persisted Store Factory', () => {
-    it('should create a persisted store with localStorage', async () => {
-      const store = await getPersistedEventStore();
-      
-      expect(store).toBeDefined();
-      expect(store.append).toBeDefined();
-      expect(store.getAll).toBeDefined();
-
-      // Test that it can append and retrieve events
-      const result = store.append('FACTORY_EVENT', { test: true }, {
-        key: 'factory-1',
-        params: {},
-        aggregate: { id: 'agg-1', type: 'test' }
-      });
-
-      expect(result.event.type).toBe('FACTORY_EVENT');
-      
-      const allEvents = store.getAll();
-      expect(allEvents).toContainEqual(expect.objectContaining({
-        type: 'FACTORY_EVENT'
-      }));
-    });
-
-    it('should return the same instance on multiple calls', async () => {
-      const store1 = await getPersistedEventStore();
-      const store2 = await getPersistedEventStore();
-      
-      expect(store1).toBe(store2);
-    });
-
-    it('should provide storage statistics', async () => {
-      const store = await getPersistedEventStore();
-      
-      // Add some events
-      for (let i = 0; i < 5; i++) {
-        store.append(`EVENT_${i}`, { index: i }, {
-          key: `stats-${i}`,
-          params: {},
-          aggregate: { id: 'agg-1', type: 'test' }
-        });
-      }
-
-      const stats = getStorageStats();
-      expect(stats).toBeDefined();
-      expect(stats?.itemCount).toBeGreaterThan(0);
-      expect(stats?.used).toBeGreaterThan(0);
     });
   });
 

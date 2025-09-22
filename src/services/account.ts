@@ -10,39 +10,40 @@ import {
 } from '../types/account';
 import { getCurrentUser } from '../rbac/roles';
 import { userService } from './user';
+import { fetchJSON, postJSON, putJSON, deleteJSON, apiBase } from '../api/client';
 
 // Base API configuration
 const API_BASE = '/api/account';
 
 class AccountApiError extends Error {
-  constructor(public status: number, message: string, public code?: string) {
+  public status: number;
+  public code?: string;
+  
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = 'AccountApiError';
+    this.status = status;
+    if (code) {
+      this.code = code;
+    }
   }
 }
 
 // HTTP client wrapper with error handling
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
-  
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new AccountApiError(
-      response.status,
-      errorData.message || 'An error occurred',
-      errorData.code
-    );
+  try {
+    return await fetchJSON<T>(`${API_BASE}${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+  } catch (e: any) {
+    const status = typeof e?.status === 'number' ? e.status : 500;
+    const message = e?.message || 'An error occurred';
+    throw new AccountApiError(status, message);
   }
-
-  return response.json();
 }
 
 // Profile Management
@@ -64,20 +65,16 @@ export const profileApi = {
     const formData = new FormData();
     formData.append('avatar', file);
 
-    const response = await fetch(`${API_BASE}/profile/avatar`, {
-      method: 'POST',
-      body: formData,
-    });
-
+    const url = `${apiBase || ''}${API_BASE}/profile/avatar`;
+    const response = await fetch(url, { method: 'POST', body: formData });
     if (!response.ok) {
       throw new AccountApiError(response.status, 'Failed to upload avatar');
     }
-
-    return response.json();
+    return response.json() as Promise<{ avatarUrl: string }>;
   },
 
   async removeAvatar(): Promise<void> {
-    await apiRequest('/profile/avatar', { method: 'DELETE' });
+    await deleteJSON<void>(`${API_BASE}/profile/avatar`);
   }
 };
 
@@ -89,10 +86,7 @@ export const businessApi = {
   },
 
   async update(business: Partial<BusinessDetails>): Promise<BusinessDetails> {
-    const response = await apiRequest<AccountResponse<BusinessDetails>>('/business', {
-      method: 'PUT',
-      body: JSON.stringify(business),
-    });
+    const response = await putJSON<AccountResponse<BusinessDetails>>(`${API_BASE}/business`, business);
     return response.data;
   }
 };
@@ -159,7 +153,6 @@ export const preferencesApi = {
         defaultBranchId: updatedUser.preferences.defaultBranch || '',
         taxInclusivePricing: updatedUser.preferences.taxInclusivePricing ?? true,
         enableLocalization: updatedUser.preferences.enableLocalization ?? false,
-        restrictPurchasedItemsToSupplier: updatedUser.preferences.restrictPurchasedItemsToSupplier ?? false,
         enableTwoFactor: updatedUser.preferences.enableTwoFactor ?? false
       };
     } catch (error) {
@@ -176,18 +169,12 @@ export const notificationsApi = {
   },
 
   async update(notifications: Partial<Notifications>): Promise<Notifications> {
-    const response = await apiRequest<AccountResponse<Notifications>>('/notifications', {
-      method: 'PUT',
-      body: JSON.stringify(notifications),
-    });
+    const response = await putJSON<AccountResponse<Notifications>>(`${API_BASE}/notifications`, notifications);
     return response.data;
   },
 
   async updateAll(enabled: boolean): Promise<Notifications> {
-    const response = await apiRequest<AccountResponse<Notifications>>('/notifications/toggle-all', {
-      method: 'POST',
-      body: JSON.stringify({ enabled }),
-    });
+    const response = await postJSON<AccountResponse<Notifications>>(`${API_BASE}/notifications/toggle-all`, { enabled });
     return response.data;
   }
 };
@@ -195,37 +182,23 @@ export const notificationsApi = {
 // Security Management
 export const securityApi = {
   async changePassword(request: ChangePasswordRequest): Promise<void> {
-    await apiRequest('/security/change-password', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
+    await postJSON(`${API_BASE}/security/change-password`, request);
   },
 
   async generatePin(): Promise<GeneratePinResponse> {
-    const response = await apiRequest<GeneratePinResponse>('/security/generate-pin', {
-      method: 'POST',
-    });
-    return response;
+    return postJSON<GeneratePinResponse>(`${API_BASE}/security/generate-pin`, {});
   },
 
   async enable2FA(token: string): Promise<{ backupCodes: string[] }> {
-    const response = await apiRequest<{ backupCodes: string[] }>('/security/2fa/enable', {
-      method: 'POST',
-      body: JSON.stringify({ token }),
-    });
-    return response;
+    return postJSON<{ backupCodes: string[] }>(`${API_BASE}/security/2fa/enable`, { token });
   },
 
   async disable2FA(password: string): Promise<void> {
-    await apiRequest('/security/2fa/disable', {
-      method: 'POST',
-      body: JSON.stringify({ password }),
-    });
+    await postJSON(`${API_BASE}/security/2fa/disable`, { password });
   },
 
   async get2FAQRCode(): Promise<{ qrCode: string; secret: string }> {
-    const response = await apiRequest<{ qrCode: string; secret: string }>('/security/2fa/qr-code');
-    return response;
+    return fetchJSON<{ qrCode: string; secret: string }>(`${API_BASE}/security/2fa/qr-code`);
   }
 };
 
@@ -241,8 +214,7 @@ export const mockAccountApi = {
         phone: '1234567890', // Local digits only
         email: currentUser?.id ? `${currentUser.id}@example.com` : 'user@example.com',
         loginPin: '1234',
-        language: 'en',
-        avatar: undefined
+        language: 'en'
       };
     },
 
@@ -298,7 +270,6 @@ export const mockAccountApi = {
         enableLocalization: false,
         defaultBranchId: 'main-restaurant',
         locale: 'en',
-        restrictPurchasedItemsToSupplier: false,
         enableTwoFactor: false
       };
     },
@@ -311,7 +282,6 @@ export const mockAccountApi = {
         enableLocalization: false,
         defaultBranchId: 'main-restaurant',
         locale: 'en',
-        restrictPurchasedItemsToSupplier: false,
         enableTwoFactor: false,
         ...preferences
       };
@@ -323,10 +293,9 @@ export const mockAccountApi = {
       await new Promise(resolve => setTimeout(resolve, 400));
       return {
         costAdjustmentSubmitted: true,
-        inventoryCountSubmitted: true,
+        inventoryAuditSubmitted: true,
         purchasingSubmitted: false,
         quantityAdjustmentSubmitted: true,
-        supplierReturn: false,
         incomingTransfer: true,
         outgoingTransfer: true,
         productionSubmitted: false,
@@ -344,10 +313,9 @@ export const mockAccountApi = {
       // Return updated notifications (in real app, this would merge with existing)
       return {
         costAdjustmentSubmitted: true,
-        inventoryCountSubmitted: true,
+        inventoryAuditSubmitted: true,
         purchasingSubmitted: false,
         quantityAdjustmentSubmitted: true,
-        supplierReturn: false,
         incomingTransfer: true,
         outgoingTransfer: true,
         productionSubmitted: false,
@@ -384,11 +352,8 @@ export const mockAccountApi = {
   }
 };
 
-// Export the appropriate API based on environment
-// In development, use mock API; in production, use real API
-const isDevelopment = process.env.NODE_ENV === 'development';
-
-export const accountService = isDevelopment ? mockAccountApi : {
+// Always use real API service by default; mocks remain available for tests
+export const accountService = {
   profile: profileApi,
   business: businessApi,
   preferences: preferencesApi,

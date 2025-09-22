@@ -270,9 +270,7 @@ function generatePaymentId(): string {
 export function initializeCashDrawer(initialBalance: Money = ZERO_USD): CashDrawerState {
   return {
     isOpen: false,
-    cashBalance: initialBalance,
-    lastOpenedAt: undefined,
-    lastClosedAt: undefined
+    cashBalance: initialBalance
   };
 }
 

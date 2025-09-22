@@ -126,24 +126,20 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
         const itemId = formData.id as string | undefined
 
         if (!sku || sku.trim().length === 0) {
-          return { isValid: true, errors: [], warnings: [], info: [] }
+          return { isValid: true }
         }
 
         try {
           const isUnique = await services.checkSkuUniqueness(sku, itemId)
           return {
             isValid: isUnique,
-            errors: isUnique ? [] : ['SKU already exists. Please choose a different SKU.'],
-            warnings: [],
-            info: [],
+            ...(isUnique ? {} : { message: 'SKU already exists. Please choose a different SKU.' })
           }
         } catch (error) {
           console.error('SKU uniqueness check failed:', error)
           return {
             isValid: false,
-            errors: ['Unable to verify SKU uniqueness. Please try again.'],
-            warnings: [],
-            info: [],
+            message: 'Unable to verify SKU uniqueness. Please try again.'
           }
         }
       },
@@ -161,24 +157,20 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
         const customerId = formData.id as string | undefined
 
         if (!email || email.trim().length === 0) {
-          return { isValid: true, errors: [], warnings: [], info: [] }
+          return { isValid: true }
         }
 
         try {
           const isUnique = await services.checkEmailUniqueness(email, customerId)
           return {
             isValid: isUnique,
-            errors: isUnique ? [] : ['Email already registered. Please use a different email.'],
-            warnings: [],
-            info: [],
+            ...(isUnique ? {} : { message: 'Email already registered. Please use a different email.' })
           }
         } catch (error) {
           console.error('Email uniqueness check failed:', error)
           return {
             isValid: false,
-            errors: ['Unable to verify email uniqueness. Please try again.'],
-            warnings: [],
-            info: [],
+            message: 'Unable to verify email uniqueness. Please try again.'
           }
         }
       },
@@ -196,45 +188,58 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
         const lowStockThreshold = Number(formData.lowStockThreshold) || 0
         const price = Number(formData.price) || 0
 
-        const errors: string[] = []
+        // Quantity validation - return first error found
+        if (quantity < 0) {
+          return {
+            isValid: false,
+            message: 'Quantity cannot be negative'
+          }
+        }
+
+        // Low stock threshold validation
+        if (lowStockThreshold < 0) {
+          return {
+            isValid: false,
+            message: 'Low stock threshold cannot be negative'
+          }
+        }
+
+        // Price validation
+        if (price < 0) {
+          return {
+            isValid: false,
+            message: 'Price cannot be negative'
+          }
+        }
+
+        // Collect warnings for valid but noteworthy cases
         const warnings: string[] = []
         const info: string[] = []
 
-        // Quantity validation
-        if (quantity < 0) {
-          errors.push('Quantity cannot be negative')
-        } else if (quantity === 0) {
+        if (quantity === 0) {
           warnings.push('Item is currently out of stock')
         } else if (quantity > 10000) {
           warnings.push('Very large quantity detected. Please verify this is correct.')
         }
 
-        // Low stock threshold validation
-        if (lowStockThreshold < 0) {
-          errors.push('Low stock threshold cannot be negative')
-        } else if (lowStockThreshold > quantity && quantity > 0) {
+        if (lowStockThreshold > quantity && quantity > 0) {
           warnings.push('Low stock threshold is higher than current quantity')
         }
 
-        // Price validation
-        if (price < 0) {
-          errors.push('Price cannot be negative')
-        } else if (price === 0) {
+        if (price === 0) {
           warnings.push('Free items should be reviewed for accuracy')
         } else if (price > 1000) {
           warnings.push('High price detected. Please verify this is correct.')
         }
 
-        // Business logic warnings
         if (quantity > 0 && quantity <= lowStockThreshold) {
           info.push('Item is at or below low stock threshold')
         }
 
         return {
-          isValid: errors.length === 0,
-          errors,
-          warnings,
-          info,
+          isValid: true,
+          ...(warnings.length > 0 && { warnings }),
+          ...(info.length > 0 && { info })
         }
       },
     },
@@ -252,9 +257,7 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
         if (!categoryId || categoryId.trim().length === 0) {
           return {
             isValid: false,
-            errors: ['Please select a category'],
-            warnings: [],
-            info: [],
+            message: 'Please select a category'
           }
         }
 
@@ -262,17 +265,13 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
           const categoryExists = await services.checkCategoryExists(categoryId)
           return {
             isValid: categoryExists,
-            errors: categoryExists ? [] : ['Selected category does not exist'],
-            warnings: [],
-            info: [],
+            ...(categoryExists ? {} : { message: 'Selected category does not exist' })
           }
         } catch (error) {
           console.error('Category validation failed:', error)
           return {
             isValid: false,
-            errors: ['Unable to verify category. Please try again.'],
-            warnings: [],
-            info: [],
+            message: 'Unable to verify category. Please try again.'
           }
         }
       },
@@ -291,40 +290,56 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
         const phone = formData.phone as string
         const loyaltyPoints = Number(formData.loyaltyPoints) || 0
 
-        const errors: string[] = []
-        const warnings: string[] = []
-        const info: string[] = []
-
-        // Name validation
+        // Name validation - return first error found
         if (!firstName || firstName.trim().length === 0) {
-          errors.push('First name is required')
+          return {
+            isValid: false,
+            message: 'First name is required'
+          }
         } else if (firstName.length < 2) {
-          errors.push('First name must be at least 2 characters')
+          return {
+            isValid: false,
+            message: 'First name must be at least 2 characters'
+          }
         }
 
         if (!lastName || lastName.trim().length === 0) {
-          errors.push('Last name is required')
+          return {
+            isValid: false,
+            message: 'Last name is required'
+          }
         } else if (lastName.length < 2) {
-          errors.push('Last name must be at least 2 characters')
+          return {
+            isValid: false,
+            message: 'Last name must be at least 2 characters'
+          }
         }
 
         // Phone validation
         if (phone && phone.replace(/\D/g, '').length !== 10) {
-          errors.push('Phone number must be 10 digits')
+          return {
+            isValid: false,
+            message: 'Phone number must be 10 digits'
+          }
         }
 
         // Loyalty points validation
         if (loyaltyPoints < 0) {
-          errors.push('Loyalty points cannot be negative')
-        } else if (loyaltyPoints > 100000) {
+          return {
+            isValid: false,
+            message: 'Loyalty points cannot be negative'
+          }
+        }
+
+        // Collect warnings for valid but noteworthy cases
+        const warnings: string[] = []
+        if (loyaltyPoints > 100000) {
           warnings.push('Very high loyalty points balance. Please verify this is correct.')
         }
 
         return {
-          isValid: errors.length === 0,
-          errors,
-          warnings,
-          info,
+          isValid: true,
+          ...(warnings.length > 0 && { warnings })
         }
       },
     },
@@ -339,23 +354,24 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
       validate: async (formData): Promise<ValidationResult> => {
         const taxRate = Number(formData.taxRate) || 0
 
-        const errors: string[] = []
-        const warnings: string[] = []
-
         if (taxRate < 0) {
-          errors.push('Tax rate cannot be negative')
+          return {
+            isValid: false,
+            message: 'Tax rate cannot be negative'
+          }
         } else if (taxRate > 1) {
-          errors.push('Tax rate cannot exceed 100%')
+          return {
+            isValid: false,
+            message: 'Tax rate cannot exceed 100%'
+          }
         } else if (taxRate > 0.25) {
-          warnings.push('High tax rate detected. Please verify this is correct.')
+          return {
+            isValid: true,
+            warnings: ['High tax rate detected. Please verify this is correct.']
+          }
         }
 
-        return {
-          isValid: errors.length === 0,
-          errors,
-          warnings,
-          info: [],
-        }
+        return { isValid: true }
       },
     },
 
@@ -369,46 +385,49 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
       validate: async (formData): Promise<ValidationResult> => {
         const ingredients = formData.ingredients as Array<{ sku: string; quantity: number }> || []
 
-        const errors: string[] = []
-        const warnings: string[] = []
-        const info: string[] = []
-
         if (ingredients.length === 0) {
-          warnings.push('Recipe has no ingredients defined')
-          return { isValid: true, errors, warnings, info }
+          return { 
+            isValid: true, 
+            warnings: ['Recipe has no ingredients defined']
+          }
         }
 
-        // Validate each ingredient
+        // Validate each ingredient - return first error found
         for (let i = 0; i < ingredients.length; i++) {
           const ingredient = ingredients[i]
           
           if (!ingredient.sku || ingredient.sku.trim().length === 0) {
-            errors.push(`Ingredient ${i + 1}: SKU is required`)
-            continue
+            return {
+              isValid: false,
+              message: `Ingredient ${i + 1}: SKU is required`
+            }
           }
 
           if (!ingredient.quantity || ingredient.quantity <= 0) {
-            errors.push(`Ingredient ${i + 1}: Quantity must be greater than 0`)
-            continue
+            return {
+              isValid: false,
+              message: `Ingredient ${i + 1}: Quantity must be greater than 0`
+            }
           }
 
           try {
             const product = await services.getProductBySku(ingredient.sku)
             if (!product) {
-              errors.push(`Ingredient ${i + 1}: Product with SKU "${ingredient.sku}" not found`)
+              return {
+                isValid: false,
+                message: `Ingredient ${i + 1}: Product with SKU "${ingredient.sku}" not found`
+              }
             }
           } catch (error) {
             console.error(`Failed to validate ingredient ${ingredient.sku}:`, error)
-            errors.push(`Ingredient ${i + 1}: Unable to verify product`)
+            return {
+              isValid: false,
+              message: `Ingredient ${i + 1}: Unable to verify product`
+            }
           }
         }
 
-        return {
-          isValid: errors.length === 0,
-          errors,
-          warnings,
-          info,
-        }
+        return { isValid: true }
       },
     },
   ]
@@ -422,13 +441,13 @@ export function createMockValidationServices(): ValidationServices {
   const mockCategories = new Set(['main-course', 'sides', 'beverages', 'desserts'])
 
   return {
-    checkSkuUniqueness: async (sku: string, excludeId?: string): Promise<boolean> => {
+    checkSkuUniqueness: async (sku: string, _excludeId?: string): Promise<boolean> => {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500))
       return !mockSkus.has(sku.toUpperCase())
     },
 
-    checkEmailUniqueness: async (email: string, excludeId?: string): Promise<boolean> => {
+    checkEmailUniqueness: async (email: string, _excludeId?: string): Promise<boolean> => {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 300))
       return !mockEmails.has(email.toLowerCase())

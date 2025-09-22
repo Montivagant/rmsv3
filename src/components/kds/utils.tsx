@@ -1,6 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-export function Duration({ from, to }: { from: number; to?: number }) {
+interface DurationProps {
+  from: number;
+  to?: number | undefined;
+}
+
+export function Duration({ from, to }: DurationProps) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);

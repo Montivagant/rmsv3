@@ -36,8 +36,8 @@ export interface AutoCompleteOption {
   id: string
   label: string
   value: string
-  description?: string
-  category?: string
+  description?: string | undefined
+  category?: string | undefined
   metadata?: Record<string, any>
 }
 
@@ -68,7 +68,7 @@ export function useAutoComplete<T extends AutoCompleteOption>(
   const [query, setQuery] = useState('')
   
   const cache = useRef<Map<string, T[]>>(new Map())
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   const search = useCallback(async (searchQuery: string) => {
     if (searchQuery.length < minSearchLength) {
@@ -110,7 +110,9 @@ export function useAutoComplete<T extends AutoCompleteOption>(
         // Limit cache size
         if (cache.current.size > 100) {
           const firstKey = cache.current.keys().next().value
-          cache.current.delete(firstKey)
+          if (firstKey !== undefined) {
+            cache.current.delete(firstKey)
+          }
         }
       }
 
@@ -192,7 +194,7 @@ export function AutoCompleteInput<T extends AutoCompleteOption>({
   className,
   config = {},
   renderOption,
-  renderValue,
+  // renderValue, // Unused for now
   allowCustomValue = true,
   emptyMessage = 'No results found'
 }: AutoCompleteInputProps<T>) {
@@ -465,7 +467,7 @@ export const CustomerAutoComplete: React.FC<CustomerAutoCompleteProps> = ({
       id: customer.id,
       label: `${customer.firstName} ${customer.lastName}`,
       value: customer.id,
-      description: customer.email,
+      description: customer.email || undefined,
       category: customer.loyaltyPoints ? `${customer.loyaltyPoints} points` : undefined,
       metadata: customer
     }))
@@ -622,7 +624,7 @@ export const CategoryAutoComplete: React.FC<CategoryAutoCompleteProps> = ({
       id: category.id,
       label: category.name,
       value: category.id,
-      description: category.description,
+      description: category.description || undefined,
       category: category.itemCount ? `${category.itemCount} items` : undefined,
       metadata: category
     }))

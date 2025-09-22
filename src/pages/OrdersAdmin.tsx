@@ -1,5 +1,4 @@
-import React from 'react';
-import { PageStub } from '../components/PageStub';
+import { PageStub } from '../components';
 import { ADMIN_ICONS } from '../config/admin-nav.config';
 
 export default function OrdersAdmin() {

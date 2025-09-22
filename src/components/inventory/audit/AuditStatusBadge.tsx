@@ -1,4 +1,3 @@
-import React from 'react';
 import { Badge } from '../../Badge';
 import type { CountStatus } from '../../../inventory/audit/types';
 
@@ -22,7 +21,7 @@ export function AuditStatusBadge({ status, className }: AuditStatusBadgeProps) {
       label: 'Completed'
     },
     cancelled: {
-      variant: 'destructive' as const,
+      variant: 'error' as const,
       label: 'Cancelled'
     }
   };

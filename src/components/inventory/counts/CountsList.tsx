@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../../Button';
 import { Input } from '../../Input';
 import { Select } from '../../Select';
@@ -22,6 +22,7 @@ interface CountsListProps {
   onViewCount: (count: InventoryCount) => void;
   onResumeCount: (count: InventoryCount) => void;
   onExportCount: (count: InventoryCount) => void;
+  onCreateNewCount?: () => void; // Added for empty state action
   className?: string;
 }
 
@@ -33,11 +34,11 @@ export function CountsList({
   loading = false,
   onPageChange,
   onPageSizeChange,
-  onSortChange,
   onFilterChange,
   onViewCount,
   onResumeCount,
   onExportCount,
+  onCreateNewCount,
   className = ''
 }: CountsListProps) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -66,10 +67,12 @@ export function CountsList({
       <EmptyState
         title="No inventory counts found"
         description="Start your first inventory count to reconcile stock levels."
-        action={{
-          label: "Create New Count",
-          onClick: () => {} // Will be handled by parent
-        }}
+        {...(onCreateNewCount && {
+          action: {
+            label: "Create New Count",
+            onClick: onCreateNewCount
+          }
+        })}
         className={className}
       />
     );
@@ -93,7 +96,7 @@ export function CountsList({
         
         <Select
           placeholder="All Branches"
-          onValueChange={(value) => onFilterChange({ branchId: value || undefined })}
+          onValueChange={(value) => onFilterChange(value ? { branchId: value } : {})}
           options={[
             { value: '', label: 'All Branches' },
             { value: 'main-restaurant', label: 'Main Restaurant' },
@@ -187,7 +190,7 @@ export function CountsList({
                       }>
                         {count.totals.varianceValue.toLocaleString('en-US', {
                           style: 'currency',
-                          currency: 'USD',
+                          currency: 'EGP',
                           signDisplay: 'always'
                         })}
                       </div>

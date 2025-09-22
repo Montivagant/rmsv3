@@ -110,7 +110,7 @@ export function ZReport({ onReportGenerated }: ZReportProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'EGP'
     }).format(amount);
   };
   

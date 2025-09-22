@@ -12,7 +12,7 @@ export interface UseDismissableLayerOptions {
    * Optional trigger ref. If provided, clicks within this element are treated as inside the layer.
    * Useful for menu buttons or toggles that control the layer.
    */
-  triggerRef?: RefObject<HTMLElement>;
+  triggerRef?: RefObject<HTMLElement | null> | undefined;
   /**
    * Unique id for coordinating with other overlays. If not provided, a random id will be generated.
    */

@@ -126,7 +126,7 @@ export const generateAriaLabel = {
 // Screen-reader only text component
 export const ScreenReaderOnly: React.FC<{ 
   children: React.ReactNode
-  as?: keyof JSX.IntrinsicElements 
+  as?: React.ElementType
 }> = ({ children, as: Component = 'span' }) => {
   return (
     <Component className="sr-only">
@@ -368,7 +368,6 @@ export const AccessibleTable: React.FC<AccessibleTableProps> = ({
         {rows.map((row) => (
           <tr key={row.id} role="row">
             {row.cells.map((cell) => {
-              const header = headers.find(h => h.id === cell.headerId)
               return (
                 <td
                   key={cell.headerId}
@@ -521,7 +520,7 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }
 
-  const registerLandmark = (id: string, label: string, role: string) => {
+  const registerLandmark = (id: string, label: string) => {
     setSkipLinks(prev => {
       const exists = prev.find(link => link.id === id)
       if (exists) return prev

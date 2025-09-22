@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../../Button';
 import { Input } from '../../Input';
 import { Select } from '../../Select';
@@ -43,7 +43,6 @@ export function TransfersList({
   locations = [],
   onPageChange,
   onPageSizeChange,
-  onSortChange,
   onFilterChange,
   onViewTransfer,
   onEditTransfer,
@@ -125,10 +124,12 @@ export function TransfersList({
           <EmptyState
             title="No transfers found"
             description="Create your first transfer to move inventory between branches."
-            action={onCreateTransfer ? {
-              label: 'Create Transfer',
-              onClick: onCreateTransfer,
-            } : undefined}
+            {...(onCreateTransfer && {
+              action: {
+                label: 'Create Transfer',
+                onClick: onCreateTransfer
+              }
+            })}
           />
         </div>
       )}

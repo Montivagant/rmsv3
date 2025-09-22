@@ -5,7 +5,6 @@ export interface UnsavedGuardOptions {
   when: boolean;
   message?: string;
   onBeforeUnload?: () => boolean | string;
-  onBlock?: () => boolean | Promise<boolean>;
 }
 
 const DEFAULT_MESSAGE = 'You have unsaved changes. Are you sure you want to leave this page?';
@@ -19,7 +18,6 @@ export function useUnsavedGuard({
   when,
   message = DEFAULT_MESSAGE,
   onBeforeUnload,
-  onBlock,
 }: UnsavedGuardOptions) {
   const messageRef = useRef(message);
   messageRef.current = message;
@@ -62,6 +60,6 @@ export function useUnsavedGuard({
 export function useFormGuard(isDirty: boolean, message?: string) {
   return useUnsavedGuard({
     when: isDirty,
-    message,
+    ...(message !== undefined && { message }),
   });
 }

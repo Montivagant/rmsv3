@@ -7,14 +7,12 @@ import { getCurrentUser, Role, setCurrentUser } from './rbac/roles';
 import { DynamicRoleGuard } from './rbac/dynamicGuard';
 import { PersistenceDebugger } from './components/PersistenceDebugger';
 import { useUI, getDensityClasses } from './store/ui';
-import { useFeature } from './store/flags';
 
 // Lazy load all pages
-const Dashboard = lazy(() => import('./pages/Dashboard'));
 const DashboardEnhanced = lazy(() => import('./pages/DashboardEnhanced'));
 const POS = lazy(() => import('./pages/POS'));
 const KDS = lazy(() => import('./pages/KDS'));
-const Inventory = lazy(() => import('./pages/Inventory-complete'));
+const Clockin = lazy(() => import('./pages/ClockIn'));
 const Customers = lazy(() => import('./pages/Customers'));
 const Recipes = lazy(() => import('./components/RecipeManagement'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -29,7 +27,6 @@ const ActiveOrders = lazy(() => import('./pages/orders/ActiveOrders'));
 const OrderHistory = lazy(() => import('./pages/orders/OrderHistory'));
 
 // Inventory pages
-const CountSession = lazy(() => import('./pages/inventory/CountSession'));
 const Transfers = lazy(() => import('./pages/inventory/Transfers'));
 const TransferDetail = lazy(() => import('./pages/inventory/TransferDetail'));
 const EditTransfer = lazy(() => import('./pages/inventory/EditTransfer'));
@@ -38,6 +35,8 @@ const EditTransfer = lazy(() => import('./pages/inventory/EditTransfer'));
 const InventoryAudit = lazy(() => import('./pages/inventory/InventoryAudit'));
 const AuditSession = lazy(() => import('./pages/inventory/AuditSession'));
 const InventoryHistory = lazy(() => import('./pages/inventory/History'));
+const InventoryCategoryManagement = lazy(() => import('./pages/inventory/CategoryManagement'));
+const InventoryItemTypes = lazy(() => import('./pages/inventory/ItemTypes'));
 // Cost Adjustments and Purchase Orders imports removed
 
 // Reports pages
@@ -58,7 +57,6 @@ const KDSReport = lazy(() => import('./pages/reports/KDSReport'));
 const MenuManagement = lazy(() => import('./pages/settings/MenuManagement'));
 const TaxSettings = lazy(() => import('./pages/settings/TaxSettings'));
 const SystemSettings = lazy(() => import('./pages/settings/SystemSettings'));
-const ItemTypesSettings = lazy(() => import('./pages/settings/ItemTypes'));
 
 // Menu pages
 const MenuCategories = lazy(() => import('./pages/menu/Categories'));
@@ -73,6 +71,7 @@ const InventoryItems = lazy(() => import('./pages/inventory/Items'));
 const ManageUsers = lazy(() => import('./pages/manage/Users'));
 const ManageRoles = lazy(() => import('./pages/manage/Roles'));
 const ManageBranches = lazy(() => import('./pages/manage/Branches'));
+const ManageShifts = lazy(() => import('./pages/manage/Shifts'));
 // More page import removed
 const ItemTypes = lazy(() => import('./pages/manage/ItemTypes'));
 
@@ -119,37 +118,18 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 // Determine if user should get admin interface
-function shouldUseAdminLayout(currentUser: any): boolean {
+function shouldUseAdminLayout(): boolean {
   // Always use admin layout since we only have Business Owner role
   return true;
 }
 
-// Feature disabled banner component
-function FeatureDisabledBanner({ feature }: { feature: string }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-primary mb-4">Feature Disabled</h1>
-        <p className="text-xl text-secondary mb-4">
-          The {feature} feature is currently disabled.
-        </p>
-        <p className="text-tertiary">
-          Contact your administrator to enable this feature.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export function AppContent() {
   const density = useUI((state) => state.density);
-  const kdsEnabled = useFeature('kds');
-  const currentUser = getCurrentUser();
-  const useAdminLayout = shouldUseAdminLayout(currentUser);
+  const useAdminLayout = shouldUseAdminLayout();
   
   const AppRouter = ({ children }: { children: ReactNode }) => {
-    const mode = (import.meta as any).env?.MODE || (import.meta as any).env?.VITEST ? 'test' : undefined;
-    if (mode === 'test') {
+    const isTest = Boolean((import.meta as any).env?.VITEST);
+    if (isTest) {
       const testEntries = (globalThis as any).__TEST_INITIAL_ENTRIES as string[] | undefined;
       const initialEntries = testEntries && testEntries.length ? testEntries : [window.location.pathname || '/'];
       return (
@@ -190,6 +170,7 @@ export function AppContent() {
             <Route path="dashboard" element={<DashboardEnhanced />} />
             <Route path="pos" element={<POS />} />
             <Route path="kds" element={<KDS />} />
+            <Route path="clockin" element={<Clockin />} />
             
             {/* Orders Routes */}
             <Route path="orders" element={<ActiveOrders />} />
@@ -244,6 +225,16 @@ export function AppContent() {
             <Route path="inventory/history" element={
               <DynamicRoleGuard requiredPermission="inventory.view">
                 <InventoryHistory />
+              </DynamicRoleGuard>
+            } />
+            <Route path="inventory/categories" element={
+              <DynamicRoleGuard requiredPermission="inventory.view">
+                <InventoryCategoryManagement />
+              </DynamicRoleGuard>
+            } />
+            <Route path="inventory/item-types" element={
+              <DynamicRoleGuard requiredPermission="inventory.view">
+                <InventoryItemTypes />
               </DynamicRoleGuard>
             } />
             <Route path="customers" element={<Customers />} />
@@ -332,6 +323,11 @@ export function AppContent() {
                 <ManageBranches />
               </DynamicRoleGuard>
             } />
+            <Route path="manage/shifts" element={
+              <DynamicRoleGuard requiredPermission="settings.edit">
+                <ManageShifts />
+              </DynamicRoleGuard>
+            } />
             {/* More page route removed - not essential */}
             <Route path="manage/item-types" element={
               <DynamicRoleGuard requiredPermission="settings.edit">
@@ -374,11 +370,6 @@ export function AppContent() {
             <Route path="settings/system" element={
               <DynamicRoleGuard requiredPermission="settings.system_config">
                 <SystemSettings />
-              </DynamicRoleGuard>
-            } />
-            <Route path="settings/item-types" element={
-              <DynamicRoleGuard requiredPermission="settings.edit">
-                <ItemTypesSettings />
               </DynamicRoleGuard>
             } />
             {/* Catch-all within protected layout */}

@@ -4,8 +4,8 @@ import { cn } from '../lib/utils';
 interface FormFieldProps {
   children: ReactNode;
   className?: string;
-  error?: string;
-  helpText?: string;
+  error?: string | undefined;
+  helpText?: string | undefined;
   required?: boolean;
 }
 

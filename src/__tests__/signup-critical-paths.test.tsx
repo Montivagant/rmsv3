@@ -176,8 +176,6 @@ describe('DashUp Signup Critical Paths', () => {
 
   describe('Terms and Conditions', () => {
     it('should have expandable terms content', async () => {
-      const user = userEvent.setup();
-
       render(<Signup />);
 
       // Terms checkbox should be present

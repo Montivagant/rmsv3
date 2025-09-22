@@ -3,7 +3,7 @@
  * Comprehensive provider setup for testing components that require React contexts
  */
 
-import React, { ReactNode } from 'react'
+import React, { type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { render } from '@testing-library/react'
@@ -99,7 +99,7 @@ export const TestProviders: React.FC<TestProvidersProps> = ({
   initialValues = {},
   queryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false, cacheTime: 0 },
+      queries: { retry: false, gcTime: 0 },
       mutations: { retry: false }
     }
   }),
@@ -165,7 +165,7 @@ export const MinimalTestProviders: React.FC<{ children: ReactNode }> = ({ childr
   return (
     <QueryClientProvider client={new QueryClient({
       defaultOptions: {
-        queries: { retry: false, cacheTime: 0 },
+        queries: { retry: false, gcTime: 0 },
         mutations: { retry: false }
       }
     })}>
@@ -181,7 +181,12 @@ export const FormTestProviders: React.FC<{
   children: ReactNode
   initialValues?: Record<string, any>
   onSubmit?: (values: any) => void
-}> = ({ children, initialValues = {}, onSubmit = vi.fn() }) => {
+}> = ({ children, initialValues = {}, onSubmit }) => {
+  const submitFormMock = vi.fn()
+  if (onSubmit) {
+    submitFormMock.mockImplementation(onSubmit)
+  }
+  
   const formContextValue = {
     values: initialValues,
     errors: {},
@@ -190,7 +195,7 @@ export const FormTestProviders: React.FC<{
     setFieldValue: vi.fn(),
     setFieldError: vi.fn(),
     setFieldTouched: vi.fn(),
-    submitForm: onSubmit
+    submitForm: submitFormMock
   }
 
   return (

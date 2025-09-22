@@ -31,6 +31,7 @@ export default function TransfersReport() {
   const transfersUrl = `/api/inventory/transfers?${searchParams.toString()}`;
   const { data: resp, loading } = useApi<TransfersResponse>(transfersUrl);
   const { data: locations } = useApi<Location[]>('/api/inventory/locations', [] as any);
+  const locationList = locations ?? [];
 
   const rows = resp?.data || [];
 
@@ -61,14 +62,14 @@ export default function TransfersReport() {
           <label className="block text-sm mb-1">Source</label>
           <select value={source} onChange={e => setSource(e.target.value)} className="input-base border p-2 rounded">
             <option value="">Any</option>
-            {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            {locationList.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-sm mb-1">Destination</label>
           <select value={dest} onChange={e => setDest(e.target.value)} className="input-base border p-2 rounded">
             <option value="">Any</option>
-            {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            {locationList.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>
         </div>
         <div className="md:col-span-2">
@@ -108,8 +109,8 @@ export default function TransfersReport() {
               return (
                 <tr key={t.id} className="border-b last:border-0">
                   <td className="py-2 pr-4 font-mono">{t.code}</td>
-                  <td className="py-2 pr-4">{locations.find(l => l.id === t.sourceLocationId)?.name || t.sourceLocationId}</td>
-                  <td className="py-2 pr-4">{locations.find(l => l.id === t.destinationLocationId)?.name || t.destinationLocationId}</td>
+                  <td className="py-2 pr-4">{locationList.find(l => l.id === t.sourceLocationId)?.name || t.sourceLocationId}</td>
+                  <td className="py-2 pr-4">{locationList.find(l => l.id === t.destinationLocationId)?.name || t.destinationLocationId}</td>
                   <td className="py-2 pr-4">{t.status}</td>
                   <td className="py-2 pr-4">{s}</td>
                   <td className="py-2 pr-4">{t.status === 'COMPLETED' ? r : '—'}</td>

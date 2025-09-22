@@ -56,7 +56,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     const maxValue = Math.max(...data.map(d => d.value));
     
     return (
-      <div className="flex items-end justify-between space-x-2 h-52">
+      <div className="flex items-end justify-between space-x-2" style={{ height: `${height}px` }}>
         {data.map((point, index) => {
           const heightPercentage = (point.value / maxValue) * 100;
           return (
@@ -94,7 +94,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     }).join(' ');
     
     return (
-      <div className="relative h-52">
+      <div className="relative" style={{ height: `${height}px` }}>
         <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           <polyline
             points={points}
@@ -167,7 +167,7 @@ export const ChartCard: React.FC<ChartCardProps> = ({
     });
     
     return (
-      <div className="flex items-center justify-center h-52">
+      <div className="flex items-center justify-center" style={{ height: `${height}px` }}>
         <svg className="w-full h-full max-w-xs" viewBox="0 0 100 100">
           {slices}
         </svg>

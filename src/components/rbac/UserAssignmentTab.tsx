@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Input, Select, Card, CardContent } from '../';
 import type { DynamicRole } from '../../rbac/permissions';
-import type { DynamicRBACService } from '../../rbac/dynamicRBACService';
+import { dynamicRBACService } from '../../rbac/dynamicRBACService';
 import { getCurrentUser, setCurrentUser, type User } from '../../rbac/roles';
 
 interface MockUser {
@@ -15,7 +15,7 @@ interface MockUser {
 
 interface UserAssignmentTabProps {
   canManageUsers: boolean;
-  rbacService: DynamicRBACService;
+  rbacService: typeof dynamicRBACService;
   onUserRoleChange?: () => void;
 }
 
@@ -33,7 +33,7 @@ const MOCK_USERS: MockUser[] = [
 
 export function UserAssignmentTab({ canManageUsers, rbacService, onUserRoleChange }: UserAssignmentTabProps) {
   const [users, setUsers] = useState<MockUser[]>(MOCK_USERS);
-  const [roles, setRoles] = useState<DynamicRole[]>([]);
+  const [, setRoles] = useState<DynamicRole[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<MockUser | null>(null);
   const [showBootstrap, setShowBootstrap] = useState(false);
@@ -57,7 +57,7 @@ export function UserAssignmentTab({ canManageUsers, rbacService, onUserRoleChang
 
     try {
       // Assign business_owner role to current BUSINESS_OWNER user
-      await rbacService.assignRole(currentUser.id, 'business_owner');
+      await rbacService.assignUserToRole(currentUser.id, 'business_owner');
       setShowBootstrap(false);
       onUserRoleChange?.();
     } catch (error) {
@@ -218,7 +218,7 @@ export function UserAssignmentTab({ canManageUsers, rbacService, onUserRoleChang
                     <div className="text-sm text-muted-foreground">
                       {userRoles.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {userRoles.map(role => {
+                          {userRoles.map((role: DynamicRole) => {
                             return (
                               <span key={role.id} className="px-2 py-1 bg-primary/10 text-primary rounded text-xs">
                                 {role.name}

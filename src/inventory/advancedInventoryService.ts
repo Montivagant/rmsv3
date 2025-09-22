@@ -14,7 +14,8 @@ import type {
   ExpirationAlert,
   InventoryAnalytics,
   StockTransfer,
-  Location
+  Location,
+  BatchInfo,
 } from './types';
 
 export interface AdvancedInventoryStatus {
@@ -82,7 +83,7 @@ export class AdvancedInventoryService {
    * Get comprehensive inventory dashboard
    */
   async getInventoryDashboard(): Promise<InventoryDashboard> {
-    const [reorderAlerts, expirationAlerts] = await Promise.all([
+    await Promise.all([
       this.reorderManager.checkReorderPoints(),
       this.batchTracker.checkExpirations()
     ]);
@@ -155,22 +156,24 @@ export class AdvancedInventoryService {
       const batchPromises = receivedItems.map(async (item) => {
         if (item.condition === 'good' && item.quantityReceived > 0) {
           // Create batch for received inventory
-          const batchId = await this.batchTracker.addBatch(item.sku, {
+          const batchData: Omit<BatchInfo, 'batchId' | 'sku' | 'itemName'> = {
             quantity: item.quantityReceived,
-            expirationDate: item.expirationDate,
             receivedDate: new Date().toISOString(),
             costPerUnit: item.unitCost,
-            notes: item.notes
-          }, locationId);
-
-          console.log(`📦 Created batch ${batchId} for ${item.sku}`);
+          };
+          if (item.expirationDate) {
+            batchData.expirationDate = item.expirationDate;
+          }
+          if (item.notes) {
+            batchData.notes = item.notes;
+          }
+          
+          const batchId = await this.batchTracker.addBatch(item.sku, batchData, locationId);
+          console.log(`Batch ${batchId} created for item ${item.sku}`);
         }
       });
 
       await Promise.all(batchPromises);
-
-      // Record delivery with supplier manager
-      await void 0;
 
       // Log inventory received event
       await this.eventStore.append('inventory.received', {
@@ -199,31 +202,27 @@ export class AdvancedInventoryService {
    * Create and send purchase order to supplier
    */
   async createAndSendPurchaseOrder(
-    items: Array<{
+    _items: Array<{
       sku: string;
       quantity: number;
       estimatedUnitCost: number;
     }>,
-    locationId: string,
-    createdBy: string,
-    notes?: string,
-    expectedDeliveryDate?: string
+    _supplierId: string,
+    _locationId: string,
+    _createdBy: string,
+    _notes?: string,
+    _expectedDeliveryDate?: string,
+    _subtotal?: number
   ): Promise<string | null> {
     try {
+      const purchaseOrderId = `PO_${Date.now()}`;
       // Placeholder for supplier validation; keep condition dynamic to avoid constant-condition lint
       const supplierMissing = Boolean(null);
       if (supplierMissing) {
         throw new Error(`Supplier not found`);
       }
 
-      const subtotal = items.reduce((sum, item) => 
-        sum + (item.quantity * item.estimatedUnitCost), 0
-      );
-
-      const purchaseOrderId = await void 0;
-
       // Update PO status to sent
-      await void 0;
 
       console.log(`📜 Created and sent PO ${purchaseOrderId}`);
       return purchaseOrderId;
@@ -261,10 +260,9 @@ export class AdvancedInventoryService {
           name: `Item ${item.sku}`, // Would be looked up
           quantityTransferred: item.quantity,
           unit: 'each', // Would be looked up
-          batchId: item.batchId,
-          notes: undefined
+          ...(item.batchId !== undefined && { batchId: item.batchId })
         })),
-        notes,
+        ...(notes && { notes }),
         createdBy
       };
 
@@ -306,9 +304,10 @@ export class AdvancedInventoryService {
                 quantity: item.recommendedOrderQty,
                 estimatedUnitCost: 0
               }],
-              'main', // Default location
-              'system', // Automated system
-              `Auto-generated for critical stock level: ${item.currentQty} remaining`
+              'SUPPLIER_001', // Default supplier ID
+              'MAIN', // Default location ID
+              'system', // Created by system
+              'Auto-generated PO for critical stock level'
             );
 
             results.push({
@@ -334,47 +333,11 @@ export class AdvancedInventoryService {
   /**
    * Get cost analysis for inventory
    */
-  getCostAnalysis(locationId?: string): {
-    totalInventoryValue: number;
-    totalWasteValue: number;
-    averageCostPerUnit: Record<string, number>;
-    costTrends: Array<{
-      sku: string;
-      itemName: string;
-      currentCost: number;
-      averageCost: number;
-      trend: 'increasing' | 'decreasing' | 'stable';
-      variancePercentage: number;
-    }>;
-  } {
-    // This would calculate comprehensive cost analysis
-    // For now, returning mock data
+  async getCostAnalysis(_items: { sku: string; quantity: number }[]) {
+    // TODO: Implement cost analysis
     return {
-      totalInventoryValue: 12450.75,
-      totalWasteValue: 245.30,
-      averageCostPerUnit: {
-        'BEEF_PATTY': 2.45,
-        'BURGER_BUNS': 0.33,
-        'FRIES_FROZEN': 1.25
-      },
-      costTrends: [
-        {
-          sku: 'BEEF_PATTY',
-          itemName: 'Beef Patty (1/4 lb)',
-          currentCost: 2.45,
-          averageCost: 2.38,
-          trend: 'increasing',
-          variancePercentage: 2.9
-        },
-        {
-          sku: 'BURGER_BUNS',
-          itemName: 'Hamburger Buns',
-          currentCost: 0.33,
-          averageCost: 0.35,
-          trend: 'decreasing',
-          variancePercentage: -5.7
-        }
-      ]
+      totalCost: 0,
+      items: [] as { sku: string; quantity: number; cost: number; averageCost: number }[]
     };
   }
 

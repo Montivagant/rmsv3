@@ -175,10 +175,9 @@ export async function openLocalStorageDB(options: { name: string }): Promise<Loc
     localStorage.removeItem(testKey);
     
     // Only log once per session to avoid React StrictMode duplicate messages
-    if (!globalThis.__RMS_LOCALSTORAGE_LOGGED) {
+    if (!(globalThis as any).__RMS_LOCALSTORAGE_LOGGED) {
       // Development info: LocalStorage database opened successfully
-      const storageInfo = db.getStorageInfo();
-      globalThis.__RMS_LOCALSTORAGE_LOGGED = true;
+      (globalThis as any).__RMS_LOCALSTORAGE_LOGGED = true;
     }
     
     return db;

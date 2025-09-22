@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom'; // Unused for now
 import { useFeature } from '../../store/flags';
 import { useDismissableLayer } from '../../hooks/useDismissableLayer';
-import type { NavItem as NavItemType, QuickAction } from '../../config/nav.config';
+import type { QuickAction } from '../../config/nav.config';
 import { 
   navigationConfig, 
   quickActionsConfig,
@@ -28,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNewAction,
   className = '',
 }) => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // Unused for now
   const sidebarRef = useRef<HTMLElement>(null);
   const quickActionsTriggerRef = useRef<HTMLButtonElement>(null);
   const quickActionsPanelRef = useRef<HTMLDivElement>(null);

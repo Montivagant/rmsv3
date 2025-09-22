@@ -8,8 +8,8 @@ import { usePermissions } from '../rbac/dynamicGuard'
 export default function Settings() {
   const role = getRole()
   const { hasPermission } = usePermissions()
-  const isAdmin = RANK[role] >= RANK.ADMIN
-  const isTech = RANK[role] >= RANK.TECH_ADMIN
+  const isAdmin = RANK[role] >= RANK.BUSINESS_OWNER
+  const isTech = RANK[role] >= RANK.BUSINESS_OWNER
   const canManageRoles = hasPermission('settings.role_management')
 
   const tabs = [

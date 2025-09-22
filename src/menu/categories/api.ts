@@ -137,10 +137,9 @@ export const menuCategoriesApiHandlers = [
     const query: CategoryQuery = {
       page: parseInt(url.searchParams.get('page') || '1'),
       pageSize: parseInt(url.searchParams.get('pageSize') || '25'),
-      search: url.searchParams.get('search') || undefined,
-      branchId: url.searchParams.get('branchId') || undefined,
-      isActive: url.searchParams.get('isActive') ? 
-        url.searchParams.get('isActive') === 'true' : undefined,
+      ...(url.searchParams.get('search') && { search: url.searchParams.get('search')! }),
+      ...(url.searchParams.get('branchId') && { branchId: url.searchParams.get('branchId')! }),
+      ...(url.searchParams.get('isActive') && { isActive: url.searchParams.get('isActive') === 'true' }),
       sortBy: (url.searchParams.get('sortBy') as any) || 'displayOrder',
       sortOrder: (url.searchParams.get('sortOrder') as 'asc' | 'desc') || 'asc',
     };

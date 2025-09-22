@@ -243,7 +243,7 @@ export class RecipeService {
       instructions: recipeData.instructions || [],
       ingredients: recipeData.ingredients || [],
       equipment: recipeData.equipment || [],
-      nutrition: recipeData.nutrition,
+      ...(recipeData.nutrition && { nutrition: recipeData.nutrition }),
       costing: {
         totalIngredientCost: 0,
         costPerServing: 0,
@@ -283,6 +283,7 @@ export class RecipeService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `recipe-created-${recipeId}`,
       aggregate: { id: recipeId, type: 'recipe' }
     });
 
@@ -302,7 +303,7 @@ export class RecipeService {
       throw new Error('Cannot update inactive recipe');
     }
 
-    const validation = this.validateRecipeUpdate(recipeId, updates);
+    const validation = this.validateRecipeUpdate(updates);
     if (!validation.isValid) {
       throw new Error(`Recipe validation failed: ${validation.errors.join(', ')}`);
     }
@@ -331,6 +332,7 @@ export class RecipeService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `recipe-updated-${recipeId}-${newVersion}`,
       aggregate: { id: recipeId, type: 'recipe' }
     });
 
@@ -519,6 +521,7 @@ export class RecipeService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `recipe-cost-calculated-${recipeId}-${event.timestamp}`,
       aggregate: { id: recipeId, type: 'recipe' }
     });
   }
@@ -666,8 +669,8 @@ export class RecipeService {
       type: 'recipe.inventory.deducted',
       payload: {
         recipeId,
-        menuItemId,
-        orderId,
+        ...(menuItemId && { menuItemId }),
+        ...(orderId && { orderId }),
         deductions,
         totalCost,
         performedBy: currentUser
@@ -677,6 +680,7 @@ export class RecipeService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `inventory-deducted-${recipeId}-${orderId || menuItemId || 'manual'}`,
       aggregate: { id: orderId || menuItemId || recipeId, type: 'order' }
     });
 
@@ -745,6 +749,7 @@ export class RecipeService {
     };
 
     await this.eventStore.append(event.type, event.payload, {
+      key: `batch-production-started-${batchId}`,
       aggregate: { id: batchId, type: 'batch-production' }
     });
 
@@ -837,7 +842,7 @@ export class RecipeService {
     };
   }
 
-  private validateRecipeUpdate(recipeId: string, updates: Partial<Recipe>): RecipeValidation {
+  private validateRecipeUpdate(updates: Partial<Recipe>): RecipeValidation {
     // Similar validation logic for updates
     return this.validateRecipe(updates);
   }

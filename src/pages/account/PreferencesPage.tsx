@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
@@ -11,7 +11,7 @@ import { Select } from '../../components/Select';
 import Toggle from '../../settings/ui/Toggle';
 import FormActions from '../../components/ui/FormActions';
 import { Button } from '../../components/Button';
-import { useApi } from '../../hooks/useApi';
+import { useRepository } from '../../hooks/useRepository';
 
 export default function PreferencesPage() {
   const [preferences, setPreferences] = useState<Preferences | null>(null);
@@ -21,7 +21,10 @@ export default function PreferencesPage() {
   
   const { showToast } = useToast();
   const { showSuccess, showError } = useNotifications();
-  const { data: branches = [] } = useApi<Array<{ id: string; name: string }>>('/api/manage/branches', []);
+  // Import from management repository
+  const { listBranches } = require('../../management/repository');
+  const { data: branchesData = [] } = useRepository(listBranches, []);
+  const branches = (branchesData as any[]).map((b: any) => ({ id: b.id, name: b.name }));
 
   // Check if form has unsaved changes
   const isDirty = preferences && formData && JSON.stringify(preferences) !== JSON.stringify(formData);
@@ -156,7 +159,7 @@ export default function PreferencesPage() {
                 id="preferences-default-branch"
                 value={formData.defaultBranchId || ''}
                 onValueChange={(value) => updateField('defaultBranchId', value)}
-                options={branches.map(branch => ({
+                options={branches.map((branch: any) => ({
                   value: branch.id,
                   label: branch.name
                 }))}

@@ -9,7 +9,11 @@ import type { ZReportData, ZReportRequest } from './types';
 import type { ReportingQueries } from '../events/optimizedQueries';
 
 export class OptimizedZReportEngine {
-  constructor(private queries: ReportingQueries) {}
+  private queries: ReportingQueries;
+  
+  constructor(queries: ReportingQueries) {
+    this.queries = queries;
+  }
   
   /**
    * Generate a Z-Report for a specific business date (OPTIMIZED)
@@ -49,28 +53,31 @@ export class OptimizedZReportEngine {
       reportId,
       reportNumber,
       businessDate,
-      startTime: startTimestamp,
-      endTime: endTimestamp,
+      startTime: new Date(startTimestamp).toISOString(),
+      endTime: new Date(endTimestamp).toISOString(),
       operatorId,
       operatorName,
       salesSummary: {
         grossSales: reportData.sales.totalRevenue,
+        totalDiscounts: 0, // Placeholder until discount system
         netSales: reportData.sales.totalRevenue, // Before tax implementation
-        totalTransactions: reportData.sales.totalOrders,
-        averageTransaction: reportData.sales.averageOrderValue,
-        totalItems: reportData.sales.totalItems
+        totalTax: 0, // Placeholder until tax system
+        finalTotal: reportData.sales.totalRevenue,
+        transactionCount: reportData.sales.totalOrders,
+        itemCount: reportData.sales.totalItems,
+        averageTicket: reportData.sales.averageOrderValue
       },
       paymentSummary: {
-        totalReceived: reportData.payments.total,
-        byMethod: reportData.payments.methods,
-        transactionCount: reportData.payments.count
+        cash: { count: 0, amount: 0 }, // Placeholder until payment system
+        card: { count: 0, amount: 0 }, // Placeholder until payment system
+        other: { count: 0, amount: 0 }, // Placeholder until payment system
+        total: { count: reportData.payments.count, amount: reportData.payments.total }
       },
       taxSummary,
       topItems: reportData.topItems.map(item => ({
-        itemId: item.itemId,
+        name: `Item ${item.itemId}`, // Would be resolved from product catalog
         quantity: item.quantity,
-        revenue: item.revenue,
-        name: `Item ${item.itemId}` // Would be resolved from product catalog
+        revenue: item.revenue
       })),
       discountSummary,
       status: 'draft' as const
@@ -143,21 +150,20 @@ export class OptimizedZReportEngine {
     const defaultTaxRate = 0.08; // 8% default
     const taxAmount = grossSales * defaultTaxRate;
     
-    return {
-      totalTax: taxAmount,
-      byRate: {
-        '8.0%': taxAmount
-      },
-      exemptSales: 0
-    };
+    return [{
+      rate: defaultTaxRate,
+      taxableAmount: grossSales,
+      taxAmount: taxAmount
+    }];
   }
   
   private buildDiscountSummary() {
     // Placeholder discount calculation until discount system is implemented
     return {
       totalDiscounts: 0,
-      byType: {},
-      discountedTransactions: 0
+      discountCount: 0,
+      loyaltyDiscounts: 0,
+      manualDiscounts: 0
     };
   }
 }

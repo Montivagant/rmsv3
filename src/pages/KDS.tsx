@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useApi, apiPatch } from '../hooks/useApi';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useOrders } from '../hooks/useOrders';
+import { useMenuItems } from '../hooks/useMenuItems';
+import { ordersApi } from '../orders/api';
 import { useEventStore } from '../events/context';
 import { getDeviceId } from '../lib/device';
 import { getCurrentBranchId } from '../lib/branch';
@@ -10,7 +12,7 @@ import { getKdsSettings } from '../settings/kds';
 
 interface OrderItem {
   id: string;
-  name?: string;
+  name: string;
   quantity: number;
   modifiers?: string[];
 }
@@ -26,13 +28,6 @@ interface Order {
   total: number;
 }
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-}
-
 // Persist user preferences
 const STORAGE_KEYS = {
   VIEW_MODE: 'kds_view_mode',
@@ -44,8 +39,24 @@ function KDS() {
   const deviceId = getDeviceId();
   const kdsSettings = getKdsSettings();
   const branchId = getCurrentBranchId();
-  const { data: orders, loading, error, refetch } = useApi<Order[]>(`/api/orders?branchId=${encodeURIComponent(branchId)}`);
-  const { data: menuItems } = useApi<MenuItem[]>(`/api/menu?branchId=${encodeURIComponent(branchId)}`);
+  const { orders: orderState, loading, error, refetch } = useOrders({ branchId });
+  const { items: menuCatalog } = useMenuItems({ branchId, includeInactive: true });
+  const orders = orderState.map(order => ({
+    id: order.id,
+    orderNumber: order.ticketId,
+    items: order.items.map(item => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      modifiers: [],
+    })),
+    status: (order.status === 'completed' || order.status === 'cancelled' ? 'served' : order.status) as Order['status'],
+    timestamp: new Date(order.createdAt).toISOString(),
+    tableNumber: undefined,
+    customerName: order.customerName,
+    total: order.totals.total,
+  }));
+
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
   
   // View preferences with localStorage persistence (seeded from settings)
@@ -111,15 +122,16 @@ function KDS() {
   // Get item name from menu data
   const getItemName = (item: OrderItem): string => {
     if (item.name) return item.name;
-    const menuItem = menuItems?.find(m => m.id === item.id);
+    const menuItem = menuCatalog?.find(m => m.id === item.id);
     return menuItem?.name || `Item ${item.id}`;
   };
 
   // Enrich items with names
-  const enrichItems = (items: OrderItem[]): OrderItem[] => {
+  const enrichItems = (items: any[]): OrderItem[] => {
     return items.map(item => ({
       ...item,
       name: getItemName(item),
+      modifiers: item.modifiers || [],
     }));
   };
 
@@ -134,7 +146,7 @@ function KDS() {
     
     setUpdatingOrder(orderId);
     try {
-      await apiPatch(`/api/orders/${orderId}`, { status: newStatus });
+      await ordersApi.updateStatus(orderId, { status: newStatus });
       // Local immediate meta to avoid UI race with event store
       const now = Date.now();
       setLocalMeta(prev => {
@@ -164,6 +176,7 @@ function KDS() {
           deviceId,
         } as const;
         store.append('kds.status.changed', payload, {
+          key: `kds-status-change-${orderId}-${newStatus}-${Date.now()}`,
           aggregate: { id: orderId, type: 'order' },
         });
         // Optional: lightweight UI feedback
@@ -249,8 +262,20 @@ function KDS() {
     }
   };
 
-  // Group orders by status
-  const ordersByStatus = (orders || []).reduce((acc, order) => {
+  // Transform and group orders by status
+  const ordersByStatus = (orders || []).reduce((acc, rawOrder) => {
+    // Transform raw order to match our Order interface
+    const order: Order = {
+      id: rawOrder.id,
+      items: enrichItems(rawOrder.items || []),
+      status: rawOrder.status,
+      timestamp: rawOrder.timestamp,
+      total: rawOrder.total || 0,
+      ...(rawOrder.orderNumber && { orderNumber: rawOrder.orderNumber }),
+      ...(rawOrder.tableNumber ? { tableNumber: rawOrder.tableNumber } : {}),
+      ...(rawOrder.customerName && { customerName: rawOrder.customerName }),
+    };
+    
     if (!acc[order.status]) acc[order.status] = [];
     acc[order.status].push(order);
     return acc;
@@ -353,16 +378,14 @@ function KDS() {
                 <TicketCard
                   key={order.id}
                   orderId={order.id}
-                  orderNumber={order.orderNumber}
-                  items={enrichItems(order.items)}
+                  {...(order.orderNumber && { orderNumber: order.orderNumber })}
+                  items={order.items}
                   status={order.status}
                   timestamp={order.timestamp}
-                  tableNumber={order.tableNumber}
-                  customerName={order.customerName}
+                  {...(order.tableNumber && { tableNumber: order.tableNumber })}
+                  {...(order.customerName && { customerName: order.customerName })}
                   total={order.total}
                   density={density}
-                  readyAt={undefined}
-                  servedAt={undefined}
                   onStatusChange={(newStatus) => updateOrderStatus(order.id, newStatus)}
                   onUndo={() => undoStatusChange(order)}
                   isUpdating={updatingOrder === order.id}
@@ -380,16 +403,16 @@ function KDS() {
                 <TicketCard
                   key={order.id}
                   orderId={order.id}
-                  orderNumber={order.orderNumber}
-                  items={enrichItems(order.items)}
+                  {...(order.orderNumber && { orderNumber: order.orderNumber })}
+                  items={order.items}
                   status={order.status}
                   timestamp={order.timestamp}
-                  tableNumber={order.tableNumber}
-                  customerName={order.customerName}
+                  {...(order.tableNumber && { tableNumber: order.tableNumber })}
+                  {...(order.customerName && { customerName: order.customerName })}
                   total={order.total}
                   density={density}
-                  readyAt={kdsMetaByOrder.get(order.id)?.readyAt}
-                  preparedBy={kdsMetaByOrder.get(order.id)?.preparedBy}
+                  {...(kdsMetaByOrder.get(order.id)?.readyAt !== undefined && { readyAt: kdsMetaByOrder.get(order.id)!.readyAt })}
+                  {...(kdsMetaByOrder.get(order.id)?.preparedBy ? { preparedBy: kdsMetaByOrder.get(order.id)!.preparedBy } : {})}
                   onStatusChange={(newStatus) => updateOrderStatus(order.id, newStatus)}
                   onUndo={() => undoStatusChange(order)}
                   isUpdating={updatingOrder === order.id}
@@ -407,17 +430,17 @@ function KDS() {
                 <TicketCard
                   key={order.id}
                   orderId={order.id}
-                  orderNumber={order.orderNumber}
-                  items={enrichItems(order.items)}
+                  {...(order.orderNumber && { orderNumber: order.orderNumber })}
+                  items={order.items}
                   status={order.status}
                   timestamp={order.timestamp}
-                  tableNumber={order.tableNumber}
-                  customerName={order.customerName}
+                  {...(order.tableNumber && { tableNumber: order.tableNumber })}
+                  {...(order.customerName && { customerName: order.customerName })}
                   total={order.total}
                   density={density}
-                  readyAt={kdsMetaByOrder.get(order.id)?.readyAt}
-                  servedAt={kdsMetaByOrder.get(order.id)?.servedAt}
-                  preparedBy={kdsMetaByOrder.get(order.id)?.preparedBy}
+                  {...(kdsMetaByOrder.get(order.id)?.readyAt !== undefined && { readyAt: kdsMetaByOrder.get(order.id)!.readyAt })}
+                  {...(kdsMetaByOrder.get(order.id)?.servedAt !== undefined && { servedAt: kdsMetaByOrder.get(order.id)!.servedAt })}
+                  {...(kdsMetaByOrder.get(order.id)?.preparedBy ? { preparedBy: kdsMetaByOrder.get(order.id)!.preparedBy } : {})}
                   onStatusChange={(newStatus) => updateOrderStatus(order.id, newStatus)}
                   onUndo={() => undoStatusChange(order)}
                   isUpdating={updatingOrder === order.id}
@@ -447,12 +470,12 @@ function KDS() {
                         <div key={order.id} className="w-full">
                           <TicketCard
                             orderId={order.id}
-                            orderNumber={order.orderNumber}
-                            items={enrichItems(order.items)}
+                            {...(order.orderNumber && { orderNumber: order.orderNumber })}
+                            items={order.items}
                             status={order.status}
                             timestamp={order.timestamp}
-                            tableNumber={order.tableNumber}
-                            customerName={order.customerName}
+                            {...(order.tableNumber && { tableNumber: order.tableNumber })}
+                            {...(order.customerName && { customerName: order.customerName })}
                             total={order.total}
                             density={density}
                             onStatusChange={(newStatus) => updateOrderStatus(order.id, newStatus)}

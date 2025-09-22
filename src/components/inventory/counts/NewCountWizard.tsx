@@ -1,17 +1,13 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { Modal } from '../../Modal';
 import { Button } from '../../Button';
 import { Input } from '../../Input';
 import { Select } from '../../Select';
 import { Label } from '../../Label';
-import { Badge } from '../../Badge';
 import { Checkbox } from '../../Checkbox';
 import { RadioGroup, RadioOption, RadioOptionContent } from '../../ui/RadioGroup';
-import { Skeleton } from '../../Skeleton';
-import { Tooltip } from '../../ui/Tooltip';
 import { useToast } from '../../../hooks/useToast';
-import { useApi } from '../../../hooks/useApi';
+import { createInventoryCount } from '../../../inventory/repository';
 import type { CreateCountRequest, CountScope } from '../../../inventory/counts/types';
 
 interface NewCountWizardProps {
@@ -43,12 +39,6 @@ export default function NewCountWizard({
   loading = false,
   simpleMode = false
 }: NewCountWizardProps) {
-  let navigate: (to: string) => void;
-  try {
-    navigate = useNavigate();
-  } catch {
-    navigate = () => {};
-  }
   const [currentStep, setCurrentStep] = useState<WizardStep>('branch');
   const [formData, setFormData] = useState<CreateCountRequest>({
     branchId: '',
@@ -71,7 +61,7 @@ export default function NewCountWizard({
         if (!formData.branchId || formData.branchId.trim() === '') {
           newErrors.branchId = 'Branch selection is required';
         }
-        if (formData.estimatedDurationMinutes < 15 || formData.estimatedDurationMinutes > 480) {
+        if ((formData.estimatedDurationMinutes ?? 0) < 15 || (formData.estimatedDurationMinutes ?? 0) > 480) {
           newErrors.estimatedDurationMinutes = 'Duration must be between 15 and 480 minutes';
         }
         break;
@@ -79,11 +69,11 @@ export default function NewCountWizard({
       case 'scope':
         if (scopeType === 'categories') {
           const f: any = formData.scope.filters || {};
-          const hasAny = Boolean((f.categoryIds && f.categoryIds.length > 0) || (f.supplierIds && f.supplierIds.length > 0) || (f.storageAreaIds && f.storageAreaIds.length > 0));
+          const hasAny = Boolean((f.categoryIds && f.categoryIds.length > 0) || (f.itemTypeIds && f.itemTypeIds.length > 0) || (f.storageLocationIds && f.storageLocationIds.length > 0));
           if (!hasAny) newErrors.filters = 'At least one filter must be selected';
         }
         
-        if (scopeType === 'itemTypes' && 
+        if (scopeType === 'importList' && 
             (!formData.scope.filters?.itemTypeIds || formData.scope.filters.itemTypeIds.length === 0)) {
           newErrors.itemTypeIds = 'At least one item type must be selected';
         }
@@ -133,20 +123,10 @@ export default function NewCountWizard({
         scope: finalScope,
       };
 
-      // API call
-      const response = await fetch('/api/inventory/counts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestData)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create count session');
-      }
-
-      const result = await response.json();
+      // Create count using repository
+      const result = await createInventoryCount(requestData);
       showToast('Count session created successfully', 'success');
-      onSuccess(result.countId);
+      onSuccess(result.id);
       
     } catch (error) {
       console.error('Error creating count:', error);
@@ -205,7 +185,7 @@ export default function NewCountWizard({
         if (scopeType === 'all') {
           return true;
         } else if (scopeType === 'categories') {
-          return formData.scope.filters?.categoryIds && formData.scope.filters.categoryIds.length > 0;
+          return Boolean(formData.scope.filters?.categoryIds && formData.scope.filters.categoryIds.length > 0);
         } else if (scopeType === 'importList') {
           return true;
         }
@@ -357,7 +337,7 @@ export default function NewCountWizard({
               </div>
             )}
 
-            {scopeType === 'itemTypes' && (
+            {scopeType === 'importList' && (
               <div className="space-y-3">
                 <Label required>Item Types</Label>
                 <div className="p-4 bg-surface-secondary/30 rounded-md border border-border">
@@ -630,11 +610,11 @@ export default function NewCountWizard({
                           <div key={s.id} className="flex items-center space-x-2">
                             <Checkbox
                               id={`sup-${s.id}`}
-                              checked={(formData.scope.filters?.supplierIds || []).includes(s.id)}
+                              checked={(formData.scope.filters?.itemTypeIds || []).includes(s.id)}
                               disabled={!formData.branchId}
                               onChange={(e) => {
                                 const isChecked = e.currentTarget.checked;
-                                const supplierIds = [...(formData.scope.filters?.supplierIds || [])];
+                                const supplierIds = [...(formData.scope.filters?.itemTypeIds || [])];
                                 if (isChecked) {
                                   if (!supplierIds.includes(s.id)) supplierIds.push(s.id);
                                 } else {
@@ -647,7 +627,7 @@ export default function NewCountWizard({
                                     ...prev.scope,
                                     filters: {
                                       ...(prev.scope.filters || {}),
-                                      supplierIds
+                                      itemTypeIds: supplierIds
                                     }
                                   }
                                 }));
@@ -673,11 +653,11 @@ export default function NewCountWizard({
                           <div key={a.id} className="flex items-center space-x-2">
                             <Checkbox
                               id={`area-${a.id}`}
-                              checked={(formData.scope.filters?.storageAreaIds || []).includes(a.id)}
+                              checked={(formData.scope.filters?.storageLocationIds || []).includes(a.id)}
                               disabled={!formData.branchId}
                               onChange={(e) => {
                                 const isChecked = e.currentTarget.checked;
-                                const storageAreaIds = [...(formData.scope.filters?.storageAreaIds || [])];
+                                const storageAreaIds = [...(formData.scope.filters?.storageLocationIds || [])];
                                 if (isChecked) {
                                   if (!storageAreaIds.includes(a.id)) storageAreaIds.push(a.id);
                                 } else {
@@ -690,7 +670,7 @@ export default function NewCountWizard({
                                     ...prev.scope,
                                     filters: {
                                       ...(prev.scope.filters || {}),
-                                      storageAreaIds
+                                      storageLocationIds: storageAreaIds
                                     }
                                   }
                                 }));
@@ -748,7 +728,7 @@ export default function NewCountWizard({
                           By Categories ({formData.scope.filters?.categoryIds?.length || 0})
                         </span>
                       )}
-                      {scopeType === 'itemTypes' && (
+                      {scopeType === 'importList' && (
                         <span>
                           By Item Types ({formData.scope.filters?.itemTypeIds?.length || 0})
                         </span>

@@ -189,7 +189,7 @@ export const validationRules = {
       if (!condition(formData || {})) return { isValid: true }
       return rule.validate(value, formData)
     },
-    dependencies: rule.dependencies,
+    ...(rule.dependencies && { dependencies: rule.dependencies }),
   }),
 }
 

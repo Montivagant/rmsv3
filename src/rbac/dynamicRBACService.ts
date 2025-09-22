@@ -35,10 +35,10 @@ class DynamicRBACService {
       this.customRoles.set(role.id, role);
       
       // RBAC logging disabled by default to prevent console noise and DevTools serialization issues
-      if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGGING === 'true' && role.id === 'business_owner' && !globalThis.__RMS_RBAC_LOGGED) {
+      if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGGING === 'true' && role.id === 'business_owner' && !(globalThis as any).__RMS_RBAC_LOGGED) {
         const menuPermissions = role.permissions.filter(p => p.module === 'menu');
         console.log(`🔑 RBAC: Loaded ${role.permissions.length} permissions, ${menuPermissions.length} menu permissions`);
-        globalThis.__RMS_RBAC_LOGGED = true;
+        (globalThis as any).__RMS_RBAC_LOGGED = true;
       }
     });
   }
@@ -164,7 +164,7 @@ class DynamicRBACService {
       roleId,
       assignedAt: Date.now(),
       assignedBy: getCurrentUser()?.id || 'system',
-      scope
+      ...(scope && { scope })
     };
 
     userAssignments.push(assignment);
@@ -254,7 +254,7 @@ class DynamicRBACService {
     return false;
   }
 
-  public hasModuleAccess(userId: string, module: string, action: string, context: any = {}): boolean {
+  public hasModuleAccess(userId: string, module: string, action: string): boolean {
     const userRoles = this.getUserRoles(userId);
     
     for (const role of userRoles) {
@@ -280,7 +280,7 @@ class DynamicRBACService {
           conditions: {
             ...permission.scope?.conditions,
             expiresAt: expiresAt.toISOString()
-          }
+          } as any // Allow expiresAt for temporary permissions
         }
       };
     }

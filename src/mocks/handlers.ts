@@ -11,8 +11,9 @@ import { inventoryItemTypeApiHandlers } from '../inventory/item-types/api';
 import { menuCategoriesApiHandlers } from '../menu/categories/api';
 import { menuItemsApiHandlers } from '../menu/items/api';
 import { menuModifiersApiHandlers } from '../menu/modifiers/api';
+import { ordersApiHandlers } from '../orders/api';
 import { authHandlers } from './auth';
-import { SYSTEM_ROLES, SYSTEM_PERMISSIONS } from '../rbac/permissions';
+import { SYSTEM_ROLES } from '../rbac/permissions';
 import type { DynamicRole } from '../rbac/permissions';
 
 // Mock data for branches
@@ -99,6 +100,12 @@ const mockBranches = [
   },
 ];
 
+
+const mockRoles: DynamicRole[] = SYSTEM_ROLES.map(role => ({
+  ...role,
+  permissions: role.permissions ? role.permissions.map(permission => ({ ...permission })) : [],
+}));
+
 // Mock users data
 const mockUsers: any[] = [
   {
@@ -167,11 +174,6 @@ if (import.meta.env.DEV) console.log('📊 Initializing mock data handlers...');
     { id: '6', name: 'Coffee', price: 3.49, category: 'Drinks', description: 'Fresh brewed coffee', image: '/api/placeholder/150/150', branchIds: ['main-restaurant', 'downtown-location'] },
   ];
 
-const mockOrders = [
-  { id: '1', items: [{ id: '1', quantity: 2 }, { id: '3', quantity: 1 }], status: 'preparing', timestamp: new Date().toISOString(), total: 30.97, branchId: 'main-restaurant' },
-  { id: '2', items: [{ id: '2', quantity: 1 }, { id: '5', quantity: 2 }], status: 'ready', timestamp: new Date(Date.now() - 300000).toISOString(), total: 17.97, branchId: 'main-restaurant' },
-  { id: '3', items: [{ id: '2', quantity: 3 }], status: 'preparing', timestamp: new Date(Date.now() - 100000).toISOString(), total: 35.97, branchId: 'downtown-location' },
-];
 
 const mockInventory: Array<{
   id: string;
@@ -274,6 +276,7 @@ export const handlers = [
   // Menu Management
   ...menuCategoriesApiHandlers,
   ...menuItemsApiHandlers,
+  ...ordersApiHandlers,
   ...menuModifiersApiHandlers,
   ...inventoryMovementsApiHandlers,
   
@@ -413,65 +416,88 @@ export const handlers = [
     return HttpResponse.json(removed);
   }),
 
-  // Orders endpoints (for KDS)
-  http.get('/api/orders', ({ request }) => {
-    const url = new URL(request.url);
-    const branchId = url.searchParams.get('branchId');
-    
-    let orders = [...mockOrders];
-    
-    // Filter by branch if branchId is provided
-    if (branchId) {
-      orders = orders.filter(order => order.branchId === branchId);
-    }
-    
-    return HttpResponse.json(orders);
-  }),
-
-  http.patch('/api/orders/:id', async ({ params, request }) => {
-    const { id } = params as any;
-    const body = await request.json() as any;
-    const idx = (mockOrders as any[]).findIndex((o: any) => o.id == id);
-    if (idx === -1) return new HttpResponse(null, { status: 404 });
-    (mockOrders as any)[idx] = { ...(mockOrders as any)[idx], ...body };
-    return HttpResponse.json((mockOrders as any)[idx]);
-    }),
-
-  // Roles endpoints
+  // Role management endpoints
   http.get('/api/manage/roles', () => {
-    return HttpResponse.json(SYSTEM_ROLES);
+    return HttpResponse.json(mockRoles);
   }),
 
   http.post('/api/manage/roles', async ({ request }) => {
-    const newRoleData = await request.json() as Partial<DynamicRole>;
+    const payload = await request.json() as Partial<DynamicRole>;
+    const now = Date.now();
+
+    if (!payload.name) {
+      return new HttpResponse(JSON.stringify({ error: 'Role name is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const newRole: DynamicRole = {
-      id: `role_${Date.now()}`,
+      id: payload.id ?? ('role_' + now),
+      name: payload.name,
+      description: payload.description ?? '',
+      permissions: (payload.permissions ?? []).map(permission => ({ ...permission })),
+      inheritsFrom: payload.inheritsFrom ?? [],
       isSystem: false,
       createdBy: 'current-user',
-      createdAt: Date.now(),
+      createdAt: now,
       modifiedBy: 'current-user',
-      modifiedAt: Date.now(),
-      ...newRoleData,
-    } as DynamicRole;
-    SYSTEM_ROLES.push(newRole);
+      modifiedAt: now,
+    };
+
+    mockRoles.push(newRole);
     return HttpResponse.json(newRole, { status: 201 });
   }),
 
   http.patch('/api/manage/roles/:id', async ({ params, request }) => {
     const { id } = params;
     const updates = await request.json() as Partial<DynamicRole>;
-    const roleIndex = SYSTEM_ROLES.findIndex(r => r.id === id);
+    const roleIndex = mockRoles.findIndex(role => role.id === id);
 
     if (roleIndex === -1) {
       return new HttpResponse(null, { status: 404 });
     }
 
-    if (SYSTEM_ROLES[roleIndex].isSystem) {
-      return new HttpResponse(JSON.stringify({ error: 'Cannot modify system roles' }), { status: 403 });
+    if (mockRoles[roleIndex].isSystem) {
+      return new HttpResponse(JSON.stringify({ error: 'Cannot modify system roles' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    SYSTEM_ROLES[roleIndex] = { ...SYSTEM_ROLES[roleIndex], ...updates, modifiedAt: Date.now(), modifiedBy: 'current-user' };
-    return HttpResponse.json(SYSTEM_ROLES[roleIndex]);
+    const now = Date.now();
+    const existing = mockRoles[roleIndex];
+
+    mockRoles[roleIndex] = {
+      ...existing,
+      ...updates,
+      permissions: updates.permissions
+        ? updates.permissions.map(permission => ({ ...permission }))
+        : existing.permissions,
+      modifiedAt: now,
+      modifiedBy: 'current-user',
+    };
+
+    return HttpResponse.json(mockRoles[roleIndex]);
+  }),
+
+  http.delete('/api/manage/roles/:id', ({ params }) => {
+    const { id } = params;
+    const roleIndex = mockRoles.findIndex(role => role.id === id);
+
+    if (roleIndex === -1) {
+      return new HttpResponse(null, { status: 404 });
+    }
+
+    if (mockRoles[roleIndex].isSystem) {
+      return new HttpResponse(JSON.stringify({ error: 'Cannot delete system roles' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const [removed] = mockRoles.splice(roleIndex, 1);
+    return HttpResponse.json(removed);
   }),
 
   // Branches endpoints
@@ -739,7 +765,7 @@ export const handlers = [
   http.get('/api/customers', ({ request }) => {
     // Seed database on first call
     if (customersDb.length === 0) {
-    customersDb = mockCustomers.map((c, idx) => ({
+    customersDb = mockCustomers.map((c, _idx) => ({
       id: c.id,
       name: c.name,
       email: c.email,
@@ -798,7 +824,7 @@ export const handlers = [
     const [sortKeyRaw, sortDirRaw] = sortParam.split(':');
     const sortKey = sortKeyRaw || 'name';
     const sortDir = sortDirRaw === 'desc' ? 'desc' : 'asc';
-    const filtersRaw = url.searchParams.get('filters');
+    url.searchParams.get('filters');
 
     let data = customersDb.slice();
     
@@ -1148,6 +1174,4 @@ export const handlers = [
     );
   }),
 ];
-
-
 

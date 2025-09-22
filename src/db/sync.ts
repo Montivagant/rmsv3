@@ -33,7 +33,7 @@ export function subscribe(fn: Sub) {
 
 function emit(s: SyncState, info?: any) { subs.forEach(fn => fn(s, info)) }
 
-export function startReplication(local: PouchDB.Database<DBEvent>, branchId: string) {
+export function startReplication(local: PouchDB.Database<DBEvent>, _branchId: string) {
   if (!remote) throw new Error('Remote not configured. Call configureRemote() first.')
   // live, retry both directions
   const push = local.replicate.to(remote, { live: true, retry: true })

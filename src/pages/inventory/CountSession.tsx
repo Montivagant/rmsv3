@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -7,12 +7,11 @@ import { Badge } from '../../components/Badge';
 import { Modal } from '../../components/Modal';
 import { Skeleton } from '../../components/Skeleton';
 import { useToast } from '../../hooks/useToast';
-import { useApi } from '../../hooks/useApi';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
+import { getInventoryCountById, updateInventoryCountItems } from '../../inventory/repository';
 import { CountStatusBadge } from '../../components/inventory/counts/CountStatusBadge';
 import { VarianceIndicator } from '../../components/inventory/counts/VarianceIndicator';
 import type { 
-  InventoryCount, 
-  CountItem, 
   UpdateCountItemRequest,
   SubmitCountRequest 
 } from '../../inventory/counts/types';
@@ -27,16 +26,22 @@ export default function CountSession() {
   // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
-  const [showConfirmCancel, setShowConfirmCancel] = useState(false);
+  // Removed unused showConfirmCancel state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [unsavedChanges, setUnsavedChanges] = useState(new Map<string, UpdateCountItemRequest>());
   
-  // Data fetching
-  const { data: countData, loading, error, refetch } = useApi<{
-    count: InventoryCount;
-    items: CountItem[];
-  }>(`/api/inventory/counts/${countId}`);
+  // Data fetching with repository
+  const { data: countData, loading, error, refetch } = useRepository(
+    () => getInventoryCountById(countId!),
+    [countId]
+  );
+  
+  // Mutation for updating count items
+  const updateItemsMutation = useRepositoryMutation(
+    ({ countId, updates }: { countId: string; updates: UpdateCountItemRequest[] }) => 
+      updateInventoryCountItems(countId, updates)
+  );
 
   const count = countData?.count;
   const items = countData?.items || [];
@@ -86,7 +91,7 @@ export default function CountSession() {
     const update: UpdateCountItemRequest = {
       itemId,
       countedQty: numericValue || 0,
-      notes: undefined
+      notes: ''
     };
 
     setUnsavedChanges(prev => new Map(prev.set(itemId, update)));
@@ -100,15 +105,7 @@ export default function CountSession() {
     try {
       const updates = Array.from(unsavedChanges.values());
       
-      const response = await fetch(`/api/inventory/counts/${countId}/items`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save changes');
-      }
+      await updateItemsMutation.mutate({ countId: countId!, updates });
 
       setUnsavedChanges(new Map());
       refetch();
@@ -120,7 +117,7 @@ export default function CountSession() {
     } finally {
       setIsSaving(false);
     }
-  }, [unsavedChanges, countId, refetch, showToast]);
+  }, [unsavedChanges, countId, refetch, showToast, updateItemsMutation]);
 
   // Submit count and create adjustments
   const handleSubmitCount = useCallback(async () => {
@@ -277,7 +274,7 @@ export default function CountSession() {
                 }>
                   {currentTotals.varianceValue.toLocaleString('en-US', {
                     style: 'currency',
-                    currency: 'USD',
+                    currency: 'EGP',
                     signDisplay: 'always'
                   })}
                 </p>
@@ -331,7 +328,7 @@ export default function CountSession() {
                 const hasChanges = pendingUpdate !== undefined;
                 
                 // Calculate real-time variance
-                const variance = currentCountedQty !== null 
+                const variance = currentCountedQty !== null && currentCountedQty !== undefined
                   ? CountUtils.calculateItemVariance({
                       ...item,
                       countedQty: currentCountedQty
@@ -357,7 +354,7 @@ export default function CountSession() {
                           SKU: {item.sku} � {item.unit}
                         </div>
                         {item.categoryName && (
-                          <Badge variant="outline" className="text-xs mt-1">
+                          <Badge variant="secondary" className="text-xs mt-1">
                             {item.categoryName}
                           </Badge>
                         )}

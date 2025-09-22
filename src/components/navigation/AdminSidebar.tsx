@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useDismissableLayer } from '../../hooks/useDismissableLayer';
+// import { useDismissableLayer } from '../../hooks/useDismissableLayer'; // Unused
 import { NavIcon } from './NavIcon';
 import { adminNavConfig, filterAdminNavByRole, getExpandedSections, saveExpandedSections } from '../../config/admin-nav.config';
 import type { AdminNavItem } from '../../config/admin-nav.config';

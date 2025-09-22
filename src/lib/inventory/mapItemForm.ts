@@ -74,9 +74,9 @@ export function mapFormDataToCreatePayload(form: ItemFormData): CreateItemAPIPay
     const reorderPoint = min ?? par;
     payload.levels = {
       par: {
-        min: min,
-        max: max,
-        reorderPoint: reorderPoint,
+        ...(min != null && { min }),
+        ...(max != null && { max }),
+        ...(reorderPoint != null && { reorderPoint }),
       },
     };
   }
@@ -133,9 +133,9 @@ export function mapFormToAPI(form: ItemFormData): CreateItemAPIPayload {
     const reorderQuantity = 10;
     payload.levels = {
       par: {
-        min,
-        max,
-        reorderPoint,
+        ...(min != null && { min }),
+        ...(max != null && { max }),
+        ...(reorderPoint != null && { reorderPoint }),
         reorderQuantity,
       },
     };
@@ -150,8 +150,8 @@ export function mapItemToFormData(item: any): ItemFormData {
     name: item.name || '',
     sku: (item.sku || '').toUpperCase(),
     categoryId: item.categoryId || '',
-    storageUnit: item.uom?.base || '',
-    ingredientUnit: item.uom?.recipe || '',
+    storageUnitId: item.uom?.base || '',
+    ingredientUnitId: item.uom?.recipe || '',
     barcode: item.barcode || '',
     cost: item.costing?.lastCost ?? item.costing?.averageCost,
     minimumLevel: item.levels?.par?.min,
@@ -180,7 +180,10 @@ export function mapAPIToForm(item: any): ItemFormData {
 export function validateSKUUniqueness(sku: string, existing: Array<{ sku: string }>): { isUnique: boolean; conflictingSKU?: string } {
   const target = (sku || '').toUpperCase();
   const conflict = existing.find(e => (e.sku || '').toUpperCase() === target)?.sku;
-  return { isUnique: !conflict, conflictingSKU: conflict || undefined };
+  return { 
+    isUnique: !conflict, 
+    ...(conflict && { conflictingSKU: conflict })
+  };
 }
 
 export function mapAPIErrorsToFormErrors(errors: Array<{ field?: string; message: string }>): Record<string, string> {

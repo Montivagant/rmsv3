@@ -30,7 +30,7 @@ const Sheet = forwardRef<HTMLDivElement, SheetProps>(
     closeOnEscape = true,
     showCloseButton = true,
     ...props 
-  }, ref) => {
+  }, _ref) => {
     const sheetRef = useRef<HTMLDivElement>(null);
     const previousActiveElement = useRef<HTMLElement | null>(null);
 

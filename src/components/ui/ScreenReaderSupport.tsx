@@ -9,7 +9,7 @@ import { cn } from '../../lib/utils'
 // Screen reader announcement hook
 export function useAnnouncement() {
   const [currentAnnouncement, setCurrentAnnouncement] = useState('')
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   const announce = useCallback((
     message: string, 
@@ -19,7 +19,7 @@ export function useAnnouncement() {
       clearPrevious?: boolean
     } = {}
   ) => {
-    const { priority = 'polite', delay = 0, clearPrevious = true } = options
+    const { delay = 0, clearPrevious = true } = options
 
     if (clearPrevious && timeoutRef.current) {
       clearTimeout(timeoutRef.current)
@@ -121,7 +121,7 @@ export const ErrorAnnouncement: React.FC<{
   immediate?: boolean
 }> = ({ error, fieldName, immediate = false }) => {
   const { announce } = useAnnouncement()
-  const previousError = useRef<string>()
+  const previousError = useRef<string | undefined>(undefined)
 
   useEffect(() => {
     if (error && error !== previousError.current) {
@@ -237,7 +237,7 @@ export const ContentChangeAnnouncer: React.FC<{
   changeDescription?: string
 }> = ({ children, announceChanges = true, changeDescription }) => {
   const { announce } = useAnnouncement()
-  const previousContent = useRef<string>()
+  const previousContent = useRef<string | undefined>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -392,10 +392,9 @@ export const AccessibleDataTable: React.FC<AccessibleDataTableProps> = ({
               </td>
             </tr>
           ) : (
-            rows.map((row, rowIndex) => (
+            rows.map((row) => (
               <tr key={row.id} className="hover:bg-surface-secondary">
                 {row.cells.map((cell) => {
-                  const header = headers.find(h => h.id === cell.headerId)
                   return (
                     <td
                       key={cell.headerId}

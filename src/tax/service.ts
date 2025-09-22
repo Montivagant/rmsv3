@@ -39,15 +39,20 @@ export class TaxService {
       const result = this.engine.calculate(input);
 
       // Log tax calculation event
+      const appendOptions: any = {
+        key: `tax-calc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        params: { saleId: saleId || 'unknown' }
+      };
+      
+      if (saleId) {
+        appendOptions.aggregate = { id: saleId, type: 'sale' };
+      }
+      
       await this.eventStore.append('tax.calculation.performed', {
         input,
         result,
         saleId
-      }, {
-        key: `tax-calc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        params: { saleId: saleId || 'unknown' },
-        aggregate: saleId ? { id: saleId, type: 'sale' } : undefined
-      });
+      }, appendOptions);
 
       return result;
     } catch (error) {
@@ -130,9 +135,9 @@ export class TaxService {
     }
 
     // Store previous values for audit
-    const previousValues: Partial<TaxRate> = {};
+    const previousValues: Record<string, any> = {};
     Object.keys(updates).forEach(key => {
-      previousValues[key as keyof TaxRate] = existingRate[key as keyof TaxRate] as any;
+      previousValues[key] = (existingRate as any)[key];
     });
 
     const success = taxConfigurationManager.updateTaxRate(configId, rateId, updates);
@@ -228,7 +233,7 @@ export class TaxService {
       if (event.type === 'tax.calculation.performed') {
         totalTaxCollected += event.payload.result.totalTax;
         totalExemptions += event.payload.result.exemptions.reduce(
-          (sum, exemption) => sum + exemption.savedAmount, 0
+          (sum: number, exemption: any) => sum + exemption.savedAmount, 0
         );
       }
     }
@@ -287,7 +292,7 @@ export class TaxService {
       if (event.type === 'tax.calculation.performed') {
         totalTaxCollected += event.payload.result.totalTax;
         totalExemptions += event.payload.result.exemptions.reduce(
-          (sum, exemption) => sum + exemption.savedAmount, 0
+          (sum: number, exemption: any) => sum + exemption.savedAmount, 0
         );
       }
     }

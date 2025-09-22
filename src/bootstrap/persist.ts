@@ -1,17 +1,27 @@
-import { LocalStoragePersistedEventStore } from '../events/localStoragePersisted'
+// Removed localStorage persistence - PouchDB/IndexedDB is now canonical
 import { InMemoryEventStore } from '../events/store'
 import { OptimizedEventStore } from '../events/optimizedStore'
 import { createOptimizedQueries } from '../events/optimizedQueries'
 import type { EventStore, Event } from '../events/types'
-import { openLocalStorageDB } from '../db/localStorage'
+// Removed localStorage import - using PouchDB/IndexedDB as canonical persistence
 import { setOptimizedQueries } from '../loyalty/state'
 import { environment } from '../lib/environment'
+import { configureOutbox } from '../data/sync/outboxBridge'
+import { syncManager } from '../db/syncManager'
+import { logger } from '../shared/logger'
+
+// Extend globalThis with custom properties
+declare global {
+  var __RMS_OPTIMIZED_STORE_SINGLETON: BootstrapResult | null;
+  var __RMS_BOOTSTRAP_LOGGED: boolean;
+  var __RMS_READY_LOGGED: boolean;
+  var __RMS_MIGRATION_LOGGED: boolean;
+}
 
 // Types for bootstrap results
 interface BootstrapResult {
   store: OptimizedEventStore
   db?: unknown
-  persistedStore?: LocalStoragePersistedEventStore
 }
 
 // Global optimized store instances with React StrictMode protection
@@ -55,8 +65,6 @@ export async function bootstrapEventStore() {
       globalThis.__RMS_BOOTSTRAP_LOGGED = true
     }
     
-    const startTime = performance.now()
-
     // Create optimized event store with performance configuration
     optimizedStore = new OptimizedEventStore({
       maxEventsInMemory: 25000, // Increased capacity for better performance
@@ -66,6 +74,17 @@ export async function bootstrapEventStore() {
 
     // Create optimized query utilities
     optimizedQueries = createOptimizedQueries(optimizedStore)
+
+    const remoteEnabled = Boolean((import.meta as any)?.env?.VITE_API_BASE);
+    configureOutbox({ enabled: remoteEnabled });
+
+    // Auto-configure sync manager for real API usage
+    if (remoteEnabled) {
+      await configureSyncManager();
+    }
+
+    // Start PouchDB compaction manager for production - temporarily disabled due to spark-md5 import issue
+    // compactionManager.start();
 
     // Set global optimized queries for legacy modules
     setOptimizedQueries(optimizedQueries)
@@ -84,8 +103,7 @@ export async function bootstrapEventStore() {
         
         // Migrate to optimized store
         await migrateToOptimizedStore(legacyStore)
-        
-        const duration = performance.now() - startTime
+        await hydrateFromRemoteEvents(optimizedStore!)
         if (!globalThis.__RMS_READY_LOGGED) {
           // Development info: Optimized PouchDB persistence ready
           globalThis.__RMS_READY_LOGGED = true
@@ -104,44 +122,26 @@ export async function bootstrapEventStore() {
     }
   }
 
-    // Fallback to localStorage for browser or if PouchDB fails
+    // Fallback to optimized store with best-effort persistence
     try {
-    // Only log once per session to avoid React StrictMode duplicate messages
-    if (!globalThis.__RMS_PERSISTENCE_LOGGED) {
-      globalThis.__RMS_PERSISTENCE_LOGGED = true
-    }
-    
-    const db = await openLocalStorageDB({ name: 'rmsv3_events' })
-    const mem = new InMemoryEventStore()
-    const persisted = new LocalStoragePersistedEventStore(mem, db)
-    await persisted.hydrateFromLocalStorage()
-    
-    // Migrate to optimized store
-    await migrateToOptimizedStore(persisted)
-    
-    // Start auto-sync for the persisted store but use optimized store for queries
-    persisted.startAutoSync(10000)
-    
-    const duration = performance.now() - startTime
-    if (!globalThis.__RMS_READY_LOGGED) {
-      // Development info: Optimized event store with localStorage persistence ready
-      globalThis.__RMS_READY_LOGGED = true
-    }
-    
-    const result = { store: optimizedStore, db, persistedStore: persisted }
-    
-    // Store in singleton for React StrictMode protection
-    globalThis.__RMS_OPTIMIZED_STORE_SINGLETON = result
-    isBootstrapping = false
-    
-    return result
-    } catch (error) {
-      console.warn('Failed to initialize localStorage persistence, using optimized in-memory store:', error)
-      const duration = performance.now() - startTime
-      // Development info: Optimized in-memory event store ready
+      await hydrateFromRemoteEvents(optimizedStore!)
+      
+      if (!globalThis.__RMS_READY_LOGGED) {
+        // Development info: Optimized event store ready (PouchDB canonical persistence)
+        globalThis.__RMS_READY_LOGGED = true
+      }
       
       const result = { store: optimizedStore, db: null }
       
+      // Store in singleton for React StrictMode protection
+      globalThis.__RMS_OPTIMIZED_STORE_SINGLETON = result
+      isBootstrapping = false
+      
+      return result
+    } catch (error) {
+      console.warn('Failed to hydrate from remote, using empty optimized store:', error)
+      
+      const result = { store: optimizedStore, db: null }
       // Store in singleton for React StrictMode protection
       globalThis.__RMS_OPTIMIZED_STORE_SINGLETON = result
       isBootstrapping = false
@@ -172,8 +172,6 @@ async function migrateToOptimizedStore(legacyStore: EventStore): Promise<void> {
       globalThis.__RMS_MIGRATION_LOGGED = true
     }
     
-    const startTime = performance.now()
-
     // Sort by sequence to maintain order
     events.sort((a: Event, b: Event) => a.seq - b.seq)
 
@@ -188,13 +186,9 @@ async function migrateToOptimizedStore(legacyStore: EventStore): Promise<void> {
       }
     }
 
-    const duration = performance.now() - startTime
     if (!globalThis.__RMS_MIGRATION_LOGGED) {
       // Development info: Migration completed
-      
-      // Calculate initial performance metrics
-      const metrics = optimizedStore!.getMetrics()
-      // Development info: Initial store metrics calculated
+      globalThis.__RMS_MIGRATION_LOGGED = true
     }
   }
 }
@@ -218,5 +212,94 @@ export function getPerformanceMetrics() {
     cacheMisses: 0,
     averageQueryTime: 0,
     indexUsage: {}
+  }
+}
+
+async function hydrateFromRemoteEvents(targetStore: OptimizedEventStore) {
+  const apiBase = (import.meta as any)?.env?.VITE_API_BASE;
+  if (!apiBase) {
+    return;
+  }
+
+  try {
+    const { createRemoteClient } = await import('../data/remote/client');
+    const client = createRemoteClient();
+    const existingEvents = targetStore.getAll();
+    const lastTimestamp = existingEvents.reduce((max, event) => Math.max(max, event.at ?? 0), 0);
+    const seenIds = new Set(existingEvents.map(event => event.id));
+    const remoteEvents = await client.fetchEvents(lastTimestamp ? { since: lastTimestamp } : {});
+    if (!remoteEvents.length) {
+      return;
+    }
+
+    const toPersist: Event[] = remoteEvents
+      .filter(remote => remote && typeof remote.id === 'string')
+      .filter(remote => !seenIds.has(remote.id))
+      .map(remote => ({
+        id: remote.id,
+        seq: remote.seq,
+        type: remote.type,
+        at: remote.at,
+        aggregate: remote.aggregate,
+        payload: remote.payload,
+        version: remote.version,
+      }) as Event);
+
+    if (!toPersist.length) {
+      return;
+    }
+
+    toPersist.sort((a, b) => a.seq - b.seq);
+
+    try {
+      const pouch = await import('../db/pouch');
+      const db = await pouch.openLocalDB({ name: environment.eventStorePath });
+      await pouch.bulkPutEvents(db, toPersist as Event[]);
+    } catch (error) {
+      console.warn('Remote event persistence skipped (Pouch unavailable):', error);
+    }
+
+    for (const event of toPersist) {
+      targetStore.addEventDirectly(event);
+    }
+  } catch (error) {
+    logger.error('Failed to hydrate events from remote source', { apiBase }, error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
+/**
+ * Auto-configure sync manager with production defaults
+ */
+async function configureSyncManager(): Promise<void> {
+  const apiBase = (import.meta as any)?.env?.VITE_API_BASE;
+  
+  try {
+    if (!apiBase) return;
+
+    // Extract base URL for sync (assuming CouchDB/PouchDB endpoint)
+    const baseUrl = apiBase.replace(/\/api.*$/, ''); // Remove /api path if present
+    const syncConfig = {
+      baseUrl: baseUrl,
+      dbPrefix: 'rmsv3_',
+      branchId: environment.isElectron ? 'desktop' : 'web',
+    };
+
+    logger.info('Configuring sync manager', syncConfig);
+    
+    const configured = await syncManager.configure(syncConfig);
+    if (configured) {
+      // Auto-start sync if configuration succeeded
+      const started = await syncManager.startReplication();
+      if (started) {
+        logger.info('Sync manager auto-started successfully');
+      } else {
+        logger.warn('Sync manager configured but failed to start');
+      }
+    } else {
+      logger.warn('Sync manager auto-configuration failed');
+    }
+  } catch (error) {
+    logger.warn('Sync manager auto-configuration error', { apiBase }, error instanceof Error ? error : new Error(String(error)));
+    // Don't throw - sync failure shouldn't prevent app startup
   }
 }

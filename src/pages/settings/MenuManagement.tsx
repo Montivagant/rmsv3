@@ -1,6 +1,5 @@
-import React from 'react';
 import { PageHeader } from '../../components/pos/PageHeader';
-import { EmptyState } from '../../components/inventory/EmptyState';
+import { EmptyState } from '../../components/EmptyState';
 
 export default function MenuManagement() {
   return (
@@ -22,7 +21,9 @@ export default function MenuManagement() {
             description="Set up your restaurant menu with categories, items, and pricing."
             action={{
               label: "Add Menu Item",
-              onClick: () => console.log("Add menu item clicked"),
+              onClick: () => {
+                // TODO: Implement add menu item
+              },
               variant: "primary"
             }}
           />

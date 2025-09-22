@@ -4,10 +4,16 @@
  */
 
 // Core service and business logic
-export { InventoryAuditService as InventoryCountService, createInventoryCountService, getInventoryCountService, initializeInventoryCountService } from './service';
+export { 
+  InventoryCountService, 
+  createInventoryCountService, 
+  getInventoryCountService,
+  initializeInventoryCountService 
+} from './service';
 
 // API layer and MSW handlers
 export { inventoryCountApiHandlers, countApiService } from './api';
+import type { InventoryCount, CountItem } from './types';
 
 // TypeScript types and utilities  
 export type {

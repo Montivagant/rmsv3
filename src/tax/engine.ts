@@ -19,7 +19,8 @@ import type {
   AppliedExemption,
   TaxWarning,
   TaxRoundingRule,
-  TaxJurisdiction
+  TaxJurisdiction,
+  TaxCalculationMetadata
 } from './types';
 
 export class TaxCalculationEngine {
@@ -96,6 +97,7 @@ export class TaxCalculationEngine {
     });
 
     const total = subtotal + totalTax;
+    const calculationTime = performance.now() - startTime;
 
     return {
       subtotal,
@@ -110,8 +112,9 @@ export class TaxCalculationEngine {
         rulesApplied: this.getAppliedRuleIds(input),
         jurisdiction,
         roundingRule: this.configuration.roundingRule,
-        version: '1.0.0'
-      }
+        version: '1.0.0',
+        calculationTimeMs: Math.round(calculationTime * 100) / 100
+      } as TaxCalculationMetadata
     };
   }
 

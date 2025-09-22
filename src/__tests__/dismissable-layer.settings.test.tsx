@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import React from 'react';
 import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../test/renderWithProviders';
 import AdminConsole from '../settings/AdminConsole';

@@ -63,7 +63,7 @@ export interface CreateTransferRequest {
     qtyPlanned?: number;
     qtyRequested?: number; // compatibility with tests
   }>;
-  notes?: string;
+  notes?: string | undefined;
 }
 
 // Complete transfer request (transitions DRAFT → COMPLETED)
@@ -84,7 +84,7 @@ export interface CancelTransferRequest {
 export interface Location {
   id: string;
   name: string;
-  type: 'restaurant' | 'warehouse' | 'central_kitchen' | 'commissary';
+  type: 'restaurant' | 'warehouse' | 'central_kitchen' | 'commissary' | 'prep';
   address?: string;
   isActive: boolean;
 }

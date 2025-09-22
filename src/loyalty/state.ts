@@ -86,14 +86,14 @@ export function getTopCustomers(limit: number = 10): LoyaltyBalance[] {
 /**
  * Fallback implementations for when optimized queries are not available
  */
-function getFallbackBalance(customerId: string): number {
+function getFallbackBalance(_customerId: string): number {
   // This will be handled by the global event store if needed
   // For now, return 0 to prevent errors
   console.warn('Loyalty balance fallback called - returning 0');
   return 0;
 }
 
-function getFallbackTransactions(customerId: string): (LoyaltyAccruedEvent | LoyaltyRedeemedEvent)[] {
+function getFallbackTransactions(_customerId: string): (LoyaltyAccruedEvent | LoyaltyRedeemedEvent)[] {
   // This will be handled by the global event store if needed
   // For now, return empty array to prevent errors
   console.warn('Loyalty transactions fallback called - returning empty array');

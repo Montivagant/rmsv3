@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { cn, formatCurrency, truncate } from '../../lib/utils';
 import { QtyStepper } from './QtyStepper';
 import { CustomerAutoComplete, type Customer } from '../ui/AutoComplete';
@@ -94,10 +94,9 @@ export function CartPanel({
                 name="customer"
                 label="Customer (Optional)"
                 value={selectedCustomer?.id || ''}
-                onChange={(value, customer) => onCustomerChange(customer || null)}
+                onChange={(_, customer) => onCustomerChange(customer || null)}
                 searchCustomers={searchCustomers}
                 placeholder="Search for customer..."
-                helpText={null}
                 className="w-full"
               />
               {selectedCustomer && (
@@ -105,7 +104,7 @@ export function CartPanel({
                   <div className="flex items-center justify-between">
                     <div className="text-sm">
                       <p className="font-medium">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
-                      {selectedCustomer.loyaltyPoints > 0 && (
+                      {selectedCustomer.loyaltyPoints && selectedCustomer.loyaltyPoints > 0 && (
                         <p className="text-muted-foreground">Points: {selectedCustomer.loyaltyPoints}</p>
                       )}
                     </div>

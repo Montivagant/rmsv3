@@ -5,7 +5,8 @@
  * success messages, and error handling with recovery actions
  */
 
-import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 
@@ -104,32 +105,47 @@ export function NotificationProvider({
   }, []);
 
   const showSuccess = useCallback((title: string, message?: string, actions?: NotificationAction[]): string => {
-    return addNotification({ type: 'success', title, message, actions });
+    return addNotification({ 
+      type: 'success', 
+      title,
+      ...(message && { message }),
+      ...(actions && { actions })
+    });
   }, [addNotification]);
 
   const showError = useCallback((title: string, message?: string, actions?: NotificationAction[]): string => {
     return addNotification({ 
       type: 'error', 
-      title, 
-      message, 
-      actions,
+      title,
+      ...(message && { message }),
+      ...(actions && { actions }),
       duration: 8000 // Longer duration for errors
     });
   }, [addNotification]);
 
   const showWarning = useCallback((title: string, message?: string, actions?: NotificationAction[]): string => {
-    return addNotification({ type: 'warning', title, message, actions });
+    return addNotification({ 
+      type: 'warning', 
+      title,
+      ...(message && { message }),
+      ...(actions && { actions })
+    });
   }, [addNotification]);
 
   const showInfo = useCallback((title: string, message?: string, actions?: NotificationAction[]): string => {
-    return addNotification({ type: 'info', title, message, actions });
+    return addNotification({ 
+      type: 'info', 
+      title,
+      ...(message && { message }),
+      ...(actions && { actions })
+    });
   }, [addNotification]);
 
   const showLoading = useCallback((title: string, message?: string): string => {
     return addNotification({ 
       type: 'loading', 
-      title, 
-      message, 
+      title,
+      ...(message && { message }),
       persistent: true 
     });
   }, [addNotification]);

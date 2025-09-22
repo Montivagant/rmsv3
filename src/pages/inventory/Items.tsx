@@ -1,18 +1,20 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { Button } from '../../components/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/Card';
-import { Input } from '../../components/Input';
+import { Card, CardContent } from '../../components/Card';
 import { Modal } from '../../components/Modal';
-import { Select } from '../../components/Select';
 import { DataTable } from '../../components/inventory/DataTable';
 import { DataToolbar } from '../../components/inventory/DataToolbar';
 import { StatusPill } from '../../components/inventory/StatusPill';
-import { EmptyState } from '../../components/inventory/EmptyState';
 import InventoryItemCreateModal from '../../components/inventory/InventoryItemCreateModal';
-import { useApi } from '../../hooks/useApi';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
 import { useToast } from '../../hooks/useToast';
-import { ADMIN_ICONS } from '../../config/admin-nav.config';
+import {
+  listInventoryItems,
+  listInventoryCategories,
+  listInventoryUnits,
+  deleteInventoryItem,
+} from '../../inventory/repository';
+import { logger } from '../../shared/logger';
 
 // Types
 interface InventoryItem {
@@ -60,34 +62,83 @@ interface Category {
 }
 
 export default function Items() {
-  const navigate = useNavigate();
+  // navigate removed as it's not used
   const { showToast } = useToast();
+  
+  // Repository hooks
+  const { data: allItems, loading: itemsLoading, error, refetch } = useRepository(
+    listInventoryItems,
+    []
+  );
+  const { data: allCategories, loading: categoriesLoading } = useRepository(
+    listInventoryCategories,
+    []
+  );
+  const { data: allUnits, loading: unitsLoading } = useRepository(
+    listInventoryUnits,
+    []
+  );
+  
+  // Repository mutations
+  const deleteItemMutation = useRepositoryMutation(deleteInventoryItem);
   
   // State
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [_isEditDrawerOpen, _setIsEditDrawerOpen] = useState(false);
+  const [_selectedItem, _setSelectedItem] = useState<InventoryItem | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<InventoryItem | null>(null);
   // Pagination state
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
   
-  // API calls
-  const { data: itemsResponse, loading, error, refetch } = useApi<{ items: InventoryItem[], total: number }>('/api/inventory/items', { items: [], total: 0 });
-  const { data: categories = [] } = useApi<Category[]>('/api/inventory/categories', []);
-  const { data: units = [] } = useApi<Array<{ id: string; name: string; abbreviation: string }>>('/api/inventory/units', []);
+  // Convert repository data to expected format
+  const categories: Category[] = (allCategories || []).map(cat => ({
+    id: cat.id,
+    name: cat.name,
+    itemCount: cat.itemCount
+  }));
   
-  // Ensure items is always an array - extract from response object
-  const safeItems = Array.isArray(itemsResponse) ? itemsResponse : (itemsResponse?.items || []);
+  const units = (allUnits || []).map(unit => ({
+    id: unit.id,
+    name: unit.name,
+    abbreviation: unit.abbreviation
+  }));
+  
+  const loading = itemsLoading || categoriesLoading || unitsLoading;
+  
+  // Convert repository items to page format and ensure it's always an array
+  const safeItems: InventoryItem[] = (allItems || []).map(item => ({
+    id: item.id,
+    sku: item.sku,
+    name: item.name,
+    description: item.description || '',
+    category: allCategories?.find(cat => cat.id === item.categoryId)?.name || 'Uncategorized',
+    categoryId: item.categoryId,
+    quantity: item.quantity || 0,
+    unit: item.unit || 'each',
+    reorderPoint: item.reorderPoint || 0,
+    parLevel: item.parLevel || 0,
+    cost: item.cost || 0,
+    price: item.price || 0,
+    location: item.location || '',
+    lastReceived: item.lastReceived || '',
+    expiryDate: item.expiryDate || '',
+    lotNumber: item.lotNumber || '',
+    status: item.status,
+    levels: item.levels || { current: 0 },
+    costing: item.costing || {},
+    quality: item.quality || {},
+    flags: item.flags || {}
+  }));
   
   // Log any API errors
   useEffect(() => {
     if (error) {
-      console.error('Error fetching inventory items:', error);
+      logger.error('Error fetching inventory items', {}, error && typeof error === 'object' && 'message' in error ? error as Error : new Error(String(error)));
       showToast({
         title: 'Error',
         description: 'Failed to load inventory items. Please try again.',
@@ -103,6 +154,7 @@ export default function Items() {
   useEffect(() => {
     setPage(1);
   }, [searchTerm, selectedCategory, selectedStatus]);
+  
   // Filter items
   const filteredItems = useMemo(() => {
     return safeItems.filter(item => {
@@ -119,7 +171,7 @@ export default function Items() {
   }, [safeItems, searchTerm, selectedCategory, selectedStatus]);
 
   // Handle successful item creation
-  const handleItemCreated = (itemId: string) => {
+  const handleItemCreated = (_itemId: string) => {
     refetch(); // Refresh the item list
     setIsCreateModalOpen(false);
     showToast({
@@ -131,8 +183,8 @@ export default function Items() {
 
   // Handle edit item
   const handleEditItem = (item: InventoryItem) => {
-    setSelectedItem(item);
-    setIsEditDrawerOpen(true);
+    _setSelectedItem(item);
+    _setIsEditDrawerOpen(true);
   };
 
   // Handle delete item
@@ -324,17 +376,7 @@ export default function Items() {
                 ],
               },
             ]}
-            actions={
-              <Button
-                variant="primary"
-                onClick={() => setIsCreateModalOpen(true)}
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add Item
-              </Button>
-            }
+            actions={null}
           />
           
           <DataTable
@@ -353,11 +395,7 @@ export default function Items() {
               title: 'No items found',
               description: searchTerm || selectedCategory !== 'all' || selectedStatus !== 'all'
                 ? 'Try adjusting your filters'
-                : 'Start by adding your first inventory item',
-              action: {
-                label: 'Add Item',
-                onClick: () => setIsCreateModalOpen(true),
-              },
+                : 'Start by adding your first inventory item using the Add Item button above',
             }}
           />
           <div className="flex items-center justify-between px-2 py-3">
@@ -427,8 +465,7 @@ export default function Items() {
               onClick={async () => {
                 if (!pendingDelete) return;
                 try {
-                  const response = await fetch(`/api/inventory/items/${pendingDelete.id}`, { method: 'DELETE' });
-                  if (!response.ok) throw new Error('Failed to delete item');
+                  await deleteItemMutation.mutate(pendingDelete.id);
                   showToast({
                     title: 'Item Deleted',
                     description: `${pendingDelete.name} has been deleted successfully.`,
@@ -438,7 +475,7 @@ export default function Items() {
                   setPendingDelete(null);
                   refetch();
                 } catch (error) {
-                  showToast({ title: 'Error', description: 'Failed to delete item', variant: 'error' });
+                  showToast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to delete item', variant: 'error' });
                 }
               }}
             >

@@ -10,8 +10,7 @@ import type {
   InventoryItem,
   ReorderAlert,
   UrgencyLevel,
-  PurchaseOrder,
-  ReorderAlertCreatedEvent
+  PurchaseOrder
 } from './types';
 
 export class ReorderManager {
@@ -153,21 +152,15 @@ export class ReorderManager {
         return false;
       }
 
-      const updatedAlert: ReorderAlert = {
-        ...alert,
-        status: 'acknowledged',
-        acknowledgedBy,
-        acknowledgedDate: new Date().toISOString()
-      };
-
       // Log acknowledgment event
       await this.eventStore.append('inventory.reorder_alert.acknowledged', {
         alertId,
         acknowledgedBy,
-        acknowledgedDate: updatedAlert.acknowledgedDate
+        acknowledgedDate: new Date().toISOString()
       }, {
         key: `reorder-alert-ack-${alertId}`,
-        params: { alertId }
+        params: { alertId },
+        aggregate: { id: alertId, type: 'reorder-alert' }
       });
 
       return true;
@@ -189,7 +182,8 @@ export class ReorderManager {
         dismissedDate: new Date().toISOString()
       }, {
         key: `reorder-alert-dismiss-${alertId}`,
-        params: { alertId }
+        params: { alertId },
+        aggregate: { id: alertId, type: 'reorder-alert' }
       });
 
       return true;
@@ -267,8 +261,6 @@ export class ReorderManager {
   private getCurrentInventory(): InventoryItem[] {
     // This would typically reconstruct inventory from events
     // For now, returning mock data - would integrate with actual inventory engine
-    const events = this.eventStore.getAll();
-    const inventoryEvents = events.filter(e => e.type === 'inventory.adjusted');
     
     // Simplified inventory reconstruction
     const inventory: InventoryItem[] = [
@@ -320,7 +312,7 @@ export class ReorderManager {
     const alertEvents = events.filter(e => e.type === 'inventory.reorder_alert.created');
     
     // Reconstruct alerts from events (simplified)
-    return alertEvents.map(event => (event as ReorderAlertCreatedEvent).payload.alert)
+    return alertEvents.map(event => (event as any).payload.alert)
       .filter(alert => alert.status === 'active');
   }
 
@@ -362,7 +354,8 @@ export class ReorderManager {
       resolvedDate: new Date().toISOString()
     }, {
       key: `reorder-alert-resolve-${alertId}`,
-      params: { alertId }
+      params: { alertId },
+      aggregate: { id: alertId, type: 'reorder-alert' }
     });
   }
 
@@ -383,16 +376,30 @@ export class ReorderManager {
     
     return inventory
       .filter(item => item.reorderPoint && item.qty <= item.reorderPoint)
-      .map(item => ({
-        sku: item.sku,
-        itemName: item.name,
-        currentQty: item.qty,
-        reorderPoint: item.reorderPoint!,
-        recommendedOrderQty: item.reorderQuantity!,
-        urgencyLevel: this.calculateUrgencyLevel(item),
-        estimatedCost: (item.lastOrderCost || item.costPerUnit || 0) * item.reorderQuantity!,
-        primarySupplier: item.primarySupplierId
-      }))
+      .map(item => {
+        const recommendation: {
+          sku: string;
+          itemName: string;
+          currentQty: number;
+          reorderPoint: number;
+          recommendedOrderQty: number;
+          urgencyLevel: UrgencyLevel;
+          estimatedCost: number;
+          primarySupplier?: string;
+        } = {
+          sku: item.sku,
+          itemName: item.name,
+          currentQty: item.qty,
+          reorderPoint: item.reorderPoint!,
+          recommendedOrderQty: item.reorderQuantity!,
+          urgencyLevel: this.calculateUrgencyLevel(item),
+          estimatedCost: (item.lastOrderCost || item.costPerUnit || 0) * item.reorderQuantity!,
+        };
+        if (item.primarySupplierId) {
+          recommendation.primarySupplier = item.primarySupplierId;
+        }
+        return recommendation;
+      })
       .sort((a, b) => {
         // Sort by urgency level (critical first)
         const urgencyOrder = { critical: 4, high: 3, medium: 2, low: 1 };

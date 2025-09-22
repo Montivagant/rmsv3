@@ -147,7 +147,7 @@ function ReplicationPanel() {
 
 export default function TechnicalConsole() {
   const role = getRole()
-  const allowed = RANK[role] >= RANK.TECH_ADMIN
+  const allowed = RANK[role] >= RANK.BUSINESS_OWNER
   const [defaults, setDefaults] = useState<Flags>(() => loadDefaults())
 
   if (!allowed) {

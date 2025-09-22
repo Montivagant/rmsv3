@@ -8,6 +8,3 @@ export { NavigationBreadcrumb, usePageTitle } from './NavigationBreadcrumb';
 export { MobileNavDrawer } from './MobileNavDrawer';
 export { TopBar } from './TopBar';
 
-// Legacy component for backwards compatibility (marked as deprecated)
-/** @deprecated Use Sidebar instead */
-export { AppNav } from './AppNav';

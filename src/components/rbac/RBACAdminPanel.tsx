@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { 
   Button, 
   Input, 
@@ -15,7 +15,6 @@ import {
 import type { 
   DynamicRole, 
   Permission, 
-  PermissionScope 
 } from '../../rbac/permissions';
 import { usePermissions } from '../../rbac/dynamicGuard';
 import { cn } from '../../lib/utils';
@@ -34,7 +33,6 @@ interface RoleFormData {
 }
 
 export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
-  const { hasPermission } = usePermissions();
   const { showSuccess, showError } = useNotifications();
   
   // State management
@@ -102,7 +100,8 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
   // Handle role creation
   const handleCreateRole = async (data: RoleFormData) => {
     try {
-      await rbacService.createRole(data);
+      const permissions = SYSTEM_PERMISSIONS.filter(p => data.permissionIds.includes(p.id));
+      await rbacService.createRole(data.name, data.description, permissions);
       await loadRoles();
       setIsCreateModalOpen(false);
       showSuccess('Role Created', `${data.name} has been created successfully`);
@@ -117,10 +116,11 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
     if (!selectedRole) return;
     
     try {
+      const permissions = SYSTEM_PERMISSIONS.filter(p => data.permissionIds.includes(p.id));
       await rbacService.updateRole(selectedRole.id, {
         name: data.name,
         description: data.description,
-        permissionIds: data.permissionIds
+        permissions: permissions
       });
       await loadRoles();
       setIsEditModalOpen(false);
@@ -148,7 +148,7 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
   };
 
   // Get role form fields
-  const getRoleFormFields = (role?: DynamicRole): FormField[] => [
+  const getRoleFormFields = (): FormField[] => [
     {
       name: 'name',
       label: 'Role Name',
@@ -393,7 +393,7 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
       {/* User Assignments Tab */}
       {selectedTab === 'assignments' && (
         <UserAssignmentTab 
-          canManageUsers={canManageUsers}
+          canManageUsers={canManageUsers('org.users.roles')}
           rbacService={rbacService}
           onUserRoleChange={() => {
             loadRoles();
@@ -411,7 +411,7 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
       >
         <SmartForm
           fields={getRoleFormFields()}
-          onSubmit={handleCreateRole}
+          onSubmit={(data) => handleCreateRole(data as unknown as RoleFormData)}
           submitLabel={FORM_LABELS.CREATE_ROLE}
           onCancel={() => setIsCreateModalOpen(false)}
         />
@@ -429,8 +429,8 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
       >
         {selectedRole && (
           <SmartForm
-            fields={getRoleFormFields(selectedRole)}
-            onSubmit={handleUpdateRole}
+            fields={getRoleFormFields()}
+            onSubmit={(data) => handleUpdateRole(data as unknown as RoleFormData)}
             submitLabel={FORM_LABELS.UPDATE_ROLE}
             onCancel={() => {
               setIsEditModalOpen(false);

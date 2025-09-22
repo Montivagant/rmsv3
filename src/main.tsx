@@ -5,55 +5,54 @@ import App from './App'
 import { UpdateManager, NotificationProvider, ThemeProvider } from './components'
 import { ToastProvider } from './components/Toast'
 import { EventStoreProvider } from './events/context'
+import { AuthProvider } from './contexts/AuthContext'
 
 // Suppress React DevTools download message in Electron
 if (typeof window !== 'undefined' && window.navigator.userAgent.includes('Electron')) {
-  // Override console methods to suppress React DevTools message
-  const originalLog = console.log;
-  const originalInfo = console.info;
-  
-  const suppressReactDevTools = (...args) => {
-    const message = args.join(' ');
-    if (message.includes('Download the React DevTools') || message.includes('react.dev/link/react-devtools')) {
-      return; // Suppress this specific message
+  const originalLog = console.log
+  const originalInfo = console.info
+
+  const suppressReactDevTools = (...args: unknown[]) => {
+    const message = args.join(' ')
+    if (typeof message === 'string' && (
+      message.includes('Download the React DevTools') ||
+      message.includes('react.dev/link/react-devtools')
+    )) {
+      return false
     }
-    return true; // Allow message
-  };
-  
-  console.log = (...args) => {
+    return true
+  }
+
+  console.log = (...args: unknown[]) => {
     if (suppressReactDevTools(...args)) {
-      originalLog.apply(console, args);
+      originalLog.apply(console, args as any)
     }
-  };
-  
-  console.info = (...args) => {
+  }
+
+  console.info = (...args: unknown[]) => {
     if (suppressReactDevTools(...args)) {
-      originalInfo.apply(console, args);
+      originalInfo.apply(console, args as any)
     }
-  };
+  }
 }
 
 // Mutually exclusive MSW/SW initialization
 const useSW = import.meta.env.PROD && !import.meta.env.VITE_DISABLE_SW
+// Disable MSW to use real repository data instead of mocks
+const shouldUseMsw = false // import.meta.env.VITE_USE_MSW === '1'
 
 async function initializeApp() {
   if (useSW) {
     await import('./sw/register').then(m => m.maybeRegisterServiceWorker())
-  } else if (import.meta.env.DEV || import.meta.env.VITE_USE_MSW === '1') {
-    // Initialize MSW for development
+  } else if (shouldUseMsw) {
     try {
-      console.log('🔄 Initializing MSW...');
-      const { worker } = await import('./mocks/browser');
-      console.log('📦 MSW module loaded successfully');
-      await worker.start({ 
+      const { worker } = await import('./mocks/browser')
+      await worker.start({
         onUnhandledRequest: 'bypass',
-        quiet: true // Reduce MSW console noise
-      });
-      console.log('✅ MSW worker ready');
+        quiet: true,
+      })
     } catch (error) {
-      console.error('❌ MSW initialization failed:', error);
-      console.log('ℹ️ MSW not available - API calls will go to real endpoints');
-      console.log('📋 To fix: run "npx msw init public/ --save" and refresh');
+      console.error('MSW initialization failed:', error)
     }
   }
 
@@ -61,20 +60,21 @@ async function initializeApp() {
 
   root.render(
     <StrictMode>
-      <ThemeProvider>
-        <EventStoreProvider>
-          <NotificationProvider>
-            <ToastProvider>
-              <UpdateManager>
-                <App />
-              </UpdateManager>
-            </ToastProvider>
-          </NotificationProvider>
-        </EventStoreProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <EventStoreProvider>
+            <NotificationProvider>
+              <ToastProvider>
+                <UpdateManager>
+                  <App />
+                </UpdateManager>
+              </ToastProvider>
+            </NotificationProvider>
+          </EventStoreProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </StrictMode>,
   )
 }
 
-// Initialize the app
-initializeApp().catch(console.error);
+initializeApp().catch(console.error)

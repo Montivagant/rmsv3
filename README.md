@@ -1,191 +1,163 @@
-# RMS v3 - Restaurant Management System
+# DashUp
 
-A modern, event-driven restaurant management system built with React, TypeScript, and PouchDB.
+Modern, offline-first restaurant management system built with React, TypeScript, and Vite. DashUp runs as a fast single‑page app (SPA) with local persistence and background synchronization to your backend, so your POS and back office remain usable even when the network is unreliable.
 
-## 🏗️ Architecture
+## Highlights
 
-RMS v3 is built on an **event-driven architecture** that ensures data consistency, auditability, and scalability.
+- Offline‑first UX with local persistence and background sync
+- POS, Inventory, Reports, KDS, Customers, and Admin modules
+- Accessible, responsive UI with reusable components and design tokens
+- Strict TypeScript, clear logging, and production‑ready build pipeline
 
-### Core Concepts
+## Tech Stack
 
-- **Event Sourcing**: All state changes are captured as immutable events
-- **CQRS**: Command Query Responsibility Segregation for optimal read/write operations
-- **Offline-First**: Works seamlessly with or without internet connectivity
-- **Type Safety**: Full TypeScript coverage with strict type checking
+- React 19, React Router 6 (v7 future flags enabled)
+- TypeScript, Vite 7
+- Local persistence: IndexedDB/PouchDB (Electron preferred)
+- State and utilities: Zustand and lightweight custom modules
 
-## 🚀 Quick Start
+## Requirements
 
-### Prerequisites
+- Node.js 18+ (LTS recommended)
+- pnpm 9+
 
-- Node.js 18+ 
-- pnpm (recommended) or npm
-
-### Installation
+## Quick Start (Development)
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd rmsv3
+# Clone
+git clone <your-repo-url>
+cd dashup
 
-# Install dependencies
+# Install deps
 pnpm install
 
-# Start development server
+# Start dev server
 pnpm dev
 ```
 
-### Running Tests
+By default the app will run with a local-first store. To use your real backend in development, set `VITE_API_BASE` (no trailing slash):
 
 ```bash
-# Run all tests
-pnpm test
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Run specific test file
-pnpm test src/events/__tests__/store.test.ts
+VITE_API_BASE=https://api.yourdomain.com pnpm dev
 ```
 
-## 📋 Features
+## Configuration (.env)
 
-### Point of Sale (POS)
-- Product catalog management
-- Shopping cart functionality
-- Tax calculations
-- Payment processing
-- Receipt generation
+Create `.env` (or `.env.local`, `.env.production`, etc.). The most important variables are:
 
-### Loyalty System
-- Customer management
-- Points accrual and redemption
-- Discount application
-- Balance tracking
+```dotenv
+# Required in production (no trailing slash)
+VITE_API_BASE=https://api.yourdomain.com
 
-### Inventory Management
-- Stock tracking
-- Low stock alerts
-- Automatic inventory updates
+# Optional: disable service worker in production
+# VITE_DISABLE_SW=1
 
-### Kitchen Display System (KDS)
-- Order queue management
-- Preparation time tracking
-- Order status updates
+# Optional: tune logging in dev (debug|info|warn|error)
+# VITE_LOG_LEVEL=info
+# VITE_CONSOLE_LOGGING=false
+```
 
-## 🎯 Event System
+## Production Build & Hosting (Vite)
 
-The application uses a sophisticated event system for state management:
+1) Build
 
-### Event Types
+```bash
+pnpm build
+```
 
-- `sale.recorded` - When a sale is completed
-- `loyalty.accrued` - When loyalty points are earned
-- `loyalty.redeemed` - When loyalty points are used
-- `inventory.updated` - When stock levels change
-- `payment.processed` - When payment is completed
+This outputs a static site in `dist/`.
 
-### Event Structure
+2) Preview locally (optional)
 
-All events follow a consistent structure:
+```bash
+pnpm preview
+```
 
-```typescript
-interface KnownEvent {
-  id: string;           // Unique event identifier
-  seq: number;          // Sequence number within aggregate
-  type: EventType;      // Event type (lowercase.dot.notation)
-  at: number;           // Timestamp
-  aggregate: {          // Aggregate information
-    id: string;         // Aggregate ID
-    type: string;       // Aggregate type
-  };
-  payload?: any;        // Event-specific data
+3) Host the `dist/` directory on any static host (Nginx shown):
+
+```nginx
+server {
+    listen 80;
+    server_name dashup.example.com;
+
+    root /var/www/dashup/dist;
+    index index.html;
+
+    # SPA fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
 }
 ```
 
-### Usage Example
+Notes
+- Ensure your API allows CORS from your app origin
+- Use HTTPS in production (TLS) and correct `VITE_API_BASE`
+- Service Worker: enabled by default in production; set `VITE_DISABLE_SW=1` to opt out
 
-```typescript
-import { eventStore } from './events/store';
+## Backend Integration
 
-// Record a sale
-eventStore.append('sale.recorded', {
-  ticketId: 'T-123',
-  lines: [{ sku: 'burger', name: 'Classic Burger', qty: 1, price: 12.99, taxRate: 0.15 }],
-  totals: { subtotal: 12.99, discount: 0, tax: 1.95, total: 14.94 }
-}, {
-  aggregate: { id: 'T-123', type: 'ticket' }
-});
+DashUp calls your API under the `/api/...` prefix. The base URL is taken from `VITE_API_BASE`.
 
-// Query events
-const saleEvents = eventStore.query({
-  type: 'sale.recorded',
-  aggregate: { id: 'T-123' }
-});
+Minimum expectations:
+- REST endpoints for app features (inventory, menu, users, branches, reports, etc.)
+- Event endpoints for offline sync (recommended but optional)
+  - `GET /api/events?since=<timestamp>` → returns an array of events
+  - `POST /api/events` with `{ events: [...] }` to ingest new events
+
+If you already expose REST routes under `/api/*`, point `VITE_API_BASE` to that server and the app will use them directly.
+
+## Scripts
+
+```bash
+pnpm dev           # Start Vite dev server
+pnpm build         # Production build (dist/)
+pnpm preview       # Serve built site locally
+
+pnpm typecheck     # TypeScript project check
+pnpm lint          # ESLint
+pnpm test          # Tests (vitest)
+pnpm test:coverage # Coverage
+
+pnpm electron:build  # Optional: build desktop app
 ```
 
-## 🗂️ Project Structure
+## Project Structure (high level)
 
 ```
 src/
-├── components/          # Reusable UI components
-├── events/             # Event system core
-│   ├── store.ts        # Event store implementation
-│   ├── types.ts        # Event type definitions
-│   └── __tests__/      # Event system tests
-├── pages/              # Application pages
-│   ├── POS.tsx         # Point of Sale interface
-│   └── __tests__/      # Page component tests
-├── db/                 # Database layer
-│   └── pouch.ts        # PouchDB integration
-└── utils/              # Utility functions
+  api/            # API helpers (base URL, JSON utilities)
+  bootstrap/      # App initialization and persistence bootstrap
+  components/     # Reusable UI components
+  contexts/       # React contexts (auth, etc.)
+  data/           # Remote client and sync helpers
+  db/             # Local database adapters and sync manager
+  events/         # Optimized event store and queries
+  hooks/          # React hooks (analytics, API, etc.)
+  inventory/      # Inventory domain modules
+  menu/           # Menu domain modules
+  pages/          # Page-level routes
+  services/       # Domain service wrappers (users, branches, categories)
+  shared/         # Logger and shared utilities
+  sw/             # Service worker integration
 ```
 
-## 🧪 Testing
+## Development Tips
 
-The project maintains high test coverage with:
+- Use `VITE_API_BASE` during development to hit your real backend
+- Keep `dist/` and caches out of source control (see `.gitignore`)
+- Run `pnpm typecheck` and `pnpm lint` before commits/PRs
 
-- **Unit Tests**: Individual component and function testing
-- **Integration Tests**: Event system and database integration
-- **E2E Tests**: Complete user workflow testing
+## Accessibility & UI
 
-### Test Categories
+The UI is built with reusable components, global styles, and design tokens, aiming for accessible interactions (roles, focus management, keyboard navigation). Overlays and dismissible layers share consistent behavior.
 
-- `src/events/__tests__/` - Event system tests
-- `src/pages/__tests__/` - UI component tests
-- `src/components/__tests__/` - Reusable component tests
+## Troubleshooting
 
-## 🔧 Development
+- React Router future flags warnings: already enabled in code
+- Double logs in dev: React StrictMode can invoke effects twice; this does not affect production
+- Service worker caching: Disable with `VITE_DISABLE_SW=1` if your environment requires it
 
-### Code Style
+## License
 
-- ESLint + Prettier for code formatting
-- Strict TypeScript configuration
-- Conventional commit messages
-
-### Event System Guidelines
-
-1. **Event Names**: Use lowercase dot notation (e.g., `sale.recorded`)
-2. **Immutability**: Events are immutable once created
-3. **Type Safety**: All events must have proper TypeScript types
-4. **Testing**: Every event type should have comprehensive tests
-
-### Adding New Events
-
-1. Define the event type in `src/events/types.ts`
-2. Add the event to the `EventTypeMap`
-3. Create tests for the new event
-4. Update documentation
-
-## 📚 Additional Documentation
-
-- [Architecture Guide](./docs/ARCHITECTURE.md) - Detailed system architecture
-- [Event System](./docs/EVENTS.md) - Complete event system documentation
-- [Contributing](./docs/CONTRIBUTING.md) - Development guidelines
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](./docs/CONTRIBUTING.md) for details.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT (c) DashUp. See `LICENSE`.

@@ -178,7 +178,7 @@ export default function Signup() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onBlur={validateAndSetErrors}
-                error={errors.name}
+                {...(errors.name && { error: errors.name })}
                 required
                 autoComplete="name"
                 aria-label={t.signup.fields.name.label}
@@ -191,7 +191,7 @@ export default function Signup() {
                 value={phoneLocal}
                 onChange={setPhoneLocal}
                 onBlur={validateAndSetErrors}
-                error={errors.phone}
+                {...(errors.phone && { error: errors.phone })}
                 required
                 aria-label={t.signup.fields.phone.label}
               />
@@ -204,7 +204,7 @@ export default function Signup() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onBlur={validateAndSetErrors}
-                error={errors.email}
+                {...(errors.email && { error: errors.email })}
                 required
                 autoComplete="email"
                 aria-label={t.signup.fields.email.label}
@@ -218,7 +218,7 @@ export default function Signup() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onBlur={validateAndSetErrors}
-                error={errors.password}
+                {...(errors.password && { error: errors.password })}
                 required
                 autoComplete="new-password"
                 aria-label={t.signup.fields.password.label}
@@ -231,7 +231,7 @@ export default function Signup() {
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 onBlur={validateAndSetErrors}
-                error={errors.businessName}
+                {...(errors.businessName && { error: errors.businessName })}
                 required
                 aria-label={t.signup.fields.businessName.label}
               />
@@ -245,7 +245,7 @@ export default function Signup() {
                   searchFn={businessTypeSearch}
                   placeholder={t.signup.fields.businessType.placeholder}
                   required
-                  error={errors.businessType}
+                  {...(errors.businessType && { error: errors.businessType })}
                   allowCustomValue={true}
                   emptyMessage="No types found"
                   helpText="Start typing to search business types"
@@ -259,7 +259,7 @@ export default function Signup() {
                   label={t.signup.fields.terms.label}
                   checked={termsAccepted}
                   onChange={(e) => setTermsAccepted(e.currentTarget.checked)}
-                  error={errors.terms}
+                  {...(errors.terms && { error: errors.terms })}
                   required
                 />
                 <div className="mt-2">

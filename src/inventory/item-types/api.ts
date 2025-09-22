@@ -50,7 +50,7 @@ export const inventoryItemTypeApiHandlers = [
     const newItemType: ItemType = {
       id,
       name,
-      description,
+      ...(description && { description }),
       isActive: true,
       itemCount: 0,
     };

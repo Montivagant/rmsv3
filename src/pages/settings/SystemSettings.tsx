@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { PageHeader } from '../../components/pos/PageHeader';
-import { EmptyState } from '../../components/inventory/EmptyState';
+import { EmptyState } from '../../components/EmptyState';
 import { saveReturnSettings, getReturnSettings, type ReturnStage } from '../../settings/returns';
 import { getKdsSettings, saveKdsSettings } from '../../settings/kds';
 
@@ -47,7 +47,9 @@ export default function SystemSettings() {
             description="Manage database connections, API integrations, and system preferences."
             action={{
               label: "Configure System",
-              onClick: () => console.log("Configure system clicked"),
+              onClick: () => {
+                // TODO: Implement system configuration
+              },
               variant: "primary"
             }}
           />

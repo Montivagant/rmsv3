@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { accountService } from '../../services/account';
 import { useToast } from '../../hooks/useToast';
 import type { ChangePasswordRequest } from '../../types/account';

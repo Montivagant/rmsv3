@@ -21,13 +21,14 @@ const rawItemFormSchema = z.object({
   categoryId: z.string().trim().min(1, 'Category is required'),
 
   // Optional fields
+  itemTypeId: z.string().trim().optional().or(z.literal('')),
   barcode: z.string().max(32, 'Barcode cannot exceed 32 characters').optional().or(z.literal('')),
   storageUnitId: z.string().trim().min(1, 'Storage unit is required'),
   ingredientUnitId: z.string().trim().min(1, 'Ingredient unit is required'),
-  cost: z.number({ invalid_type_error: 'Cost cannot be negative' }).min(0, 'Cost cannot be negative').optional(),
-  minimumLevel: z.number({ invalid_type_error: 'Minimum level cannot be negative' }).min(0, 'Minimum level cannot be negative').optional(),
-  parLevel: z.number({ invalid_type_error: 'Par level cannot be negative' }).min(0, 'Par level cannot be negative').optional(),
-  maximumLevel: z.number({ invalid_type_error: 'Maximum level cannot be negative' }).min(0, 'Maximum level cannot be negative').optional(),
+  cost: z.number({ message: 'Cost must be a valid number' }).min(0, 'Cost cannot be negative').optional(),
+  minimumLevel: z.number({ message: 'Minimum level must be a valid number' }).min(0, 'Minimum level cannot be negative').optional(),
+  parLevel: z.number({ message: 'Par level must be a valid number' }).min(0, 'Par level cannot be negative').optional(),
+  maximumLevel: z.number({ message: 'Maximum level must be a valid number' }).min(0, 'Maximum level cannot be negative').optional(),
 }).superRefine((data, ctx) => {
   const { minimumLevel, parLevel, maximumLevel } = data as any;
   if (minimumLevel != null && parLevel != null && parLevel < minimumLevel) {
@@ -101,8 +102,8 @@ export const createDefaultFormData = (): Partial<ItemFormData> => ({
   name: '',
   sku: '',
   categoryId: '',
-  storageUnit: '',
-  ingredientUnit: '',
+  storageUnitId: '',
+  ingredientUnitId: '',
   barcode: '',
   cost: undefined,
   minimumLevel: undefined,

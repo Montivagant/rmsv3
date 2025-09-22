@@ -192,6 +192,7 @@ export interface TaxCalculationMetadata {
   jurisdiction: TaxJurisdiction;
   roundingRule: TaxRoundingRule;
   version: string;
+  calculationTimeMs?: number;
 }
 
 // Event types for tax management

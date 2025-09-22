@@ -1,6 +1,5 @@
-import React from 'react';
 import { PageHeader } from '../../components/pos/PageHeader';
-import { EmptyState } from '../../components/inventory/EmptyState';
+import { EmptyState } from '../../components/EmptyState';
 
 export default function TaxSettings() {
   return (
@@ -22,7 +21,9 @@ export default function TaxSettings() {
             description="Set up tax rates, exemptions, and calculation rules for your location."
             action={{
               label: "Configure Tax Rates",
-              onClick: () => console.log("Configure tax clicked"),
+              onClick: () => {
+                // TODO: Implement tax configuration
+              },
               variant: "primary"
             }}
           />

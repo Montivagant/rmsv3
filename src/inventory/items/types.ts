@@ -66,7 +66,7 @@ export interface InventoryItem {
   name: string;
   description?: string;
   categoryId: string;
-  itemTypeId?: string;
+  itemTypeId: string;
   
   // Unit of Measure Configuration
   uom: {

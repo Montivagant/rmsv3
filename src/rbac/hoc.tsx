@@ -8,7 +8,7 @@ export function withRoleGuard<P extends object>(
 ) {
   return function GuardedComponent(props: P) {
     return (
-      <RoleGuard requiredRole={requiredRole}>
+      <RoleGuard {...(requiredRole && { requiredRole })}>
         <Component {...props} />
       </RoleGuard>
     );
