@@ -51,7 +51,7 @@ export function formatDateTime(date: Date | string | number): string {
 /**
  * Debounce function to limit the rate of function calls
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -65,7 +65,7 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Throttle function to limit the rate of function calls
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -89,7 +89,7 @@ export function generateId(prefix = 'id'): string {
 /**
  * Check if a value is empty (null, undefined, empty string, empty array, empty object)
  */
-export function isEmpty(value: any): boolean {
+export function isEmpty(value: unknown): boolean {
   if (value == null) return true;
   if (typeof value === 'string') return value.trim().length === 0;
   if (Array.isArray(value)) return value.length === 0;
@@ -164,7 +164,7 @@ export function isProduction(): boolean {
 /**
  * Safe JSON parse that returns null on error
  */
-export function safeJsonParse<T = any>(str: string): T | null {
+export function safeJsonParse<T = unknown>(str: string): T | null {
   try {
     return JSON.parse(str);
   } catch {
@@ -175,7 +175,7 @@ export function safeJsonParse<T = any>(str: string): T | null {
 /**
  * Safe JSON stringify that returns empty string on error
  */
-export function safeJsonStringify(obj: any): string {
+export function safeJsonStringify(obj: unknown): string {
   try {
     return JSON.stringify(obj);
   } catch {
@@ -186,15 +186,15 @@ export function safeJsonStringify(obj: any): string {
 /**
  * Get a nested object property safely
  */
-export function get(obj: any, path: string, defaultValue?: any): any {
+export function get(obj: Record<string, unknown>, path: string, defaultValue?: unknown): unknown {
   const keys = path.split('.');
-  let result = obj;
+  let result: unknown = obj;
   
   for (const key of keys) {
     if (result == null || typeof result !== 'object') {
       return defaultValue;
     }
-    result = result[key];
+    result = (result as Record<string, unknown>)[key];
   }
   
   return result !== undefined ? result : defaultValue;
@@ -203,18 +203,18 @@ export function get(obj: any, path: string, defaultValue?: any): any {
 /**
  * Set a nested object property safely
  */
-export function set(obj: any, path: string, value: any): void {
+export function set(obj: Record<string, unknown>, path: string, value: unknown): void {
   const keys = path.split('.');
   const lastKey = keys.pop();
   
   if (!lastKey) return;
   
-  let current = obj;
+  let current: Record<string, unknown> = obj;
   for (const key of keys) {
     if (!(key in current) || typeof current[key] !== 'object') {
       current[key] = {};
     }
-    current = current[key];
+    current = current[key] as Record<string, unknown>;
   }
   
   current[lastKey] = value;
@@ -231,7 +231,7 @@ export function deepClone<T>(obj: T): T {
     const cloned = {} as T;
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        (cloned as any)[key] = deepClone((obj as any)[key]);
+        (cloned as Record<string, unknown>)[key] = deepClone((obj as Record<string, unknown>)[key]);
       }
     }
     return cloned;

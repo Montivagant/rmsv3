@@ -1,4 +1,6 @@
-const API_BASE: string = ((import.meta as any).env?.VITE_API_BASE || '').replace(/\/$/, '')
+const DEFAULT_DEV_API_BASE = (import.meta as any).env?.DEV ? 'http://localhost:3001' : ''
+const rawApiBase = ((import.meta as any).env?.VITE_API_BASE || DEFAULT_DEV_API_BASE).toString().trim()
+const API_BASE: string = rawApiBase.replace(/\/$/, '')
 
 function withBase(path: string): string {
   if (!path) return path
@@ -14,7 +16,9 @@ export async function fetchJSON<T = any>(path: string, init?: RequestInit): Prom
   const ct = res.headers.get('content-type') || ''
   if (!res.ok) {
     let body = ''
-    try { body = await res.text() } catch {}
+    try { body = await res.text() } catch {
+      // Ignore errors when trying to read response body
+    }
     throw Object.assign(new Error(`Request failed (${res.status}) for ${url}: ${body.slice(0,120)}...`), { status: res.status })
   }
   if (!ct.includes('application/json')) {

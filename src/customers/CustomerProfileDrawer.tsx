@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Drawer, Button, Card, CardHeader, CardTitle, CardContent, EmptyState, Modal, FormField, Label, Input, Textarea } from '../components';
+import { Drawer, Card, CardHeader, CardTitle, CardContent, EmptyState, Button, Input, FormField, Label } from '../components';
 import type { Customer } from './types';
-import { adjustCustomerPoints } from './repository';
-import { Role, getRole, hasPermission } from '../rbac/roles';
+// import { Role, getRole } from '../rbac/roles';
+import { useOrders } from '../hooks/useOrders';
+import { useEffect, useState } from 'react';
+import { upsertCustomerProfile } from './repository';
+import { useRepositoryMutation } from '../hooks/useRepository';
 
 interface Props {
   open: boolean;
@@ -11,59 +13,36 @@ interface Props {
 }
 
 export function CustomerProfileDrawer({ open, onClose, customer }: Props) {
-  const canAdjust = hasPermission(getRole(), Role.BUSINESS_OWNER);
+  // const _canManage = getRole() === Role.BUSINESS_OWNER; // Unused after loyalty removal
+  const { orders } = useOrders({ includeCancelled: false, includeCompleted: true, customerId: customer?.id });
+  const [editing, setEditing] = useState(false);
+  const [local, setLocal] = useState<Customer | null>(customer);
+  const [form, setForm] = useState<{ name: string; email: string; phone: string } | null>(
+    customer ? { name: customer.name, email: customer.email || '', phone: customer.phone || '' } : null
+  );
+  const [saving, setSaving] = useState(false);
+  const saveMutation = useRepositoryMutation(upsertCustomerProfile);
 
-  // Local points state to reflect adjustments immediately
-  const [currentPoints, setCurrentPoints] = useState<number>(customer?.points ?? 0);
   useEffect(() => {
-    setCurrentPoints(customer?.points ?? 0);
+    setLocal(customer);
+    if (customer) {
+      setForm({ name: customer.name, email: customer.email || '', phone: customer.phone || '' });
+    } else {
+      setForm(null);
+      setEditing(false);
+    }
   }, [customer]);
-
-  // Adjust points modal state
-  const [showAdjust, setShowAdjust] = useState(false);
-  const [delta, setDelta] = useState<string>('');
-  const [reason, setReason] = useState<string>('');
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const resetAdjustForm = () => {
-    setDelta('');
-    setReason('');
-    setSubmitError(null);
-  };
-
-  const handleAdjust = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customer) return;
-    const parsed = Number(delta);
-    if (!Number.isFinite(parsed) || Math.trunc(parsed) !== parsed || Math.abs(parsed) > 100000) {
-      setSubmitError('Enter a whole number between -100000 and 100000.');
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const updated = await adjustCustomerPoints(customer.id, parsed, reason?.trim() || 'Manual adjustment', 'POS Terminal');
-      setCurrentPoints(updated.points);
-      setShowAdjust(false);
-      resetAdjustForm();
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Adjustment failed');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <Drawer
       isOpen={open}
       onClose={onClose}
-      title={customer ? customer.name : 'Customer Profile'}
+      title={local ? local.name : 'Customer Profile'}
       description="Customer profile"
       size="xl"
       side="right"
     >
-      {!customer ? (
+      {!local ? (
         <EmptyState
           title="No customer selected"
           description="Select a customer from the table to view their profile."
@@ -74,129 +53,114 @@ export function CustomerProfileDrawer({ open, onClose, customer }: Props) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
-                <span>Summary</span>
+                <span>Profile</span>
+                {!editing ? (
+                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}>Edit</Button>
+                ) : null}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-sm text-text-secondary">Email</div>
-                  <div className="font-medium">{customer.email}</div>
-                </div>
-                <div>
-                  <div className="text-sm text-text-secondary">Phone</div>
-                  <div className="font-medium">{customer.phone}</div>
-                </div>
-                {typeof customer.orders === 'number' && (
+              {!editing ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-text-secondary">Orders</div>
-                    <div className="font-medium">{customer.orders}</div>
+                    <div className="text-sm text-text-secondary">Name</div>
+                    <div className="font-medium">{local.name}</div>
                   </div>
-                )}
-                {typeof customer.totalSpent === 'number' && (
                   <div>
-                    <div className="text-sm text-text-secondary">Total Spent</div>
-                    <div className="font-medium">${customer.totalSpent.toFixed(2)}</div>
+                    <div className="text-sm text-text-secondary">Email</div>
+                    <div className="font-medium">{local.email}</div>
                   </div>
-                )}
-              </div>
-              {/* Tags removed in simplified model */}
+                  <div>
+                    <div className="text-sm text-text-secondary">Phone</div>
+                    <div className="font-medium">{local.phone}</div>
+                  </div>
+                  {typeof local.orders === 'number' && (
+                    <div>
+                      <div className="text-sm text-text-secondary">Orders</div>
+                      <div className="font-medium">{local.orders}</div>
+                    </div>
+                  )}
+                  {typeof local.totalSpent === 'number' && (
+                    <div>
+                      <div className="text-sm text-text-secondary">Total Spent</div>
+                      <div className="font-medium">${local.totalSpent.toFixed(2)}</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <form
+                  className="space-y-3 max-w-md"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!form) return;
+                    setSaving(true);
+                    try {
+                      await saveMutation.mutate({ id: (local as Customer).id, name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() });
+                      // Update local state immediately
+                      setLocal(prev => prev ? { ...prev, name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim() } : prev);
+                      // Notify listeners (e.g., Customers page) to refetch
+                      try {
+                        window.dispatchEvent(new CustomEvent('customers:updated'));
+                      } catch {
+                        // Ignore dispatch errors in unsupported environments
+                      }
+                      setEditing(false);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                >
+                  <FormField>
+                    <Label htmlFor="cust-name">Full Name</Label>
+                    <Input id="cust-name" value={form?.name ?? ''} onChange={(e) => setForm(f => ({ ...(f as any), name: e.target.value }))} />
+                  </FormField>
+                  <FormField>
+                    <Label htmlFor="cust-email">Email</Label>
+                    <Input id="cust-email" type="email" value={form?.email ?? ''} onChange={(e) => setForm(f => ({ ...(f as any), email: e.target.value }))} />
+                  </FormField>
+                  <FormField>
+                    <Label htmlFor="cust-phone">Phone</Label>
+                    <Input id="cust-phone" value={form?.phone ?? ''} onChange={(e) => setForm(f => ({ ...(f as any), phone: e.target.value }))} />
+                  </FormField>
+                  <div className="flex gap-2 pt-2">
+                    <Button type="button" variant="outline" onClick={() => { setEditing(false); setForm(local ? { name: local.name, email: local.email || '', phone: local.phone || '' } : null); }} disabled={saving}>Cancel</Button>
+                    <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
+                  </div>
+                </form>
+              )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Loyalty</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-text-secondary">Current Points</div>
-                <div className="font-semibold">{currentPoints} pts</div>
-              </div>
-              {/* Adjustment UI intentionally in profile drawer only (no in-list editing) */}
-              <div className="flex gap-2">
-                {canAdjust ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowAdjust(true)}
-                  >
-                    Adjust Points
-                  </Button>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Loyalty removed */}
 
           <Card>
             <CardHeader>
               <CardTitle>Order History Snapshot</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm text-text-secondary">
-                This is a snapshot. Hook to real orders endpoint in a follow-up.
+              <div className="space-y-2 text-sm">
+                <div className="text-text-secondary">Recent orders (all branches)</div>
+                <ul className="list-disc ml-5">
+                  {orders
+                    .filter(o => !local || o.customerId === local.id)
+                    .slice(0, 5)
+                    .map(o => (
+                      <li key={o.id} className="flex justify-between">
+                        <span>{o.ticketId}</span>
+                        <span className="text-text-secondary">{o.status}</span>
+                      </li>
+                    ))}
+                  {orders.filter(o => !local || o.customerId === local.id).length === 0 && (
+                    <li className="text-text-secondary">No orders found for this customer.</li>
+                  )}
+                </ul>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Adjust Points Modal */}
-      <Modal
-        isOpen={showAdjust}
-        onClose={() => {
-          if (!submitting) {
-            setShowAdjust(false);
-            resetAdjustForm();
-          }
-        }}
-        title="Adjust Loyalty Points"
-        description="Increase or decrease points for this customer. This action is audited."
-      >
-        <form onSubmit={handleAdjust} className="space-y-form">
-          <FormField error={submitError || undefined} required>
-            <Label htmlFor="points-delta" required>
-              Points delta
-            </Label>
-            <Input
-              id="points-delta"
-              type="number"
-              inputMode="numeric"
-              step="1"
-              value={delta}
-              onChange={(e) => setDelta(e.target.value)}
-              placeholder="e.g., 100 or -50"
-            />
-          </FormField>
-
-          <FormField>
-            <Label htmlFor="points-reason">Reason (optional)</Label>
-            <Textarea
-              id="points-reason"
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g., Customer service goodwill, manual correction, promotion"
-            />
-          </FormField>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowAdjust(false);
-                resetAdjustForm();
-              }}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting || !delta.trim()}>
-              {submitting ? 'Applying…' : 'Apply'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      {/* Loyalty adjustment UI removed */}
     </Drawer>
   );
 }

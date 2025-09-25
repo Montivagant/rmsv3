@@ -36,7 +36,6 @@ export function PerformanceMonitor({
         setMetrics(newMetrics);
       } catch (error) {
         // Swallow errors silently in monitor
-        // eslint-disable-next-line no-console
         console.warn('Failed to get performance metrics:', error);
       }
     };

@@ -2,7 +2,6 @@
 
 export const Role = {
   BUSINESS_OWNER: 'BUSINESS_OWNER',
-  STAFF: 'STAFF',
 } as const;
 
 export type Role = typeof Role[keyof typeof Role];
@@ -16,7 +15,6 @@ export interface User {
 // Role hierarchy: BUSINESS_OWNER has highest privilege
 export const roleHierarchy: Record<Role, number> = {
   [Role.BUSINESS_OWNER]: 10,
-  [Role.STAFF]: 1,
 };
 
 // Alias for roleHierarchy to match component usage
@@ -28,11 +26,6 @@ export function getRole(): Role {
   // In development, default to BUSINESS_OWNER if no user is set
   if (!user && import.meta.env.DEV) {
     return Role.BUSINESS_OWNER;
-  }
-  
-  // Heuristic: if the user's name indicates staff, treat as STAFF even if role mis-set
-  if (user?.name && user.name.toLowerCase().includes('staff')) {
-    return Role.STAFF;
   }
   return (user?.role as Role) || Role.BUSINESS_OWNER;
 }
@@ -64,6 +57,14 @@ export function getCurrentUser(): User | null {
     } catch {
       return null;
     }
+  }
+  // Default to Business Owner in development
+  if (import.meta.env.DEV) {
+    return {
+      id: 'business-owner',
+      name: 'Business Owner',
+      role: Role.BUSINESS_OWNER,
+    };
   }
   return null;
 }

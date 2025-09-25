@@ -27,13 +27,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         this.props.onError(error, info);
       } else {
         // Minimal console logging to avoid noisy tests; gate behind env var if needed
-        if ((import.meta as any).env?.MODE !== 'test') {
-          // eslint-disable-next-line no-console
+        if (import.meta.env?.MODE !== 'test') {
           console.error('[ErrorBoundary]', error, info);
         }
       }
     } catch {
-      // no-op
+      // Ignore errors during error reporting to prevent infinite loops
     }
   }
 

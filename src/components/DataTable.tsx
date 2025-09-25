@@ -13,6 +13,7 @@ interface Column<T> {
 interface DataTableProps<T> {
   data: T[];
   columns: Column<T>[];
+  rowKey?: (row: T, index: number) => string;
   className?: string;
   emptyState?: {
     title: string;
@@ -28,12 +29,14 @@ interface DataTableProps<T> {
 export function DataTable<T>({
   data,
   columns,
+  rowKey,
   className,
   emptyState,
   loading = false
 }: DataTableProps<T>) {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+  const getRowKey = rowKey ? rowKey : (_: T, index: number) => String(index);
 
   const handleSort = (columnId: string) => {
     if (sortColumn === columnId) {
@@ -120,8 +123,8 @@ export function DataTable<T>({
         <table className="w-full">
           <thead className="bg-surface-secondary">
             <tr>
-              {columns.map((column) => {
-                const columnId = column.id || String(column.accessorKey);
+              {columns.map((column, columnIndex) => {
+                const columnId = column.id ?? (column.accessorKey ? String(column.accessorKey) : `column-${columnIndex}`);
                 const isSortable = column.enableSorting !== false;
                 const isSorted = sortColumn === columnId;
                 
@@ -163,9 +166,9 @@ export function DataTable<T>({
           </thead>
           <tbody className="divide-y divide-border">
             {sortedData.map((row, rowIndex) => (
-              <tr key={rowIndex} className="hover:bg-surface-secondary/50 transition-colors">
-                {columns.map((column) => {
-                  const columnId = column.id || String(column.accessorKey);
+              <tr key={getRowKey(row, rowIndex)} className="hover:bg-surface-secondary/50 transition-colors">
+                {columns.map((column, columnIndex) => {
+                  const columnId = column.id ?? (column.accessorKey ? String(column.accessorKey) : `column-${columnIndex}`);
                   
                   return (
                     <td key={columnId} className="px-4 py-3 text-sm">

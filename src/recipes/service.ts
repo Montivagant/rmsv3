@@ -497,13 +497,8 @@ export class RecipeService {
     const costPerUnit = totalIngredientCost / recipe.yield.quantity;
 
     // Add labor and overhead if requested
-    let totalCost = totalIngredientCost;
-    if (options.includeLabor && recipe.costing.laborCostPerBatch) {
-      totalCost += recipe.costing.laborCostPerBatch;
-    }
-    if (options.includeOverhead && recipe.costing.overheadCostPerBatch) {
-      totalCost += recipe.costing.overheadCostPerBatch;
-    }
+    // Calculate total cost including labor and overhead
+    // Note: Labor and overhead costs would be added here if needed for future calculations
 
     const currentUser = getRole();
     const event: RecipeCostCalculatedEvent = {

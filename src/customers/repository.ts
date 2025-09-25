@@ -1,6 +1,7 @@
 import { bootstrapEventStore } from '../bootstrap/persist';
+import { stableHash } from '../events/hash';
+import { getBaseEventType } from '../events/validation';
 import type {
-  CustomerLoyaltyAdjustedEvent,
   CustomerProfileUpsertedEvent,
   SaleRecordedEvent,
 } from '../events/types';
@@ -20,7 +21,7 @@ export interface CustomerRecord {
   updatedAt: number;
 }
 
-interface CustomerState extends CustomerRecord {}
+type CustomerState = CustomerRecord;
 
 function ensureState(map: Map<string, CustomerState>, id: string): CustomerState {
   const existing = map.get(id);
@@ -48,14 +49,15 @@ async function loadCustomerMap(): Promise<Map<string, CustomerState>> {
   const map = new Map<string, CustomerState>();
 
   for (const event of events) {
-    if (event.type === 'customer.profile.upserted') {
+    const baseType = getBaseEventType(event.type);
+    if (baseType === 'customer.profile.upserted') {
       const payload = (event as CustomerProfileUpsertedEvent).payload;
       const record: CustomerState = {
         id: payload.customerId,
         name: payload.name,
         email: payload.email ?? '',
         phone: payload.phone ?? '',
-        points: payload.loyaltyPoints ?? 0,
+        points: 0,
         visits: payload.visits ?? 0,
         orders: payload.visits ?? 0,
         totalSpent: payload.totalSpent ?? 0,
@@ -68,15 +70,9 @@ async function loadCustomerMap(): Promise<Map<string, CustomerState>> {
       continue;
     }
 
-    if (event.type === 'customer.loyalty.adjusted') {
-      const payload = (event as CustomerLoyaltyAdjustedEvent).payload;
-      const record = ensureState(map, payload.customerId);
-      record.points = payload.balance;
-      record.updatedAt = payload.adjustedAt;
-      continue;
-    }
+    // Loyalty removed
 
-    if (event.type === 'sale.recorded') {
+    if (baseType === 'sale.recorded') {
       const payload = (event as SaleRecordedEvent).payload;
       const customerId = payload.customerId;
       if (!customerId) continue;
@@ -116,7 +112,6 @@ export interface UpsertCustomerInput {
   name: string;
   email?: string;
   phone?: string;
-  loyaltyPoints?: number;
   tags?: string[];
 }
 
@@ -131,7 +126,6 @@ export async function upsertCustomerProfile(input: UpsertCustomerInput): Promise
     name: input.name,
     email: input.email ?? '',
     phone: input.phone ?? '',
-    loyaltyPoints: input.loyaltyPoints ?? existing?.points ?? 0,
     visits: existing?.visits ?? 0,
     totalSpent: existing?.totalSpent ?? 0,
     lastVisit: existing?.lastVisit ?? 0,
@@ -141,7 +135,7 @@ export async function upsertCustomerProfile(input: UpsertCustomerInput): Promise
   };
 
   store.append('customer.profile.upserted', payload, {
-    key: 'customer:profile:' + input.id,
+    key: `customer:profile:${input.id}:${stableHash(payload)}`,
     params: payload,
     aggregate: { id: input.id, type: 'customer' },
   });
@@ -151,28 +145,4 @@ export async function upsertCustomerProfile(input: UpsertCustomerInput): Promise
 }
 
 
-export async function adjustCustomerPoints(customerId: string, delta: number, reason: string, adjustedBy?: string): Promise<CustomerRecord> {
-  const map = await loadCustomerMap();
-  const record = ensureState(map, customerId);
-  const balance = Math.max(0, record.points + delta);
-  const now = Date.now();
-  const { store } = await bootstrapEventStore();
-
-  const payload: CustomerLoyaltyAdjustedEvent['payload'] = {
-    customerId,
-    delta,
-    reason,
-    balance,
-    adjustedAt: now,
-    adjustedBy: adjustedBy ?? '',
-  };
-
-  store.append('customer.loyalty.adjusted', payload, {
-    key: 'customer:loyalty:' + customerId + ':' + String(now) + ':' + String(delta),
-    params: payload,
-    aggregate: { id: customerId, type: 'customer' },
-  });
-
-  const refreshed = await loadCustomerMap();
-  return refreshed.get(customerId)!;
-}
+// Loyalty removed: adjustCustomerPoints no longer supported

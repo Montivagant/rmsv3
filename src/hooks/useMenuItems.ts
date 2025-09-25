@@ -40,8 +40,9 @@ export function useMenuItems(options: UseMenuItemsOptions = {}): UseMenuItemsSta
       setError(err instanceof Error ? err.message : 'Failed to load menu');
       setItems([]);
     } finally {
-      if (signal?.cancelled) return;
-      setLoading(false);
+      if (!signal?.cancelled) {
+        setLoading(false);
+      }
     }
   }, [options.branchId, options.includeInactive]);
 

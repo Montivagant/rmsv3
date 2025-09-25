@@ -288,8 +288,7 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
         const firstName = formData.firstName as string
         const lastName = formData.lastName as string
         const phone = formData.phone as string
-        const loyaltyPoints = Number(formData.loyaltyPoints) || 0
-
+        
         // Name validation - return first error found
         if (!firstName || firstName.trim().length === 0) {
           return {
@@ -323,23 +322,10 @@ export function createRestaurantBusinessRules(services: ValidationServices): Bus
           }
         }
 
-        // Loyalty points validation
-        if (loyaltyPoints < 0) {
-          return {
-            isValid: false,
-            message: 'Loyalty points cannot be negative'
-          }
-        }
-
-        // Collect warnings for valid but noteworthy cases
-        const warnings: string[] = []
-        if (loyaltyPoints > 100000) {
-          warnings.push('Very high loyalty points balance. Please verify this is correct.')
-        }
+        // Loyalty validation removed
 
         return {
-          isValid: true,
-          ...(warnings.length > 0 && { warnings })
+          isValid: true
         }
       },
     },

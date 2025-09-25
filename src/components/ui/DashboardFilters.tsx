@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { cn } from '../../lib/utils';
 import { useDismissableLayer } from '../../hooks/useDismissableLayer';
 import { Button } from '../Button';
+import { useRepository } from '../../hooks/useRepository';
+import { listBranches } from '../../management/repository';
 
 interface DashboardFiltersProps {
   period: 'day' | 'week' | 'month' | 'custom';
@@ -259,13 +261,9 @@ function BranchSelector({
     id: 'dashboard-branch-selector'
   });
 
-  // Mock branch data - TODO: Replace with actual branch data
-  const availableBranches = [
-    { id: 'main', name: 'Main Branch' },
-    { id: 'downtown', name: 'Downtown' },
-    { id: 'mall', name: 'Shopping Mall' },
-    { id: 'airport', name: 'Airport Terminal' }
-  ];
+  // Load real branches from repository
+  const { data: fetchedBranches, loading } = useRepository(listBranches, []);
+  const availableBranches = fetchedBranches ?? [] as any[];
 
   const handleBranchToggle = (branchId: string) => {
     if (branches.includes(branchId)) {
@@ -279,7 +277,7 @@ function BranchSelector({
     if (branches.length === availableBranches.length) {
       onBranchesChange([]);
     } else {
-      onBranchesChange(availableBranches.map(b => b.id));
+      onBranchesChange(availableBranches.map((b: any) => b.id));
     }
   };
 
@@ -318,20 +316,26 @@ function BranchSelector({
             </button>
           </div>
           <div className="border-t border-border-secondary">
-            {availableBranches.map((branch) => (
-              <label
-                key={branch.id}
-                className="flex items-center px-4 py-2 text-sm hover:bg-surface-secondary transition-colors cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={branches.includes(branch.id)}
-                  onChange={() => handleBranchToggle(branch.id)}
-                  className="mr-3 rounded border-border-primary text-brand-600 focus:ring-brand-500"
-                />
-                <span>{branch.name}</span>
-              </label>
-            ))}
+            {loading ? (
+              <div className="px-4 py-2 text-sm text-text-tertiary">Loading branches…</div>
+            ) : availableBranches.length === 0 ? (
+              <div className="px-4 py-2 text-sm text-text-tertiary">No branches</div>
+            ) : (
+              availableBranches.map((branch: any) => (
+                <label
+                  key={branch.id}
+                  className="flex items-center px-4 py-2 text-sm hover:bg-surface-secondary transition-colors cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={branches.includes(branch.id)}
+                    onChange={() => handleBranchToggle(branch.id)}
+                    className="mr-3 rounded border-border-primary text-brand-600 focus:ring-brand-500"
+                  />
+                  <span>{branch.name}</span>
+                </label>
+              ))
+            )}
           </div>
         </div>
       )}

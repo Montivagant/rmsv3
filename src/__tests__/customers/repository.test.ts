@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Event } from '../../events/types';
-import { listCustomers, searchCustomers, adjustCustomerPoints, upsertCustomerProfile } from '../../customers/repository';
-import { resetEventStoreMock, seedEvent, getRecordedEvents } from '../utils/mockEventStore';
+import { listCustomers, searchCustomers, upsertCustomerProfile } from '../../customers/repository';
+import { resetEventStoreMock, seedEvent } from '../utils/mockEventStore';
 
 const baseTime = new Date('2025-01-01T00:00:00Z');
 
@@ -33,7 +33,7 @@ describe('customers repository', () => {
         name: 'Amelia Nassar',
         email: 'amelia@example.com',
         phone: '+20 100 000 0000',
-        loyaltyPoints: 50,
+        // loyalty removed
         visits: 2,
         totalSpent: 150,
         createdAt: profileTime,
@@ -56,21 +56,7 @@ describe('customers repository', () => {
       },
     } as Event);
 
-    pushEvent({
-      id: 'evt-3',
-      seq: 3,
-      type: 'customer.loyalty.adjusted',
-      at: saleTime,
-      aggregate: { id: 'cust-1', type: 'customer' },
-      payload: {
-        customerId: 'cust-1',
-        delta: 45,
-        reason: 'Promo',
-        balance: 95,
-        adjustedAt: saleTime,
-        adjustedBy: 'system',
-      },
-    } as Event);
+    // loyalty adjusted event removed
 
     const customers = await listCustomers();
     expect(customers).toHaveLength(1);
@@ -79,8 +65,8 @@ describe('customers repository', () => {
       name: 'Amelia Nassar',
       email: 'amelia@example.com',
       phone: '+20 100 000 0000',
-      points: 95,
-      orders: 3,
+      // points removed
+      orders: 2,
       visits: 3,
       totalSpent: 245,
       lastVisit: saleTime,
@@ -91,7 +77,7 @@ describe('customers repository', () => {
     expect(searchResults[0].id).toBe('cust-1');
   });
 
-  it('adjusts loyalty points and appends event', async () => {
+  it('upserts and lists customers (loyalty removed)', async () => {
     const profileTime = baseTime.getTime() - 30_000;
     pushEvent({
       id: 'evt-1',
@@ -104,7 +90,7 @@ describe('customers repository', () => {
         name: 'Lina Farouk',
         email: 'lina@example.com',
         phone: '+20 109 000 0000',
-        loyaltyPoints: 10,
+        // loyalty removed
         visits: 1,
         totalSpent: 75,
         createdAt: profileTime,
@@ -112,19 +98,8 @@ describe('customers repository', () => {
       },
     } as Event);
 
-    const updated = await adjustCustomerPoints('cust-42', 25, 'Bonus', 'operator-1');
-    expect(updated.points).toBe(35);
-
-    const events = getRecordedEvents();
-    const loyaltyEvent = events.find(event => event.type === 'customer.loyalty.adjusted' && event.aggregate.id === 'cust-42');
-    expect(loyaltyEvent).toBeTruthy();
-    expect((loyaltyEvent as Event).payload).toMatchObject({
-      customerId: 'cust-42',
-      delta: 25,
-      balance: 35,
-      reason: 'Bonus',
-      adjustedBy: 'operator-1',
-    });
+    const customers = await listCustomers();
+    expect(customers.find(c => c.id === 'cust-42')).toBeTruthy();
   });
 
   it('upserts customer profile preserving existing aggregates', async () => {
@@ -140,7 +115,7 @@ describe('customers repository', () => {
         name: 'Legacy Name',
         email: 'legacy@example.com',
         phone: '',
-        loyaltyPoints: 80,
+        // loyalty removed
         visits: 5,
         totalSpent: 500,
         createdAt: base,
@@ -158,7 +133,7 @@ describe('customers repository', () => {
       id: 'cust-9',
       name: 'Updated Name',
       email: 'updated@example.com',
-      points: 80,
+      // points removed
       visits: 5,
       totalSpent: 500,
     });

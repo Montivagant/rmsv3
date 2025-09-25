@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw';
+﻿import { http, HttpResponse } from 'msw';
 import { eventStore } from '../events/store';
 import { handleWebhook } from '../payments/webhook';
 import { categoryApiHandlers } from '../inventory/categories/api';
@@ -13,6 +13,7 @@ import { menuItemsApiHandlers } from '../menu/items/api';
 import { menuModifiersApiHandlers } from '../menu/modifiers/api';
 import { ordersApiHandlers } from '../orders/api';
 import { authHandlers } from './auth';
+import { accountHandlers } from './account';
 import { SYSTEM_ROLES } from '../rbac/permissions';
 import type { DynamicRole } from '../rbac/permissions';
 
@@ -162,17 +163,9 @@ const mockUsers: any[] = [
 ];
 
 // Initialize mock data
-if (import.meta.env.DEV) console.log('📊 Initializing mock data handlers...');
+if (import.meta.env.DEV) console.log('ðŸ“Š Initializing mock data handlers...');
 
-  // Mock data with branch associations
-  const mockMenuItems = [
-    { id: '1', name: 'Classic Burger', price: 12.99, category: 'Main', description: 'Beef patty with lettuce, tomato, onion', image: '/api/placeholder/150/150', branchIds: ['main-restaurant', 'downtown-location'] },
-    { id: '2', name: 'Chicken Sandwich', price: 11.99, category: 'Main', description: 'Grilled chicken breast with mayo', image: '/api/placeholder/150/150', branchIds: ['main-restaurant', 'downtown-location'] },
-    { id: '3', name: 'French Fries', price: 4.99, category: 'Sides', description: 'Crispy golden fries', image: '/api/placeholder/150/150', branchIds: ['main-restaurant', 'downtown-location'] },
-    { id: '4', name: 'Onion Rings', price: 5.99, category: 'Sides', description: 'Beer-battered onion rings', image: '/api/placeholder/150/150', branchIds: ['main-restaurant'] },
-    { id: '5', name: 'Coca Cola', price: 2.99, category: 'Drinks', description: 'Classic soft drink', image: '/api/placeholder/150/150', branchIds: ['main-restaurant', 'downtown-location', 'warehouse'] },
-    { id: '6', name: 'Coffee', price: 3.49, category: 'Drinks', description: 'Fresh brewed coffee', image: '/api/placeholder/150/150', branchIds: ['main-restaurant', 'downtown-location'] },
-  ];
+  // Mock menu items removed - now using real data from repository
 
 
 const mockInventory: Array<{
@@ -301,9 +294,12 @@ export const handlers = [
   // Auth & Signup
   ...authHandlers,
 
+  // Account management
+  ...accountHandlers,
+
   // Inventory categories endpoint (different from general categories)
   http.get('/api/inventory/categories', () => {
-    console.log('📦 MSW: Inventory categories API called, returning', mockInventoryCategories.length, 'categories');
+    console.log('ðŸ“¦ MSW: Inventory categories API called, returning', mockInventoryCategories.length, 'categories');
     return HttpResponse.json(mockInventoryCategories);
   }),
   // POST to create a simple inventory category in this mock list
@@ -321,7 +317,7 @@ export const handlers = [
 
   // Menu categories endpoints
   http.get('/api/menu/categories', () => {
-    console.log('📁 MSW: Menu categories API called, returning', mockMenuCategories.length, 'categories');
+    console.log('ðŸ“ MSW: Menu categories API called, returning', mockMenuCategories.length, 'categories');
     return HttpResponse.json(mockMenuCategories);
   }),
 
@@ -334,7 +330,7 @@ export const handlers = [
       itemCount: 0
     };
     mockMenuCategories.push(category);
-    console.log('📁 MSW: Created new menu category:', category.name);
+    console.log('ðŸ“ MSW: Created new menu category:', category.name);
     return HttpResponse.json(category, { status: 201 });
   }),
 
@@ -342,13 +338,13 @@ export const handlers = [
     const references = mockMenuCategories
       .map(cat => cat.reference)
       .filter(ref => ref); // Filter out empty references
-    console.log('📁 MSW: Menu category references called, returning', references.length, 'references');
+    console.log('ðŸ“ MSW: Menu category references called, returning', references.length, 'references');
     return HttpResponse.json({ references });
   }),
 
   http.get('/api/menu/categories/names', () => {
     const names = mockMenuCategories.map(cat => cat.name);
-    console.log('📁 MSW: Menu category names called, returning', names.length, 'names');
+    console.log('ðŸ“ MSW: Menu category names called, returning', names.length, 'names');
     return HttpResponse.json({ names });
   }),
 
@@ -370,50 +366,27 @@ export const handlers = [
     return HttpResponse.json({ exists });
   }),
 
-  // Menu items endpoints (for POS, KDS, and Menu Management)
-  http.get('/api/menu', ({ request }) => {
+  // Legacy menu endpoint for POS/KDS compatibility - using real data
+  http.get('/api/menu', async ({ request }) => {
     const url = new URL(request.url);
     const branchId = url.searchParams.get('branchId');
     
-    let items = [...mockMenuItems];
-    
-    // Filter by branch if branchId is provided
-    if (branchId) {
-      items = items.filter(item => item.branchIds.includes(branchId));
+    try {
+      // Use real menu items from repository
+      const { getMenuItems } = await import('../menu/items/repository');
+      const response = await getMenuItems({
+        ...(branchId && { branchId }),
+        isActive: true,
+        isAvailable: true,
+        pageSize: 1000
+      });
+      
+      console.log(`ðŸ“‹ MSW: Legacy /api/menu returning ${response.items.length} real items for POS/KDS`);
+      return HttpResponse.json(response.items);
+    } catch (error) {
+      console.error('Error fetching menu for POS/KDS:', error);
+      return HttpResponse.json([]);
     }
-    
-    return HttpResponse.json(items);
-  }),
-
-  http.post('/api/menu', async ({ request }) => {
-    const newItem = await request.json() as any;
-    const item = {
-      id: String(Date.now()),
-      name: newItem.name || 'New Item',
-      price: Number(newItem.price) || 0,
-      category: newItem.category || 'General',
-      description: newItem.description || '',
-      image: newItem.image || '/api/placeholder/150/150'
-    };
-    (mockMenuItems as any).push(item);
-    return HttpResponse.json(item, { status: 201 });
-  }),
-
-  http.patch('/api/menu/:id', async ({ params, request }) => {
-    const { id } = params as any;
-    const updates = await request.json() as any;
-    const idx = (mockMenuItems as any[]).findIndex((m: any) => m.id == id);
-    if (idx === -1) return new HttpResponse(null, { status: 404 });
-    (mockMenuItems as any)[idx] = { ...(mockMenuItems as any)[idx], ...updates };
-    return HttpResponse.json((mockMenuItems as any)[idx]);
-  }),
-
-  http.delete('/api/menu/:id', ({ params }) => {
-    const { id } = params as any;
-    const idx = (mockMenuItems as any[]).findIndex((m: any) => m.id == id);
-    if (idx === -1) return new HttpResponse(null, { status: 404 });
-    const removed = (mockMenuItems as any).splice(idx, 1)[0];
-    return HttpResponse.json(removed);
   }),
 
   // Role management endpoints
@@ -595,7 +568,7 @@ export const handlers = [
   // Inventory operations - receive stock
   http.post('/api/inventory/operations/receive', async ({ request }) => {
     const operation = await request.json() as any;
-    console.log('📦 MSW: Processing receive operation:', operation);
+    console.log('ðŸ“¦ MSW: Processing receive operation:', operation);
     
     // Update inventory quantities
     operation.items.forEach((opItem: any) => {
@@ -608,7 +581,7 @@ export const handlers = [
         } else {
           mockInventory[inventoryIndex].status = 'in-stock';
         }
-        console.log(`📦 Received ${opItem.receivedQuantity} ${mockInventory[inventoryIndex].unit} of ${mockInventory[inventoryIndex].name}`);
+        console.log(`ðŸ“¦ Received ${opItem.receivedQuantity} ${mockInventory[inventoryIndex].unit} of ${mockInventory[inventoryIndex].name}`);
       }
     });
 
@@ -628,7 +601,7 @@ export const handlers = [
   // Inventory operations - adjust stock
   http.post('/api/inventory/operations/adjust', async ({ request }) => {
     const operation = await request.json() as any;
-    console.log('📦 MSW: Processing adjust operation:', operation);
+    console.log('ðŸ“¦ MSW: Processing adjust operation:', operation);
     
     // Update inventory quantities
     operation.items.forEach((opItem: any) => {
@@ -644,7 +617,7 @@ export const handlers = [
         } else {
           mockInventory[inventoryIndex].status = 'in-stock';
         }
-        console.log(`📦 Adjusted ${mockInventory[inventoryIndex].name} by ${opItem.adjustmentQuantity} (${oldQuantity} → ${mockInventory[inventoryIndex].quantity})`);
+        console.log(`ðŸ“¦ Adjusted ${mockInventory[inventoryIndex].name} by ${opItem.adjustmentQuantity} (${oldQuantity} â†’ ${mockInventory[inventoryIndex].quantity})`);
       }
     });
 
@@ -665,7 +638,7 @@ export const handlers = [
   // Inventory operations - stock count
   http.post('/api/inventory/operations/count', async ({ request }) => {
     const operation = await request.json() as any;
-    console.log('📦 MSW: Processing count operation:', operation);
+    console.log('ðŸ“¦ MSW: Processing count operation:', operation);
     
     // Update inventory quantities to counted amounts
     operation.items.forEach((opItem: any) => {
@@ -682,7 +655,7 @@ export const handlers = [
           mockInventory[inventoryIndex].status = 'in-stock';
         }
         const variance = opItem.countedQuantity - oldQuantity;
-        console.log(`📦 Counted ${mockInventory[inventoryIndex].name}: ${oldQuantity} → ${opItem.countedQuantity} (variance: ${variance > 0 ? '+' : ''}${variance})`);
+        console.log(`ðŸ“¦ Counted ${mockInventory[inventoryIndex].name}: ${oldQuantity} â†’ ${opItem.countedQuantity} (variance: ${variance > 0 ? '+' : ''}${variance})`);
       }
     });
 
@@ -746,7 +719,7 @@ export const handlers = [
       id: String(mockInventory.length + 1) 
     };
     mockInventory.push(item);
-    console.log('📦 MSW: Added new inventory item:', item.name);
+    console.log('ðŸ“¦ MSW: Added new inventory item:', item.name);
     return HttpResponse.json(item, { status: 201 });
   }),
 
@@ -913,27 +886,7 @@ export const handlers = [
     customersDb[idx] = { ...customersDb[idx], ...updates, id: customersDb[idx].id };
     return HttpResponse.json(customersDb[idx]);
   }),
-  // Loyalty adjust (Profile Drawer only; role-gated in UI)
-  http.post('/api/customers/:id/loyalty-adjust', async ({ params, request }) => {
-    const { id } = params as any;
-    const body = await request.json() as any;
-    const deltaRaw = body?.delta;
-    const reason = String(body?.reason || '').slice(0, 200);
-    const idx = customersDb.findIndex((c: any) => String(c.id) === String(id));
-    if (idx === -1) {
-      return new HttpResponse(null, { status: 404 });
-    }
-    const delta = Number(deltaRaw);
-    if (!Number.isFinite(delta) || Math.abs(delta) > 100000) {
-      return HttpResponse.json({ error: 'Invalid delta' }, { status: 400 });
-    }
-    const currentPoints = Number(customersDb[idx].points || 0);
-    const nextPoints = Math.max(0, currentPoints + Math.trunc(delta));
-    customersDb[idx] = { ...customersDb[idx], points: nextPoints };
-    // In a real system, an event would be appended with audit payload incl. reason
-    console.log('⭐ MSW: loyalty-adjust', { id, delta: Math.trunc(delta), reason });
-    return HttpResponse.json({ ...customersDb[idx] });
-  }),
+  // Loyalty adjust removed
 
   // Reports
   http.get('/api/reports', () => {
@@ -1164,7 +1117,7 @@ export const handlers = [
     return HttpResponse.text(
       `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="${bg}"/>
-        <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="${text}">${width}×${height}</text>
+        <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="${text}">${width}Ã—${height}</text>
       </svg>`,
       {
         headers: {
@@ -1174,4 +1127,5 @@ export const handlers = [
     );
   }),
 ];
+
 

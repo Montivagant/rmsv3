@@ -9,6 +9,10 @@ import { SmartForm } from '../forms/SmartForm';
 import type { FormField } from '../forms/SmartForm';
 import type { Branch, BranchFormData } from '../../types/branch';
 import { validateName, validateEmail, validatePhone } from '../../utils/validation';
+import { Input } from '../Input';
+import { Button } from '../Button';
+import { Label } from '../Label';
+import { FormField as Field } from '../FormField';
 
 interface BranchFormProps {
   branch?: Branch;
@@ -177,37 +181,38 @@ export function BranchForm({ branch, onSubmit, onCancel, isSubmitting }: BranchF
         
         <div className="space-y-4">
           {/* Add New Storage Area */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newStorageArea}
-              onChange={(e) => setNewStorageArea(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddStorageArea())}
-              placeholder="Add storage area (e.g., Walk-in Cooler)"
-              className="input-base flex-1"
-            />
-            <button
-              type="button"
-              onClick={handleAddStorageArea}
-              className="btn-secondary"
-            >
-              Add
-            </button>
-          </div>
+          <Field>
+            <Label htmlFor="new-storage-area">New Storage Area</Label>
+            <div className="flex gap-2">
+              <Input
+                id="new-storage-area"
+                value={newStorageArea}
+                onChange={(e) => setNewStorageArea(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); handleAddStorageArea(); }
+                }}
+                placeholder="e.g., Walk-in Cooler"
+                className="flex-1"
+              />
+              <Button type="button" variant="secondary" onClick={handleAddStorageArea}>Add</Button>
+            </div>
+          </Field>
 
           {/* Quick Add Buttons */}
           <div className="flex flex-wrap gap-2">
             {DEFAULT_STORAGE_AREAS
               .filter(area => !storageAreas.includes(area))
               .map(area => (
-                <button
+                <Button
                   key={area}
                   type="button"
+                  size="sm"
+                  variant="outline"
                   onClick={() => setStorageAreas([...storageAreas, area])}
-                  className="text-xs px-2 py-1 bg-surface-secondary hover:bg-surface-tertiary text-text-secondary rounded-md transition-colors"
+                  className="text-xs px-2 py-1"
                 >
                   + {area}
-                </button>
+                </Button>
               ))}
           </div>
 
@@ -222,13 +227,15 @@ export function BranchForm({ branch, onSubmit, onCancel, isSubmitting }: BranchF
                   className="flex items-center justify-between p-3 bg-surface-secondary rounded-lg"
                 >
                   <span className="text-text-primary">{area}</span>
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-error-600 hover:text-error-700"
                     onClick={() => handleRemoveStorageArea(area)}
-                    className="text-error-600 hover:text-error-700 text-sm"
                   >
                     Remove
-                  </button>
+                  </Button>
                 </div>
               ))
             )}

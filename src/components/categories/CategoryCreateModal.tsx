@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Modal } from '../Modal';
 import { Input } from '../Input';
 import { Button } from '../Button';
 import { useToast } from '../../hooks/useToast';
+import { createInventoryCategory, listInventoryCategories } from '../../inventory/repository';
 
 import type { 
   CategoryFormData, 
@@ -16,8 +17,6 @@ import {
   CATEGORY_FIELD_LABELS,
   CATEGORY_FIELD_HELP_TEXT 
 } from '../../schemas/categoryForm';
-
-import { mapCategoryFormToCreatePayload } from '../../lib/categories/mapCategoryForm';
 
 interface CategoryCreateModalProps {
   isOpen: boolean;
@@ -37,7 +36,19 @@ export default function CategoryCreateModal({
   const [errors, setErrors] = useState<CategoryFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [existingCategories, setExistingCategories] = useState<string[]>([]);
   const { showToast } = useToast();
+
+  // Load existing categories to check for duplicates
+  useEffect(() => {
+    if (isOpen) {
+      listInventoryCategories().then(categories => {
+        setExistingCategories(categories.map(cat => cat.name.toLowerCase()));
+      }).catch(err => {
+        console.error('Failed to load categories:', err);
+      });
+    }
+  }, [isOpen]);
 
   // Handle close with unsaved changes protection
   const handleClose = useCallback(() => {
@@ -47,6 +58,10 @@ export default function CategoryCreateModal({
       );
       if (!confirm) return;
     }
+    // Reset form when closing
+    setFormData(createDefaultCategoryFormData());
+    setErrors({});
+    setHasUnsavedChanges(false);
     onClose();
   }, [hasUnsavedChanges, isSubmitting, onClose]);
 
@@ -96,34 +111,22 @@ export default function CategoryCreateModal({
       return;
     }
 
+    // Check for duplicate category name
+    if (existingCategories.includes(formData.name.toLowerCase().trim())) {
+      setErrors({ name: 'A category with this name already exists' });
+      showToast('Category name already exists', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrors({});
 
     try {
-      const payload = mapCategoryFormToCreatePayload(formData);
-      
-      // TODO: Replace with actual API call
-      const response = await fetch('/api/menu/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          // Handle conflict errors (duplicate name/reference)
-          const errorData = await response.json();
-          if (errorData.field) {
-            setErrors({ [errorData.field]: errorData.message });
-          } else {
-            setErrors({ _form: errorData.message || 'Category name or reference already exists' });
-          }
-          return;
-        }
-        throw new Error('Failed to create category');
-      }
-
-      const createdCategory = await response.json();
+      // Create category using event store
+      const createdCategory = await createInventoryCategory(
+        formData.name,
+        formData.reference || undefined
+      );
       
       showToast(`Category "${formData.name}" created successfully`, 'success');
       onSuccess(createdCategory.id);
@@ -134,9 +137,16 @@ export default function CategoryCreateModal({
 
     } catch (error) {
       console.error('Error creating category:', error);
-      setErrors({ 
-        _form: error instanceof Error ? error.message : 'Failed to create category. Please try again.' 
-      });
+      
+      // Handle specific error cases
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create category';
+      
+      if (errorMessage.includes('already exists')) {
+        setErrors({ name: 'A category with this name already exists' });
+      } else {
+        setErrors({ _form: errorMessage });
+      }
+      
       showToast('Failed to create category', 'error');
     } finally {
       setIsSubmitting(false);

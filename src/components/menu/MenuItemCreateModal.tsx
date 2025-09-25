@@ -3,7 +3,7 @@
  * Modal form for creating and editing menu items
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Modal } from '../Modal';
 import { Input } from '../Input';
 import { Select } from '../Select';
@@ -28,6 +28,7 @@ import {
   generateMenuItemSKU 
 } from '../../menu/items/types';
 import { menuItemsApi } from '../../menu/items/api';
+import { useRepository } from '../../hooks/useRepository';
 
 
 interface MenuItemCreateModalProps {
@@ -50,11 +51,29 @@ export default function MenuItemCreateModal({
   const [errors, setErrors] = useState<MenuItemFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-
   const isEditing = !!editingItem;
 
-  // Get existing SKUs for validation
-  const existingSKUs: string[] = []; // Would be populated from API call
+  // Get existing SKUs for validation using real data
+  const { data: existingItemsResponse } = useRepository(
+    async () => {
+      const { getMenuItems } = await import('../../menu/items/repository');
+      return getMenuItems({ pageSize: 1000 }); // Get all items to check SKUs
+    },
+    []
+  );
+  
+  const existingSKUs = useMemo(() => {
+    return existingItemsResponse?.items?.map(item => item.sku) || [];
+  }, [existingItemsResponse]);
+
+  // Load available branches
+  const { data: branches = [] } = useRepository(
+    async () => {
+      const { listBranches } = await import('../../management/repository');
+      return listBranches();
+    },
+    []
+  );
 
   // Initialize form data when editing
   useEffect(() => {
@@ -98,8 +117,18 @@ export default function MenuItemCreateModal({
 
   // Generate SKU from name and category
   const handleGenerateSKU = useCallback(() => {
+    const newErrors: MenuItemFormErrors = {};
+    
     if (!formData.name) {
-      setErrors(prev => ({ ...prev, name: 'Please enter an item name first' }));
+      newErrors.name = 'Please enter an item name first';
+    }
+    
+    if (!formData.categoryId) {
+      newErrors.categoryId = 'Please select a category first';
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(prev => ({ ...prev, ...newErrors }));
       return;
     }
 
@@ -266,8 +295,9 @@ export default function MenuItemCreateModal({
                 type="button"
                 variant="outline"
                 onClick={handleGenerateSKU}
-                disabled={isSubmitting || !formData.name || !formData.categoryId}
+                disabled={isSubmitting}
                 className="w-full mt-6"
+                title={!formData.name ? "Enter item name first" : !formData.categoryId ? "Select category first" : "Generate SKU based on name and category"}
               >
                 Generate
               </Button>
@@ -404,21 +434,26 @@ export default function MenuItemCreateModal({
             Available at Branches *
           </label>
           <div className="space-y-2 max-h-32 overflow-y-auto">
-            {/* For now, use default branch - would be loaded from API */}
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="branch-main"
-                checked={formData.branchIds.includes('main-restaurant')}
-                onChange={(e) => handleBranchToggle('main-restaurant', e.target.checked)}
-                disabled={isSubmitting}
-              />
-              <label 
-                htmlFor="branch-main"
-                className="text-sm text-text-primary flex-1 cursor-pointer"
-              >
-                Main Restaurant (restaurant)
-              </label>
-            </div>
+            {!branches || branches.length === 0 ? (
+              <p className="text-sm text-text-muted">No branches available</p>
+            ) : (
+              branches.map((branch) => (
+                <div key={branch.id} className="flex items-center space-x-3">
+                  <Checkbox
+                    id={`branch-${branch.id}`}
+                    checked={formData.branchIds.includes(branch.id)}
+                    onChange={(e) => handleBranchToggle(branch.id, e.target.checked)}
+                    disabled={isSubmitting}
+                  />
+                  <label 
+                    htmlFor={`branch-${branch.id}`}
+                    className="text-sm text-text-primary flex-1 cursor-pointer"
+                  >
+                    {branch.name} ({branch.type})
+                  </label>
+                </div>
+              ))
+            )}
           </div>
           {errors.branchIds && (
             <p className="text-sm text-error">{errors.branchIds}</p>

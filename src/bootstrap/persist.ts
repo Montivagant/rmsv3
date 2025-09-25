@@ -4,7 +4,7 @@ import { OptimizedEventStore } from '../events/optimizedStore'
 import { createOptimizedQueries } from '../events/optimizedQueries'
 import type { EventStore, Event } from '../events/types'
 // Removed localStorage import - using PouchDB/IndexedDB as canonical persistence
-import { setOptimizedQueries } from '../loyalty/state'
+// import { setOptimizedQueries } from '../loyalty/state'
 import { environment } from '../lib/environment'
 import { configureOutbox } from '../data/sync/outboxBridge'
 import { syncManager } from '../db/syncManager'
@@ -75,7 +75,7 @@ export async function bootstrapEventStore() {
     // Create optimized query utilities
     optimizedQueries = createOptimizedQueries(optimizedStore)
 
-    const remoteEnabled = Boolean((import.meta as any)?.env?.VITE_API_BASE);
+    const remoteEnabled = Boolean(import.meta.env?.VITE_API_BASE);
     configureOutbox({ enabled: remoteEnabled });
 
     // Auto-configure sync manager for real API usage
@@ -86,8 +86,7 @@ export async function bootstrapEventStore() {
     // Start PouchDB compaction manager for production - temporarily disabled due to spark-md5 import issue
     // compactionManager.start();
 
-    // Set global optimized queries for legacy modules
-    setOptimizedQueries(optimizedQueries)
+    // Loyalty queries deprecated
 
   // Try PouchDB first (preferred for Electron) 
   if (environment.isElectron) {
@@ -139,7 +138,7 @@ export async function bootstrapEventStore() {
       
       return result
     } catch (error) {
-      console.warn('Failed to hydrate from remote, using empty optimized store:', error)
+      logger.warn('Failed to hydrate from remote, using empty optimized store', { error: error instanceof Error ? error.message : error })
       
       const result = { store: optimizedStore, db: null }
       // Store in singleton for React StrictMode protection
@@ -216,7 +215,7 @@ export function getPerformanceMetrics() {
 }
 
 async function hydrateFromRemoteEvents(targetStore: OptimizedEventStore) {
-  const apiBase = (import.meta as any)?.env?.VITE_API_BASE;
+  const apiBase = import.meta.env?.VITE_API_BASE;
   if (!apiBase) {
     return;
   }
@@ -256,7 +255,7 @@ async function hydrateFromRemoteEvents(targetStore: OptimizedEventStore) {
       const db = await pouch.openLocalDB({ name: environment.eventStorePath });
       await pouch.bulkPutEvents(db, toPersist as Event[]);
     } catch (error) {
-      console.warn('Remote event persistence skipped (Pouch unavailable):', error);
+      logger.warn('Remote event persistence skipped (Pouch unavailable)', { error: error instanceof Error ? error.message : error });
     }
 
     for (const event of toPersist) {
@@ -271,7 +270,7 @@ async function hydrateFromRemoteEvents(targetStore: OptimizedEventStore) {
  * Auto-configure sync manager with production defaults
  */
 async function configureSyncManager(): Promise<void> {
-  const apiBase = (import.meta as any)?.env?.VITE_API_BASE;
+  const apiBase = import.meta.env?.VITE_API_BASE;
   
   try {
     if (!apiBase) return;

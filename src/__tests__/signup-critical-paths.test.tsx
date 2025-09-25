@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from './test-utils';
+import { BUILD_STRONG_TEST_PASSWORD } from './utils/testCredentials';
 
 import Signup from '../pages/Signup';
 import SignupSuccess from '../pages/SignupSuccess';
@@ -51,7 +52,7 @@ describe('DashUp Signup Critical Paths', () => {
       await user.type(nameInput, 'Ahmed Mohamed');
       await user.type(phoneInput, '1012345678');
       await user.type(emailInput, 'ahmed@example.com');
-      await user.type(passwordInput, 'securepass123');
+      await user.type(passwordInput, BUILD_STRONG_TEST_PASSWORD());
       await user.type(businessNameInput, 'Cairo Bistro');
 
       // Select business type
@@ -72,7 +73,7 @@ describe('DashUp Signup Critical Paths', () => {
           name: 'Ahmed Mohamed',
           phoneLocal: '1012345678',
           email: 'ahmed@example.com',
-          password: 'securepass123',
+          password: BUILD_STRONG_TEST_PASSWORD(),
           businessName: 'Cairo Bistro',
           businessType: 'Quick Service',
           termsAccepted: true,
@@ -132,7 +133,7 @@ describe('DashUp Signup Critical Paths', () => {
       await user.type(screen.getByPlaceholderText('e.g. Ahmed Mohamed'), 'Test User');
       await user.type(screen.getByPlaceholderText('10 1234 5678'), '1012345678');
       await user.type(screen.getByPlaceholderText('you@example.com'), 'test@example.com');
-      await user.type(screen.getByPlaceholderText('Enter a secure password'), 'password123');
+      await user.type(screen.getByPlaceholderText('Enter a secure password'), BUILD_STRONG_TEST_PASSWORD());
       await user.type(screen.getByPlaceholderText('e.g. Cairo Bistro'), 'Test Business');
       
       const businessTypeInput = screen.getByPlaceholderText('Select a business type');
@@ -242,3 +243,5 @@ describe('Business Logic Validation', () => {
     expect(termsCheckbox).toBeRequired();
   });
 });
+
+

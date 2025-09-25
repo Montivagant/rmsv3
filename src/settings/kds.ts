@@ -36,7 +36,10 @@ export function saveKdsSettings(partial: Partial<KdsSettings>): KdsSettings {
   const next = { ...current, ...partial };
   try {
     localStorage.setItem(KDS_SETTINGS_KEY, JSON.stringify(next));
-  } catch {}
+  } catch (error) {
+    // Ignore localStorage errors - settings will use defaults
+    console.warn('Failed to save KDS settings:', error);
+  }
   return next;
 }
 

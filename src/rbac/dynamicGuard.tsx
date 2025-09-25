@@ -22,14 +22,19 @@ export function DynamicRoleGuard({ children, requiredPermission, fallback }: Dyn
   if (!currentUser) {
     if (import.meta.env.DEV) {
       const mockUser = {
-        id: 'dev-user',
-        name: 'Development User',
+        id: 'business-owner',
+        name: 'Business Owner',
         role: Role.BUSINESS_OWNER,
       };
       setCurrentUser(mockUser);
       return <>{children}</>;
     }
     return <Navigate to="/login" replace />;
+  }
+
+  // Business Owner has all permissions
+  if (currentUser.role === Role.BUSINESS_OWNER) {
+    return <>{children}</>;
   }
 
   if (!dynamicRBACService.hasPermission(currentUser.id, requiredPermission)) {
@@ -46,17 +51,22 @@ export function DynamicRoleGuard({ children, requiredPermission, fallback }: Dyn
 /**
  * Hook for checking permissions in components
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePermissions() {
   const currentUser = getCurrentUser();
 
   return {
     hasPermission: (permissionId: string, context: any = {}) => {
       if (!currentUser) return false;
+      // Business Owner has all permissions
+      if (currentUser.role === Role.BUSINESS_OWNER) return true;
       return dynamicRBACService.hasPermission(currentUser.id, permissionId, context);
     },
     
     hasModuleAccess: (module: string, action: string) => {
       if (!currentUser) return false;
+      // Business Owner has all module access
+      if (currentUser.role === Role.BUSINESS_OWNER) return true;
       return dynamicRBACService.hasModuleAccess(currentUser.id, module, action);
     },
     
@@ -67,11 +77,15 @@ export function usePermissions() {
     
     canManageRoles: () => {
       if (!currentUser) return false;
+      // Business Owner can manage roles
+      if (currentUser.role === Role.BUSINESS_OWNER) return true;
       return dynamicRBACService.hasPermission(currentUser.id, 'settings.role_management');
     },
     
     canManageUsers: () => {
       if (!currentUser) return false;
+      // Business Owner can manage users
+      if (currentUser.role === Role.BUSINESS_OWNER) return true;
       return dynamicRBACService.hasPermission(currentUser.id, 'settings.user_management');
     }
   };

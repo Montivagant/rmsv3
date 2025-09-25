@@ -1,14 +1,13 @@
 import React from 'react';
-import type { BadgeData } from '../../config/nav.config';
-import { useBadgeData } from '../../hooks/useNavigationBadges';
+import { useNavigationBadges, type BadgeData } from '../../hooks/useNavigationBadges';
+import type { NavItem } from '../../config/nav.config';
 
 interface NavigationBadgeProps {
-  badgeId: string;
-  className?: string;
+  item: NavItem;
 }
 
-export const NavigationBadge: React.FC<NavigationBadgeProps> = ({ badgeId, className = '' }) => {
-  const badgeData = useBadgeData(badgeId);
+export const NavigationBadge: React.FC<NavigationBadgeProps> = ({ item }) => {
+  const badgeData = useNavigationBadges(item.id);
 
   if (!badgeData || badgeData.count === 0) {
     return null;
@@ -20,11 +19,11 @@ export const NavigationBadge: React.FC<NavigationBadgeProps> = ({ badgeId, class
         return 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-400';
       case 'warning':
         return 'bg-warning-100 text-warning-700 dark:bg-warning-500/20 dark:text-warning-400';
-      case 'success':
-        return 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-400';
-      case 'default':
-      default:
+      case 'primary':
         return 'bg-brand-100 text-brand-800 dark:bg-brand-500/20 dark:text-brand-300';
+      case 'info':
+      default:
+        return 'bg-surface-secondary text-text-secondary';
     }
   };
 
@@ -39,7 +38,6 @@ export const NavigationBadge: React.FC<NavigationBadgeProps> = ({ badgeId, class
         rounded-full
         transition-colors duration-200
         ${getVariantClasses(badgeData.variant)}
-        ${className}
       `}
       aria-label={`${badgeData.count} notifications`}
     >

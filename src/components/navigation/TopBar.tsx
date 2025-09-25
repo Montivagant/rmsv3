@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDismissableLayer } from '../../hooks/useDismissableLayer';
 import { useFocusTrap } from '../ui/KeyboardNavigation';
+import { useNavigate } from 'react-router-dom';
+import { useNotificationFeed } from '../../shared/notifications';
+import type { Notification as NotificationFeedItem } from '../../shared/notifications';
 
 interface TopBarProps {
   userName?: string;
@@ -15,10 +18,27 @@ interface TopBarProps {
   onSidebarToggle?: () => void;
 }
 
+function getNotificationDotClass(type: NotificationFeedItem['type']) {
+  switch (type) {
+    case 'order':
+      return 'bg-primary-500';
+    case 'stock':
+      return 'bg-warning-500';
+    case 'system':
+      return 'bg-success-500';
+    case 'payment':
+      return 'bg-error-500';
+    case 'transfer':
+      return 'bg-primary-500';
+    default:
+      return 'bg-primary-500';
+  }
+}
+
 export const TopBar: React.FC<TopBarProps> = ({
   userName = 'User',
   userRole = 'Staff',
-  notifications = 0,
+  notifications,
   onSearch,
   onThemeToggle,
   onProfileAction,
@@ -27,6 +47,20 @@ export const TopBar: React.FC<TopBarProps> = ({
   sidebarCollapsed = false,
   onSidebarToggle,
 }) => {
+  const navigate = useNavigate();
+  const {
+    notifications: feedNotifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    refresh,
+  } = useNotificationFeed();
+
+  const notificationItems = feedNotifications;
+  const notificationBadgeCount = typeof notifications === 'number' ? notifications : unreadCount;
+  const hasNotifications = notificationItems.length > 0;
+  const hasUnreadNotifications = notificationItems.some((item) => !item.read);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -112,11 +146,18 @@ export const TopBar: React.FC<TopBarProps> = ({
     }
   };
 
-  const mockNotifications = [
-    { id: 1, type: 'order', message: 'New order #1234 received', time: '2 min ago' },
-    { id: 2, type: 'stock', message: 'Low stock alert: Burger Buns', time: '15 min ago' },
-    { id: 3, type: 'system', message: 'Daily backup completed', time: '1 hour ago' },
-  ];
+  const handleNotificationClick = (notification: NotificationFeedItem) => {
+    markAsRead(notification.id);
+    setShowNotifications(false);
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+    }
+  };
+
+  const handleViewAllNotifications = () => {
+    setShowNotifications(false);
+    navigate('/account/notifications');
+  };
 
   return (
     <>
@@ -201,6 +242,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 if (!showNotifications) {
                   if (showSearch) setShowSearch(false);
                   if (showProfile) setShowProfile(false);
+                  refresh();
                   setShowNotifications(true);
                 } else {
                   setShowNotifications(false);
@@ -213,7 +255,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
-              {notifications > 0 && (
+              {notificationBadgeCount > 0 && (
                 <span className="absolute top-1 right-1 w-2 h-2 bg-error-500 rounded-full"></span>
               )}
             </button>
@@ -223,32 +265,48 @@ export const TopBar: React.FC<TopBarProps> = ({
                 ref={(node) => { notificationRef.current = node!; (notifLayerRef as any).current = node; }}
                 className="absolute right-0 mt-2 w-80 bg-surface rounded-lg shadow-lg border border-secondary z-dropdown"
               >
-                <div className="px-4 py-3 border-b border-secondary">
+                <div className="px-4 py-3 border-b border-secondary flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-primary">Notifications</h3>
+                  {hasUnreadNotifications && (
+                    <button
+                      type="button"
+                      onClick={() => { markAllAsRead(); }}
+                      className="text-xs text-secondary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {mockNotifications.map(notification => (
-                    <div
-                      key={notification.id}
-                      className="px-4 py-3 hover:bg-surface-secondary border-b border-secondary last:border-0"
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className={`
-                          w-2 h-2 mt-1.5 rounded-full
-                          ${notification.type === 'order' ? 'bg-primary-500' : ''}
-                          ${notification.type === 'stock' ? 'bg-warning-500' : ''}
-                          ${notification.type === 'system' ? 'bg-success-500' : ''}
-                        `}></div>
-                        <div className="flex-1">
-                          <p className="text-sm text-primary">{notification.message}</p>
-                          <p className="text-xs text-secondary mt-1">{notification.time}</p>
+                  {hasNotifications ? (
+                    notificationItems.map(notification => (
+                      <button
+                        key={notification.id}
+                        type="button"
+                        onClick={() => handleNotificationClick(notification)}
+                        className="w-full px-4 py-3 text-left hover:bg-surface-secondary border-b border-secondary last:border-0 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className={`w-2 h-2 mt-1.5 rounded-full ${getNotificationDotClass(notification.type)}`}></div>
+                          <div className="flex-1">
+                            <p className={`text-sm ${notification.read ? 'text-secondary' : 'text-primary font-medium'}`}>{notification.message}</p>
+                            <p className="text-xs text-secondary mt-1">{notification.time}</p>
+                          </div>
                         </div>
-                      </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-6 text-center text-sm text-secondary">
+                      You're all caught up.
                     </div>
-                  ))}
+                  )}
                 </div>
-                <div className="px-4 py-3 border-t border-secondary">
-                  <button className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
+                <div className="px-4 py-3 border-t border-secondary flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={handleViewAllNotifications}
+                    className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded"
+                  >
                     View all notifications
                   </button>
                 </div>

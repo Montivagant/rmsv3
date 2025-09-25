@@ -435,7 +435,6 @@ export interface Customer {
   firstName: string
   lastName: string
   phone?: string
-  loyaltyPoints?: number
 }
 
 export interface CustomerAutoCompleteProps {
@@ -468,7 +467,7 @@ export const CustomerAutoComplete: React.FC<CustomerAutoCompleteProps> = ({
       label: `${customer.firstName} ${customer.lastName}`,
       value: customer.id,
       description: customer.email || undefined,
-      category: customer.loyaltyPoints ? `${customer.loyaltyPoints} points` : undefined,
+      // Loyalty removed
       metadata: customer
     }))
   }, [searchCustomers])

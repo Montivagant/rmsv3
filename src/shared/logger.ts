@@ -255,19 +255,19 @@ if (import.meta.env.PROD) {
   // Replace console methods with logger in production
   const originalConsole = { ...console };
   
-  console.log = (...args: any[]) => {
+  console.log = (...args: unknown[]) => {
     logger.info(args.join(' '));
   };
   
-  console.info = (...args: any[]) => {
+  console.info = (...args: unknown[]) => {
     logger.info(args.join(' '));
   };
   
-  console.warn = (...args: any[]) => {
+  console.warn = (...args: unknown[]) => {
     logger.warn(args.join(' '));
   };
   
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     logger.error(args.join(' '));
   };
 

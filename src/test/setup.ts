@@ -3,7 +3,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest'
 import { vi } from 'vitest';
 
 // Try to import MSW server, but gracefully handle failure
-let server: any = null;
+const server: any = null;
 try {
   // MSW is initialized in vitest.setup.ts to avoid double initialization
   // Leaving server as null here ensures these hooks are no-ops below

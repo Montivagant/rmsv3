@@ -171,9 +171,10 @@ interface InventoryUnitCreatedEvent extends VersionedEvent {
 }
 
 // State management
-interface InventoryItemState extends InventoryItem {}
-interface InventoryCategoryState extends InventoryCategory {}
-interface InventoryUnitState extends InventoryUnit {}
+type InventoryItemState = InventoryItem;
+type InventoryCategoryState = InventoryCategory;
+type InventoryUnitState = InventoryUnit;
+type InventoryItemTypeState = InventoryItemType;
 
 function ensureItemState(map: Map<string, InventoryItemState>, id: string): InventoryItemState {
   const existing = map.get(id);
@@ -287,6 +288,29 @@ async function loadInventoryCategoriesMap(): Promise<Map<string, InventoryCatego
         deleted: false
       };
       map.set(payload.id, state);
+      continue;
+    }
+
+    if (event.type === 'inventory.category.updated.v1' || event.type === 'inventory.category.updated') {
+      const payload = (event as any).payload;
+      const existing = map.get(payload.id);
+      if (existing) {
+        existing.name = payload.name;
+        if (payload.description !== undefined) {
+          existing.description = payload.description;
+        }
+        existing.updatedAt = event.at;
+      }
+      continue;
+    }
+
+    if (event.type === 'inventory.category.deleted.v1' || event.type === 'inventory.category.deleted') {
+      const payload = (event as any).payload;
+      const existing = map.get(payload.id);
+      if (existing) {
+        existing.deleted = true;
+        existing.updatedAt = event.at;
+      }
       continue;
     }
   }
@@ -468,9 +492,12 @@ export async function updateInventoryItem(id: string, input: UpdateInventoryItem
 
   if (Object.keys(changes).length === 0) return existing;
 
+  const updatedBy = 'dev-admin'; // TODO: replace with real user context when available
+
   store.append('inventory.item.updated.v1', {
     id,
-    changes
+    changes,
+    updatedBy
   }, {
     key: `update-inventory-item-${id}-${stableHash(input)}`,
     params: input,
@@ -577,6 +604,22 @@ export async function recordInventoryAdjustments(
   }
 }
 
+export async function getInventoryCategoryById(id: string): Promise<InventoryCategory | null> {
+  const map = await loadInventoryCategoriesMap();
+  const state = map.get(id);
+  if (!state || state.deleted) return null;
+  
+  return {
+    id: state.id,
+    name: state.name,
+    ...(state.description && { description: state.description }),
+    itemCount: state.itemCount,
+    createdAt: state.createdAt,
+    updatedAt: state.updatedAt,
+    deleted: state.deleted
+  };
+}
+
 export async function createInventoryCategory(name: string, description?: string): Promise<InventoryCategory> {
   const { store } = await bootstrapEventStore();
   const id = `cat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -600,6 +643,54 @@ export async function createInventoryCategory(name: string, description?: string
     updatedAt: result.event.at,
     deleted: false
   };
+}
+
+export async function updateInventoryCategory(id: string, name: string, description?: string): Promise<InventoryCategory | null> {
+  const existing = await getInventoryCategoryById(id);
+  if (!existing) return null;
+
+  const { store } = await bootstrapEventStore();
+  
+  const result = store.append('inventory.category.updated.v1', {
+    id,
+    name: name.trim(),
+    description: description?.trim(),
+    updatedAt: Date.now()
+  }, {
+    key: `update-inventory-category-${id}-${Date.now()}`,
+    params: { id, name, description },
+    aggregate: { id, type: 'inventory-category' }
+  });
+
+  return {
+    ...existing,
+    name: name.trim(),
+    ...(description !== undefined && { description: description.trim() }),
+    updatedAt: result.event.at
+  };
+}
+
+export async function deleteInventoryCategory(id: string): Promise<boolean> {
+  const existing = await getInventoryCategoryById(id);
+  if (!existing) return false;
+  
+  // Check if category has items
+  if (existing.itemCount > 0) {
+    throw new Error('Cannot delete category with items');
+  }
+
+  const { store } = await bootstrapEventStore();
+  
+  store.append('inventory.category.deleted.v1', {
+    id,
+    deletedAt: Date.now()
+  }, {
+    key: `delete-inventory-category-${id}`,
+    params: { id },
+    aggregate: { id, type: 'inventory-category' }
+  });
+
+  return true;
 }
 
 export async function createInventoryUnit(
@@ -638,42 +729,62 @@ export async function createInventoryUnit(
   };
 }
 
+async function loadInventoryItemTypesMap(): Promise<Map<string, InventoryItemTypeState>> {
+  const { store } = await bootstrapEventStore();
+  const events = store.getAll();
+  const map = new Map<string, InventoryItemTypeState>();
+
+  for (const event of events) {
+    if (event.type === 'inventory.item-type.created.v1' || event.type === 'inventory.item-type.created') {
+      const payload = (event as any).payload;
+      const state: InventoryItemTypeState = {
+        id: payload.id,
+        name: payload.name,
+        ...(payload.description && { description: payload.description }),
+        isActive: payload.isActive ?? true,
+        itemCount: 0,
+        createdAt: event.at,
+        updatedAt: event.at,
+        deleted: false
+      };
+      map.set(payload.id, state);
+      continue;
+    }
+
+    if (event.type === 'inventory.item-type.updated.v1' || event.type === 'inventory.item-type.updated') {
+      const payload = (event as any).payload;
+      const existing = map.get(payload.id);
+      if (existing && payload.changes) {
+        if (payload.changes.name !== undefined) existing.name = payload.changes.name;
+        if (payload.changes.description !== undefined) existing.description = payload.changes.description;
+        if (payload.changes.isActive !== undefined) existing.isActive = payload.changes.isActive;
+        existing.updatedAt = event.at;
+      }
+      continue;
+    }
+
+    if (event.type === 'inventory.item-type.deleted.v1' || event.type === 'inventory.item-type.deleted') {
+      const payload = (event as any).payload;
+      const existing = map.get(payload.id);
+      if (existing) {
+        existing.deleted = true;
+        existing.updatedAt = event.at;
+      }
+      continue;
+    }
+  }
+
+  // TODO: Count items for each item type
+  
+  return map;
+}
+
 // List inventory item types
 export async function listInventoryItemTypes(): Promise<InventoryItemType[]> {
-  // For now, return mock data - in a real implementation this would use events
-  // This is a simplified implementation to get the form working
-  return [
-    {
-      id: 'itemtype_1',
-      name: 'Finished Good',
-      description: 'Sellable product',
-      isActive: true,
-      itemCount: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      deleted: false
-    },
-    {
-      id: 'itemtype_2',
-      name: 'Raw Material',
-      description: 'Ingredient or component',
-      isActive: true,
-      itemCount: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      deleted: false
-    },
-    {
-      id: 'itemtype_3',
-      name: 'Supply',
-      description: 'Non-inventory consumable',
-      isActive: true,
-      itemCount: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      deleted: false
-    }
-  ];
+  const map = await loadInventoryItemTypesMap();
+  return Array.from(map.values())
+    .filter(itemType => !itemType.deleted)
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function createInventoryItemType(name: string, description?: string): Promise<InventoryItemType> {
@@ -738,6 +849,46 @@ export async function updateInventoryItemType(id: string, name: string, descript
   };
 }
 
+export async function getInventoryItemTypeById(id: string): Promise<InventoryItemType | null> {
+  const map = await loadInventoryItemTypesMap();
+  const state = map.get(id);
+  if (!state || state.deleted) return null;
+  
+  return {
+    id: state.id,
+    name: state.name,
+    ...(state.description && { description: state.description }),
+    isActive: state.isActive,
+    itemCount: state.itemCount,
+    createdAt: state.createdAt,
+    updatedAt: state.updatedAt,
+    deleted: state.deleted
+  };
+}
+
+export async function deleteInventoryItemType(id: string): Promise<boolean> {
+  const existing = await getInventoryItemTypeById(id);
+  if (!existing) return false;
+  
+  // Check if item type has items
+  if (existing.itemCount > 0) {
+    throw new Error('Cannot delete item type with items');
+  }
+
+  const { store } = await bootstrapEventStore();
+  
+  store.append('inventory.item-type.deleted.v1', {
+    id,
+    deletedAt: Date.now()
+  }, {
+    key: `delete-item-type-${id}`,
+    params: { id },
+    aggregate: { id, type: 'inventory-item-type' }
+  });
+
+  return true;
+}
+
 //=============================================================================
 // INVENTORY COUNTS/AUDITS REPOSITORY FUNCTIONS
 //=============================================================================
@@ -777,11 +928,11 @@ interface InventoryAuditUpdatedEvent extends Event {
       itemId: string;
       auditedQty: number;
       previousAuditedQty: number | null;
+      notes?: string;
     }>;
     updatedBy: string;
   };
 }
-
 interface InventoryAuditSubmittedEvent extends Event {
   type: 'inventory.audit.submitted.v1';
   payload: {
@@ -914,14 +1065,17 @@ async function loadInventoryAuditsMap(): Promise<Map<string, InventoryAuditState
           item.auditedQty = update.auditedQty;
           item.auditedBy = payload.updatedBy;
           item.auditedAt = event.at;
-          
+          if (update.notes !== undefined) {
+            item.notes = update.notes;
+          }
+
           // Recalculate variances
           const varianceQty = update.auditedQty - item.snapshotQty;
           const varianceValue = varianceQty * item.snapshotAvgCost;
-          const variancePercentage = item.snapshotQty === 0 
+          const variancePercentage = item.snapshotQty === 0
             ? (update.auditedQty > 0 ? 100 : 0)
             : ((update.auditedQty - item.snapshotQty) / item.snapshotQty) * 100;
-          
+
           item.varianceQty = Math.round(varianceQty * 100) / 100;
           item.varianceValue = Math.round(varianceValue * 100) / 100;
           item.variancePercentage = Math.round(variancePercentage * 100) / 100;
@@ -952,23 +1106,27 @@ async function loadInventoryAuditsMap(): Promise<Map<string, InventoryAuditState
 }
 
 function filterItemsByAuditScope(items: InventoryItemState[], scope: any): InventoryItemState[] {
-  if (scope.all) {
-    return items.filter(item => item.status === 'active');
+  const includeInactive = Boolean(scope?.filters?.includeInactive);
+  const baseItems = includeInactive
+    ? items
+    : items.filter(item => item.status === 'active');
+
+  if (!scope || scope.all) {
+    return baseItems;
   }
-  
-  let filtered = items.filter(item => item.status === 'active');
-  
-  if (scope.byCategory && scope.filters?.categoryIds) {
-    filtered = filtered.filter(item => scope.filters.categoryIds.includes(item.categoryId));
+
+  let filtered = baseItems;
+
+  if (scope.byCategory && Array.isArray(scope.filters?.categoryIds) && scope.filters.categoryIds.length > 0) {
+    filtered = filtered.filter(item => item.categoryId && scope.filters.categoryIds.includes(item.categoryId));
   }
-  
-  if (scope.byItemType && scope.filters?.itemTypeIds) {
-    filtered = filtered.filter(item => scope.filters.itemTypeIds.includes(item.itemTypeId));
+
+  if (scope.byItemType && Array.isArray(scope.filters?.itemTypeIds) && scope.filters.itemTypeIds.length > 0) {
+    filtered = filtered.filter(item => item.itemTypeId && scope.filters.itemTypeIds.includes(item.itemTypeId));
   }
-  
+
   return filtered;
 }
-
 function recalculateAuditTotals(audit: InventoryAuditState): void {
   let varianceQty = 0;
   let varianceValue = 0;
@@ -1006,7 +1164,7 @@ export async function createInventoryAudit(request: CreateAuditRequest): Promise
   
   // Get inventory items based on scope to calculate item count
   const allItems = await listInventoryItems();
-  const scopedItems = allItems.filter(item => item.status === 'active');
+  const scopedItems = filterItemsByAuditScope(allItems as InventoryItemState[], request.scope ?? { all: true });
   
   const payload = {
     auditId,
@@ -1179,25 +1337,52 @@ export async function updateInventoryAuditItems(
   auditId: string, 
   updates: UpdateAuditItemRequest[]
 ): Promise<void> {
+  if (!updates.length) {
+    return;
+  }
+
   const { store } = await bootstrapEventStore();
-  
-  const payload = {
-    auditId,
-    itemsUpdated: updates.map(update => ({
+  const auditsMap = await loadInventoryAuditsMap();
+  const audit = auditsMap.get(auditId);
+
+  if (!audit || audit.deleted) {
+    throw new Error(`Inventory audit ${auditId} not found`);
+  }
+
+  const itemsUpdated: Array<{ itemId: string; auditedQty: number; previousAuditedQty: number | null; notes?: string }> = [];
+
+  for (const update of updates) {
+    const item = audit.items.get(update.itemId);
+    if (!item) {
+      logger.warn('Attempted to update audit item that does not exist in audit', { auditId, itemId: update.itemId });
+      continue;
+    }
+
+    itemsUpdated.push({
       itemId: update.itemId,
       auditedQty: update.auditedQty,
-      previousAuditedQty: null, // Would need to get from current state
-    })),
+      previousAuditedQty: item.auditedQty ?? null,
+      ...(update.notes !== undefined ? { notes: update.notes } : {})
+    });
+  }
+
+  if (!itemsUpdated.length) {
+    return;
+  }
+
+  const payload = {
+    auditId,
+    itemsUpdated,
     updatedBy: 'dev-admin', // TODO: get from auth context
   };
-  
+
   store.append('inventory.audit.updated.v1', payload, {
     key: `update-audit-items-${auditId}-${Date.now()}`,
     params: { auditId, updates },
     aggregate: { id: auditId, type: 'inventory-audit' }
   });
-  
-  logger.info(`Updated ${updates.length} audit items`, { auditId, itemCount: updates.length });
+
+  logger.info(`Updated ${itemsUpdated.length} audit items`, { auditId, itemCount: itemsUpdated.length });
 }
 
 // Legacy alias for backward compatibility
@@ -1290,3 +1475,10 @@ export async function listStorageAreas(): Promise<StorageArea[]> {
   
   return defaultAreas;
 }
+
+
+
+
+
+
+

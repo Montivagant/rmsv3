@@ -322,7 +322,7 @@ export const apiIntegrationTestUtils = {
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
       return response.ok;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
@@ -45,7 +45,7 @@ export default function NotificationsPage() {
     loadNotifications();
   }, []);
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await accountService.notifications.get();
@@ -57,7 +57,7 @@ export default function NotificationsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showToast]);
 
   const handleSave = async () => {
     if (!formData) return;

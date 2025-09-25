@@ -116,7 +116,7 @@ export default function TransferDetail() {
       
       setShowCancelConfirm(false);
       refetch();
-    } catch (error) {
+    } catch {
       showToast({
         title: 'Error',
         description: 'Failed to cancel transfer',
@@ -145,7 +145,7 @@ export default function TransferDetail() {
       });
       
       navigate('/inventory/transfers');
-    } catch (error) {
+    } catch {
       showToast({
         title: 'Error',
         description: 'Failed to delete transfer',

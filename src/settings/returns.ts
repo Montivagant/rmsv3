@@ -42,7 +42,10 @@ export function saveReturnSettings(next: Partial<ReturnSettings>): ReturnSetting
     localStorage.setItem(KEY_REQUIRE, merged.requirePin ? '1' : '0');
     localStorage.setItem(KEY_PIN, merged.pin);
     localStorage.setItem(KEY_STAGE, merged.stage);
-  } catch {}
+  } catch (error) {
+    // Ignore localStorage errors - settings will use defaults
+    console.warn('Failed to save return settings:', error);
+  }
   return merged;
 }
 

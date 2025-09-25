@@ -226,16 +226,18 @@ export async function updateCategory(id: string, input: UpdateCategoryInput): Pr
   };
 }
 
-export async function deleteCategory(id: string): Promise<boolean> {
+export async function deleteCategory(id: string, reason?: string): Promise<boolean> {
   const existing = await getCategory(id);
   if (!existing) return false;
 
   const { store } = await bootstrapEventStore();
   store.append('menu.category.deleted.v1', {
-    id
+    id,
+    name: existing.name,
+    ...(reason && { reason })
   }, {
     key: `delete-category-${id}`,
-    params: { id },
+    params: { id, reason },
     aggregate: { id, type: 'menu-category' }
   });
 

@@ -2,7 +2,6 @@ import { Suspense, lazy, type ReactNode } from 'react';
 import { BrowserRouter as Router, MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components';
 import ErrorBoundary from './components/ErrorBoundary';
-import { AdminLayout } from './components/AdminLayout';
 import { getCurrentUser, Role, setCurrentUser } from './rbac/roles';
 import { DynamicRoleGuard } from './rbac/dynamicGuard';
 import { PersistenceDebugger } from './components/PersistenceDebugger';
@@ -46,6 +45,7 @@ const InventoryReports = lazy(() => import('./pages/reports/InventoryReports'));
 // Admin Reports pages
 // Report landings removed; link directly to actual reports
 const ShiftsReport = lazy(() => import('./pages/reports/ShiftsReport'));
+const ShiftsTimeReport = lazy(() => import('./pages/reports/ShiftsTimeReport'));
 const VoidsReturnsReport = lazy(() => import('./pages/reports/VoidsReturnsReport'));
 const PaymentsReports = lazy(() => import('./pages/reports/PaymentsReports'));
 const ActivityLog = lazy(() => import('./pages/reports/ActivityLog'));
@@ -54,8 +54,6 @@ const KDSReport = lazy(() => import('./pages/reports/KDSReport'));
 // Removed unused Analysis/Customer/Z reports to simplify
 
 // Settings pages
-const MenuManagement = lazy(() => import('./pages/settings/MenuManagement'));
-const TaxSettings = lazy(() => import('./pages/settings/TaxSettings'));
 const SystemSettings = lazy(() => import('./pages/settings/SystemSettings'));
 
 // Menu pages
@@ -69,7 +67,6 @@ const InventoryItems = lazy(() => import('./pages/inventory/Items'));
 
 // Manage pages
 const ManageUsers = lazy(() => import('./pages/manage/Users'));
-const ManageRoles = lazy(() => import('./pages/manage/Roles'));
 const ManageBranches = lazy(() => import('./pages/manage/Branches'));
 const ManageShifts = lazy(() => import('./pages/manage/Shifts'));
 // More page import removed
@@ -108,7 +105,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   if (!currentUser) {
     // In development, auto-login as Business Owner to prevent accidental redirects
     if (import.meta.env.DEV) {
-      setCurrentUser({ id: 'dev-user', name: 'Development User', role: Role.BUSINESS_OWNER });
+      setCurrentUser({ id: 'business-owner', name: 'Business Owner', role: Role.BUSINESS_OWNER });
       return <>{children}</>; // allow render on same pass
     }
     return <Navigate to="/login" replace />;
@@ -117,15 +114,8 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-// Determine if user should get admin interface
-function shouldUseAdminLayout(): boolean {
-  // Always use admin layout since we only have Business Owner role
-  return true;
-}
-
 export function AppContent() {
   const density = useUI((state) => state.density);
-  const useAdminLayout = shouldUseAdminLayout();
   
   const AppRouter = ({ children }: { children: ReactNode }) => {
     const isTest = Boolean((import.meta as any).env?.VITEST);
@@ -161,7 +151,7 @@ export function AppContent() {
               path="/"
               element={
                 <ProtectedRoute>
-                  {useAdminLayout ? <AdminLayout /> : <Layout />}
+                  <Layout />
                 </ProtectedRoute>
               }
             >
@@ -278,6 +268,11 @@ export function AppContent() {
                 <ShiftsReport />
               </DynamicRoleGuard>
             } />
+            <Route path="reports/shifts-time" element={
+              <DynamicRoleGuard requiredPermission="reports.view">
+                <ShiftsTimeReport />
+              </DynamicRoleGuard>
+            } />
             <Route path="reports/payments" element={
               <DynamicRoleGuard requiredPermission="reports.view">
                 <PaymentsReports />
@@ -313,11 +308,6 @@ export function AppContent() {
                 <ManageUsers />
               </DynamicRoleGuard>
             } />
-            <Route path="manage/roles" element={
-              <DynamicRoleGuard requiredPermission="settings.role_management">
-                <ManageRoles />
-              </DynamicRoleGuard>
-            } />
             <Route path="manage/branches" element={
               <DynamicRoleGuard requiredPermission="settings.edit">
                 <ManageBranches />
@@ -338,6 +328,7 @@ export function AppContent() {
             {/* Marketing routes removed - not essential for core restaurant operations */}
             
             {/* Account Routes (Admin only) */}
+            <Route path="profile" element={<Navigate to="/account/profile" replace />} />
             <Route path="account" element={
               <DynamicRoleGuard requiredPermission="settings.view">
                 <AccountLayout />
@@ -355,16 +346,6 @@ export function AppContent() {
             <Route path="settings" element={
               <DynamicRoleGuard requiredPermission="settings.view">
                 <Settings />
-              </DynamicRoleGuard>
-            } />
-            <Route path="settings/menu" element={
-              <DynamicRoleGuard requiredPermission="settings.view">
-                <MenuManagement />
-              </DynamicRoleGuard>
-            } />
-            <Route path="settings/tax" element={
-              <DynamicRoleGuard requiredPermission="settings.edit">
-                <TaxSettings />
               </DynamicRoleGuard>
             } />
             <Route path="settings/system" element={

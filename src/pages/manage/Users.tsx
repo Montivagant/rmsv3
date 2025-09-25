@@ -52,13 +52,13 @@ const INITIAL_FORM: UserFormState = {
 
 export default function Users() {
   const { data: usersData, loading, refetch } = useRepository<User[]>(listUsers, []);
-  const users = usersData ?? [];
+  const users = useMemo(() => usersData ?? [], [usersData]);
 
   const { data: rolesData } = useRepository<DynamicRole[]>(listRoles, []);
-  const roles = rolesData ?? [];
+  const roles = useMemo(() => rolesData ?? [], [rolesData]);
 
   const { data: branchesData } = useRepository<Branch[]>(listBranches, []);
-  const branches = branchesData ?? [];
+  const branches = useMemo(() => branchesData ?? [], [branchesData]);
 
   const createUserMutation = useRepositoryMutation((input: CreateUserInput) => createUser(input));
   const updateUserMutation = useRepositoryMutation((input: { id: string; data: UpdateUserInput }) =>

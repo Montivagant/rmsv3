@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
@@ -28,12 +28,7 @@ export default function BusinessPage() {
   // Protect against navigation with unsaved changes
   useFormGuard(Boolean(isDirty), 'You have unsaved changes to your business details. Are you sure you want to leave?');
 
-  // Load initial business data
-  useEffect(() => {
-    loadBusiness();
-  }, []);
-
-  const loadBusiness = async () => {
+  const loadBusiness = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await accountService.business.get();
@@ -46,7 +41,12 @@ export default function BusinessPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showToast, showError]);
+
+  // Load initial business data
+  useEffect(() => {
+    loadBusiness();
+  }, [loadBusiness]);
 
   const validateForm = (data: BusinessDetails): Record<string, string> => {
     const newErrors: Record<string, string> = {};
@@ -103,7 +103,7 @@ export default function BusinessPage() {
   const updateField = (field: keyof BusinessDetails, value: string) => {
     if (!formData) return;
     
-    let updatedData = {
+    const updatedData = {
       ...formData,
       [field]: value
     };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
@@ -36,7 +36,7 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await accountService.profile.get();
@@ -49,7 +49,7 @@ export default function ProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showToast, showError]);
 
   const validateForm = (data: Profile): Record<string, string> => {
     const newErrors: Record<string, string> = {};

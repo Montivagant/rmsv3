@@ -22,7 +22,7 @@ import type { Customer, CustomersResponse, CustomerFilters as Filters } from '..
 // Simple validation helpers
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePhone = (phone: string) =>
-  /^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$/.test(phone.replace(/[\s\-\(\)]/g, ''));
+  /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/.test(phone.replace(/[\s\-()]/g, ''));
 
 export default function Customers() {
   const { state, setState, searchInput, setSearchInput } = useCustomerQueryState();
@@ -120,6 +120,13 @@ export default function Customers() {
   const [tagValue, setTagValue] = useState('');
   const [confirmAction, setConfirmAction] = useState<null>(null);
   const [isBulkProcessing] = useState(false);
+
+  // Listen for profile updates and refresh data so edits reflect immediately
+  React.useEffect(() => {
+    const handler = () => { refetch(); };
+    window.addEventListener('customers:updated', handler);
+    return () => window.removeEventListener('customers:updated', handler);
+  }, [refetch]);
 
   // Derived
   const hasAnyFilter = useMemo(

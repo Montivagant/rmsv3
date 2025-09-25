@@ -41,7 +41,10 @@ function Login() {
     
     try {
       localStorage.setItem('rms_user_pin', formData.pin.trim());
-    } catch {}
+    } catch (error) {
+      // Ignore localStorage errors - app continues without saved PIN
+      console.warn('Failed to save PIN to localStorage:', error);
+    }
 
     setCurrentUser(mockUser);
     navigate('/');

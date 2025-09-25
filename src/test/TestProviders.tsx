@@ -238,6 +238,7 @@ export const EventStoreTestProviders: React.FC<{
 }
 
 // Custom render helper for testing with providers
+// eslint-disable-next-line react-refresh/only-export-components
 export const renderWithProviders = (
   ui: React.ReactElement,
   options: {

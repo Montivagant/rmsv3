@@ -322,6 +322,7 @@ export interface InventoryAuditUpdatedEvent {
       itemId: string;
       auditedQty: number;
       previousAuditedQty: number | null;
+      notes?: string;
     }>;
     updatedBy: string;
   };
@@ -338,6 +339,7 @@ export interface InventoryCountUpdatedEvent {
       itemId: string;
       countedQty: number;
       previousCountedQty: number | null;
+      notes?: string;
     }>;
     updatedBy: string;
   };
@@ -660,3 +662,4 @@ export interface MovementsDuringAuditReport {
   movements: InventoryMovementDuringAudit[];
   message: string;
 }
+

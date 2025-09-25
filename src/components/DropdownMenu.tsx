@@ -163,7 +163,6 @@ const DropdownMenu = ({
       });
       map.forEach((count, label) => {
         if (count > 1) {
-          // eslint-disable-next-line no-console
           console.warn(`[a11y:dup-buttons] Found ${count} buttons with label "${label}" on the page.`);
         }
       });

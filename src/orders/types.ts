@@ -69,6 +69,7 @@ export interface OrderQuery {
   dateTo?: string;
   search?: string | undefined;
   limit?: number | undefined;
+  customerId?: string | undefined;
 }
 
 export interface OrderMetrics {

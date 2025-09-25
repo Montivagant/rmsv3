@@ -13,9 +13,36 @@ export async function maybeRegisterServiceWorker(
 
   try {
     await navigator.serviceWorker.register(swPath)
+    
+    // Add message port error handling to prevent runtime errors
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const expectedOrigin = window.location.origin
+      if (event.origin && event.origin !== expectedOrigin) {
+        console.warn('Ignoring service worker message from unexpected origin:', event.origin)
+        return
+      }
+
+      try {
+        // Handle service worker messages gracefully
+        if (event.data && event.data.type) {
+          console.debug('SW message:', event.data.type)
+        }
+      } catch (error) {
+        // Suppress message port closure errors
+        if (error instanceof DOMException && error.name === 'InvalidStateError') {
+          console.debug('Service worker message port closed - this is expected')
+          return
+        }
+        console.warn('Service worker message error:', error)
+      }
+    })
+
+    // Note: Service worker errors are handled by the registration promise catch block
+
     return true
-  } catch {
+  } catch (error) {
     // swallow errors; offline shell still works without SW
+    console.debug('Service worker registration failed:', error)
     return false
   }
 }

@@ -12,6 +12,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import { useRepository } from '../../hooks/useRepository';
 import { cn } from '../../lib/utils';
+import { listInventoryMovements } from '../../inventory/transfers/repository';
 
 interface InventoryMovement {
   id: string;
@@ -65,8 +66,7 @@ export default function History() {
     return `/api/inventory/movements?${params.toString()}`;
   }, [queryParams, searchTerm, selectedType, selectedBranch]);
 
-  // Repository call - import from transfers repository
-  const { listInventoryMovements } = require('../../inventory/transfers/repository');
+  // Repository call using imported function
   const { data: movementsResponse, loading, error, refetch } = useRepository(
     () => listInventoryMovements(queryParams),
     [queryParams]

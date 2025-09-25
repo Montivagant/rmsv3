@@ -7,14 +7,13 @@ import { recordInventoryAdjustments } from '../inventory/repository';
 import { ordersApi } from '../orders/api';
 import { getCurrentBranchId } from '../lib/branch';
 import { computeTotals, type Line } from '../money/totals';
-import { useEventStore } from '../events/context';
+import { useEventStore } from '../events/hooks';
 import type { SaleRecordedPayload } from '../events/types';
 import { getRole, RANK, Role } from '../rbac/roles';
 import { inventoryEngine } from '../inventory/engine';
 import { getOversellPolicy } from '../inventory/policy';
 import { OversellError } from '../inventory/types';
 import { useToast } from '../components/Toast';
-import { pointsToValue, DEFAULT_LOYALTY_CONFIG } from '../loyalty/rules';
 import { useFlags } from '../store/flags';
 import { createPaymentProvider, type PlaceholderPaymentProvider } from '../payments/provider';
 import { generatePaymentKeys, handleWebhook } from '../payments/webhook';
@@ -67,7 +66,7 @@ function POS() {
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRecord | null>(null);
-  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  // Loyalty removed
   const [paymentStatus, setPaymentStatus] = useState<'none' | 'pending' | 'paid' | 'failed'>('none');
   // const [isProcessingPayment, setIsProcessingPayment] = useState(false); // Unused
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -202,7 +201,7 @@ function POS() {
     setSelectedCategory('All');
     setDiscount(0);
     setSelectedCustomer(null);
-    setLoyaltyPoints(0);
+    // Loyalty removed
     setPaymentStatus('none');
     // setIsProcessingPayment(false); // Function commented out
     setShowPaymentModal(false);
@@ -328,7 +327,10 @@ function POS() {
           }
         };
         printReceipt(receiptData);
-      } catch {}
+      } catch (error) {
+        // Ignore receipt printing errors - return was still recorded
+        console.warn('Receipt printing failed:', error);
+      }
       toast.show('Return recorded and receipt printed');
       handleNewTicket();
     } finally {
@@ -387,9 +389,8 @@ function POS() {
     taxRate: 0.14 // Default 14% tax rate
   }));
   
-  // Calculate loyalty discount
-  const loyaltyDiscount = pointsToValue(loyaltyPoints, DEFAULT_LOYALTY_CONFIG);
-  const totalDiscount = discount + loyaltyDiscount;
+  // Loyalty removed
+  const totalDiscount = discount;
   const baseTotals = computeTotals(cartLines, totalDiscount);
   
   const totals = {
@@ -619,7 +620,7 @@ function POS() {
           return;
         }
 
-        if (result.paymentMethod === 'cash' || result.paymentMethod === 'loyalty') {
+        if (result.paymentMethod === 'cash') {
           setTimeout(async () => {
             const webhookResult = handleWebhook(store, {
               provider,
@@ -631,7 +632,7 @@ function POS() {
             });
             
             if (webhookResult.success) {
-              toast.show(`${result.paymentMethod === 'cash' ? 'Cash' : 'Loyalty'} payment completed!`);
+              toast.show('Cash payment completed!');
               // Process the order after successful payment
               await processOrderAfterPayment();
             }
@@ -805,7 +806,6 @@ function POS() {
               firstName: selectedCustomer.name.split(' ')[0] || '',
               lastName: selectedCustomer.name.split(' ').slice(1).join(' ') || '',
               phone: selectedCustomer.phone,
-              loyaltyPoints: selectedCustomer.points
             } : null}
             onCustomerChange={(customer) => {
               if (customer) {
@@ -814,7 +814,7 @@ function POS() {
                   name: `${customer.firstName} ${customer.lastName}`.trim(),
                   email: customer.email,
                   phone: customer.phone || '',
-                  points: customer.loyaltyPoints || 0,
+                  points: 0,
                   orders: 0,
                   totalSpent: 0,
                   visits: 0,
@@ -933,7 +933,6 @@ function POS() {
                   firstName: selectedCustomer.name.split(' ')[0] || '',
                   lastName: selectedCustomer.name.split(' ').slice(1).join(' ') || '',
                   phone: selectedCustomer.phone,
-                  loyaltyPoints: selectedCustomer.points
                 } : null}
                 onCustomerChange={(customer) => {
                   if (customer) {
@@ -942,7 +941,7 @@ function POS() {
                       name: `${customer.firstName} ${customer.lastName}`.trim(),
                       email: customer.email,
                       phone: customer.phone || '',
-                      points: customer.loyaltyPoints || 0,
+                      points: 0,
                       orders: 0,
                       totalSpent: 0,
                       visits: 0,
@@ -986,7 +985,7 @@ function POS() {
         currency="EGP"
         ticketId={getTicketId()}
         provider={paymentProvider}
-        availableMethods={['card', 'cash', 'loyalty']}
+        availableMethods={['card', 'cash']}
       />
     </>
   );

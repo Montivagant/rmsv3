@@ -33,7 +33,7 @@ export default function TransfersReport() {
   const { data: locations } = useApi<Location[]>('/api/inventory/locations', [] as any);
   const locationList = locations ?? [];
 
-  const rows = resp?.data || [];
+  const rows = useMemo(() => resp?.data || [], [resp?.data]);
 
   const totals = useMemo(() => {
     let sent = 0, received = 0, variance = 0;

@@ -10,6 +10,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useToast } from '../hooks/useToast';
 import { useShiftService, getActiveShift } from '../shifts/service';
+import { useEventStore } from '../events/hooks';
 import { cn } from '../lib/utils';
 
 export default function Clockin() {
@@ -22,11 +23,37 @@ export default function Clockin() {
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
+  const [, forceUpdate] = useState({});
+  const store = useEventStore();
+  const [userLog, setUserLog] = useState<Array<{ when: number; type: string; details?: string }>>([]);
 
   // Refresh active shift state when component mounts
   useEffect(() => {
     setActiveShift(getActiveShift());
   }, []);
+
+  // Update timer display every second when shift is active
+  useEffect(() => {
+    if (activeShift) {
+      const interval = setInterval(() => {
+        forceUpdate({}); // Force re-render to update duration display
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [activeShift]);
+
+  // Build per-user clock log
+  useEffect(() => {
+    const current = getActiveShift();
+    const userId = current?.userId;
+    const events = store.getAll();
+    const rows = events
+      .filter(e => (e.type === 'shift.started' || e.type === 'shift.ended') && (!userId || e.aggregate?.id === userId))
+      .map(e => ({ when: e.at, type: e.type, details: JSON.stringify(e.payload || {}) }))
+      .sort((a, b) => b.when - a.when)
+      .slice(0, 20);
+    setUserLog(rows);
+  }, [store, activeShift]);
 
   const handleClockIn = async () => {
     if (!pin.trim()) {
@@ -60,12 +87,12 @@ export default function Clockin() {
         });
       } else {
         showToast({
-          title: 'Clock-in Failed',
-          description: result.error || 'Failed to start shift. Please check your PIN.',
-          variant: 'error'
-        });
+        title: 'Clock-in Failed',
+        description: result.error || 'Failed to start shift. Please check your PIN.',
+        variant: 'error'
+      });
       }
-    } catch (error) {
+    } catch {
       showToast({
         title: 'Error',
         description: 'An unexpected error occurred. Please try again.',
@@ -90,11 +117,11 @@ export default function Clockin() {
       } else {
         showToast({
           title: 'Clock-out Failed',
-          description: result.error || 'Failed to end shift. Please try again.',
-          variant: 'error'
-        });
+        description: result.error || 'Failed to end shift. Please try again.',
+        variant: 'error'
+      });
       }
-    } catch (error) {
+    } catch {
       showToast({
         title: 'Error',
         description: 'An unexpected error occurred. Please try again.',
@@ -134,7 +161,7 @@ export default function Clockin() {
         description: 'Your PIN has been saved. You can now clock in.',
         variant: 'success'
       });
-    } catch (error) {
+    } catch {
       showToast({
         title: 'Error',
         description: 'Failed to save PIN. Please try again.',
@@ -448,6 +475,41 @@ export default function Clockin() {
               <div className="text-center py-8 text-muted-foreground">
                 <p>Shift history will be displayed here in a future update.</p>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Per-user Clock Log */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Clock In/Out Log</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {userLog.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No recent clock events.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left border-b">
+                        <th className="py-2 pr-4">When</th>
+                        <th className="py-2 pr-4">Type</th>
+                        <th className="py-2 pr-4">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userLog.map((r, idx) => (
+                        <tr key={idx} className="border-b last:border-0">
+                          <td className="py-2 pr-4">{new Date(r.when).toLocaleString()}</td>
+                          <td className="py-2 pr-4">{r.type}</td>
+                          <td className="py-2 pr-4 truncate max-w-[320px]" title={r.details}>{r.details}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

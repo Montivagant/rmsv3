@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host localhost --port 5173",
     "build": "vite build",
     "build:check": "tsc -b && vite build",
     "lint": "eslint .",
@@ -28,11 +28,13 @@
     "test:offline": "node scripts/test-offline-online.js",
     "test:offline-verbose": "node scripts/test-offline-online.js --verbose",
     "test:offline-with-api": "node scripts/test-offline-online.js --api-server",
+    "seed:menu": "node scripts/seed-menu-data.js",
     "test:e2e-offline": "vitest --run src/__tests__/e2e/",
-    "electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron electron/main.cjs",
+    "electron": "wait-on tcp:5173 && pnpm electron:launch",
     "electron:dev": "concurrently \"pnpm dev\" \"pnpm electron\"",
     "electron:build": "pnpm build && electron-builder",
-    "electron:dist": "pnpm build && electron-builder --publish=never"
+    "electron:dist": "pnpm build && electron-builder --publish=never",
+    "electron:launch": "cross-env ELECTRON_DEV_SERVER_URL=https://localhost:5173 NODE_ENV=development electron electron/main.cjs"
   },
   "main": "electron/main.cjs",
   "homepage": "./",

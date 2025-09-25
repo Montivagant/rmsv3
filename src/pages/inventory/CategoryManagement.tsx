@@ -12,13 +12,19 @@ import {
   CardContent, 
   Button, 
   Input, 
-  EmptyState
+  EmptyState,
+  Modal
 } from '../../components';
 import { DataTable } from '../../components';
 import { useToast } from '../../hooks/useToast';
-import { useRepository } from '../../hooks/useRepository';
-import { listInventoryCategories, type InventoryCategory } from '../../inventory/repository';
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
+import { 
+  listInventoryCategories, 
+  deleteInventoryCategory,
+  type InventoryCategory 
+} from '../../inventory/repository';
 import { CategoryCreateModal } from '../../components/categories';
+import CategoryEditModal from '../../components/categories/CategoryEditModal';
 
 // Component-specific interface for display
 interface CategoryDisplay {
@@ -31,6 +37,9 @@ interface CategoryDisplay {
 
 export default function CategoryManagement() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryDisplay | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { showToast } = useToast();
 
@@ -39,6 +48,9 @@ export default function CategoryManagement() {
     listInventoryCategories,
     []
   );
+
+  // Mutation for deleting categories
+  const deleteCategoryMutation = useRepositoryMutation(deleteInventoryCategory);
 
   // Transform inventory categories to display format
   const categories: CategoryDisplay[] = useMemo(() => 
@@ -57,6 +69,42 @@ export default function CategoryManagement() {
     setShowCreateModal(false);
     refetch(); // Refetch categories after creation
     showToast('Category created successfully!', 'success');
+  };
+
+  // Handle edit category
+  const handleEditCategory = (category: CategoryDisplay) => {
+    setSelectedCategory(category);
+    setShowEditModal(true);
+  };
+
+  // Handle category update success
+  const handleCategoryUpdated = (_categoryId: string) => {
+    setShowEditModal(false);
+    setSelectedCategory(null);
+    refetch(); // Refetch categories after update
+    showToast('Category updated successfully!', 'success');
+  };
+
+  // Handle delete category
+  const handleDeleteCategory = (category: CategoryDisplay) => {
+    setSelectedCategory(category);
+    setShowDeleteConfirm(true);
+  };
+
+  // Confirm delete
+  const confirmDelete = async () => {
+    if (!selectedCategory) return;
+
+    try {
+      await deleteCategoryMutation.mutate(selectedCategory.id);
+      showToast('Category deleted successfully!', 'success');
+      setShowDeleteConfirm(false);
+      setSelectedCategory(null);
+      refetch();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to delete category';
+      showToast(message, 'error');
+    }
   };
 
   // Filter categories based on search term
@@ -116,12 +164,19 @@ export default function CategoryManagement() {
       header: 'Actions',
       cell: ({ row }: { row: { original: CategoryDisplay } }) => (
         <div className="flex justify-end space-x-2">
-          <Button size="sm" variant="outline">Edit</Button>
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={() => handleEditCategory(row.original)}
+          >
+            Edit
+          </Button>
           <Button 
             size="sm" 
             variant="ghost" 
             className="text-error-600 hover:text-error-700"
             disabled={row.original.itemCount > 0}
+            onClick={() => handleDeleteCategory(row.original)}
           >
             Delete
           </Button>
@@ -199,6 +254,60 @@ export default function CategoryManagement() {
           existingReferences={categories.map(c => c.reference)}
         />
       )}
+
+      {/* Edit Category Modal */}
+      {showEditModal && (
+        <CategoryEditModal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedCategory(null);
+          }}
+          onSuccess={handleCategoryUpdated}
+          category={selectedCategory}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setSelectedCategory(null);
+        }}
+        title="Delete Category"
+        size="sm"
+      >
+        <div className="space-y-4 p-6">
+          <p className="text-text-secondary">
+            Are you sure you want to delete <strong>{selectedCategory?.name}</strong>?
+            This action cannot be undone.
+          </p>
+          {selectedCategory && selectedCategory.itemCount > 0 && (
+            <p className="text-error-600 text-sm">
+              This category has {selectedCategory.itemCount} items and cannot be deleted.
+            </p>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setSelectedCategory(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={!selectedCategory || selectedCategory.itemCount > 0}
+            >
+              Delete Category
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

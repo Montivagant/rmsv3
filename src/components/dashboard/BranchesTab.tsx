@@ -64,11 +64,11 @@ export default function BranchesTab() {
         name: branch.name,
         activeOrders,
         activeOrdersAmount,
-        occupiedTables: 0, // Remove - we don't track table management
-        offlineCashiers: 0, // Remove - we don't have real-time cashier status
-        openTills: 0, // Remove - we don't track till management
-        lastSync: new Date().toISOString(), // Use current time since we don't track sync
-        lastOrder: performance ? new Date().toISOString() : '', // Only if we have data
+        occupiedTables: 0,
+        offlineCashiers: 0,
+        openTills: 0,
+        lastSync: new Date().toISOString(),
+        lastOrder: performance ? new Date().toISOString() : '',
         status
       }])[0];
     });

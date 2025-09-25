@@ -11,6 +11,8 @@ import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { axe, toHaveNoViolations } from 'jest-axe';
 
+import { BUILD_STRONG_TEST_PASSWORD } from './utils/testCredentials';
+
 import Signup from '../pages/Signup';
 import SignupSuccess from '../pages/SignupSuccess';
 import Login from '../pages/Login';
@@ -80,7 +82,7 @@ describe('Signup Flow - Happy Path', () => {
     await user.type(screen.getByLabelText(/Your Name/i), 'Ahmed Mohamed');
     await user.type(screen.getByLabelText(/Phone Number/i), '1012345678');
     await user.type(screen.getByLabelText(/Email/i), 'ahmed@example.com');
-    await user.type(screen.getByLabelText(/Password/i), 'securepass123');
+    await user.type(screen.getByLabelText(/Password/i), BUILD_STRONG_TEST_PASSWORD());
     await user.type(screen.getByLabelText(/Business Name/i), 'Cairo Bistro');
     
     // Select business type using autocomplete
@@ -108,7 +110,7 @@ describe('Signup Flow - Happy Path', () => {
         name: 'Ahmed Mohamed',
         phoneLocal: '1012345678',
         email: 'ahmed@example.com',
-        password: 'securepass123',
+        password: BUILD_STRONG_TEST_PASSWORD(),
         businessName: 'Cairo Bistro',
         businessType: 'Quick Service',
         termsAccepted: true,
@@ -134,7 +136,7 @@ describe('Signup Flow - Happy Path', () => {
     await user.type(screen.getByLabelText(/Your Name/i), 'Test User');
     await user.type(screen.getByLabelText(/Phone Number/i), '1012345678');
     await user.type(screen.getByLabelText(/Email/i), 'test@example.com');
-    await user.type(screen.getByLabelText(/Password/i), 'password123');
+    await user.type(screen.getByLabelText(/Password/i), BUILD_STRONG_TEST_PASSWORD());
     await user.type(screen.getByLabelText(/Business Name/i), 'Test Business');
     
     const businessTypeInput = screen.getByLabelText(/Business Type/i);
@@ -249,7 +251,7 @@ describe('Signup Flow - Validation Tests', () => {
     await user.type(screen.getByLabelText(/Your Name/i), 'Test User');
     await user.type(screen.getByLabelText(/Phone Number/i), '1012345678');
     await user.type(screen.getByLabelText(/Email/i), 'test@example.com');
-    await user.type(screen.getByLabelText(/Password/i), 'password123');
+    await user.type(screen.getByLabelText(/Password/i), BUILD_STRONG_TEST_PASSWORD());
     await user.type(screen.getByLabelText(/Business Name/i), 'Test Business');
     
     const businessTypeInput = screen.getByLabelText(/Business Type/i);
@@ -285,7 +287,7 @@ describe('Signup Flow - Server Error Handling', () => {
     await user.type(screen.getByLabelText(/Your Name/i), 'Test User');
     await user.type(screen.getByLabelText(/Phone Number/i), '1012345678');
     await user.type(screen.getByLabelText(/Email/i), 'test@example.com');
-    await user.type(screen.getByLabelText(/Password/i), 'password123');
+    await user.type(screen.getByLabelText(/Password/i), BUILD_STRONG_TEST_PASSWORD());
     await user.type(screen.getByLabelText(/Business Name/i), 'Test Business');
     
     const businessTypeInput = screen.getByLabelText(/Business Type/i);
@@ -324,7 +326,7 @@ describe('Signup Flow - Server Error Handling', () => {
     await user.type(screen.getByLabelText(/Your Name/i), 'Test User');
     await user.type(screen.getByLabelText(/Phone Number/i), '1012345678');
     await user.type(screen.getByLabelText(/Email/i), 'test@example.com');
-    await user.type(screen.getByLabelText(/Password/i), 'password123');
+    await user.type(screen.getByLabelText(/Password/i), BUILD_STRONG_TEST_PASSWORD());
     await user.type(screen.getByLabelText(/Business Name/i), 'Test Business');
     
     const businessTypeInput = screen.getByLabelText(/Business Type/i);

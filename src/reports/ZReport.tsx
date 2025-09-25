@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '../components';
 import { zReportEngine } from './engine';
-import { useEventStore } from '../events/context';
+import { useEventStore } from '../events/hooks';
 import { getRole } from '../rbac/roles';
 import type { ZReportData, CashReconciliation } from './types';
 

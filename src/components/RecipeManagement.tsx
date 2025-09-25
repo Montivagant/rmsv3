@@ -64,7 +64,7 @@ export function RecipeManagement({ onRecipeUpdated }: RecipeManagementProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const { showSuccess, showError, showLoading, removeNotification } = useNotifications();
 
-  const recipes = recipesResponse?.recipes || [];
+  const recipes = useMemo(() => recipesResponse?.recipes || [], [recipesResponse?.recipes]);
 
   // Get category options
   const categoryOptions = useMemo(() => {

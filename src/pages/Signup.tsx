@@ -94,7 +94,7 @@ export default function Signup() {
   const isFormValid = useMemo(() => {
     const e = validate();
     return Object.keys(e).length === 0;
-  }, [name, phoneLocal, email, password, businessName, businessType, termsAccepted]);
+  }, [name, phoneLocal, email, password, businessName, businessType, termsAccepted, validate]);
 
   function focusFirstError(e: Errors) {
     if (e.name) return nameRef.current?.focus();

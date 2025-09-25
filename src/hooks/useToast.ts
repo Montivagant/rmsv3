@@ -23,16 +23,14 @@ export interface ToastMessage {
  * Wraps the base toast system with additional variants and options
  */
 export function useToast() {
-  let baseToast: { show: (msg: string) => void; clear: () => void };
-  try {
-    baseToast = useBaseToast();
-  } catch {
-    // Provide a safe fallback for environments without ToastProvider (e.g., tests)
-    baseToast = {
-      show: () => {},
-      clear: () => {},
-    } as any;
-  }
+  // Always call the hook unconditionally - required by rules of hooks
+  const baseToast = useBaseToast();
+  
+  // Provide fallback behavior if the toast system isn't available
+  const safeToast = baseToast || {
+    show: () => {},
+    clear: () => {},
+  };
 
   // Overloaded function to support both signatures
   function showToast(message: string, variant?: ToastVariant, options?: ToastOptions): void;
@@ -51,12 +49,12 @@ export function useToast() {
       // New signature: showToast({title, description, variant})
       const { title, description } = messageOrObj;
       message = title ? (description ? `${title}: ${description}` : title) : (description || '');
-      variant = messageOrObj.variant || variant;
+      variant = messageOrObj.variant || variant; // TODO: Use variant for styling in future implementation
     }
     
     // For now, use the simple toast system
     // In a full implementation, this would handle different variants with styling
-    baseToast.show(message);
+    safeToast.show(message);
   }
 
   const showSuccess = (message: string, options?: ToastOptions) => {
@@ -81,6 +79,6 @@ export function useToast() {
     showError,
     showWarning,
     showInfo,
-    clearAll: baseToast.clear
+    clearAll: safeToast.clear
   };
 }

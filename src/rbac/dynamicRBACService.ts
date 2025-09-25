@@ -106,6 +106,10 @@ class DynamicRBACService {
     return Array.from(this.customRoles.values());
   }
 
+  public listRoles(): DynamicRole[] {
+    return Array.from(this.customRoles.values()).filter(r => !r.isSystem);
+  }
+
   public getRole(roleId: string): DynamicRole | null {
     return this.customRoles.get(roleId) || null;
   }
@@ -196,7 +200,7 @@ class DynamicRBACService {
     const currentUser = getCurrentUser();
     if (currentUser && currentUser.id === userId && currentUser.role) {
       // Convert BUSINESS_OWNER to business_owner for lookup
-      const roleKey = currentUser.role === 'BUSINESS_OWNER' ? 'business_owner' : currentUser.role.toLowerCase();
+      const roleKey = currentUser.role === 'BUSINESS_OWNER' ? 'business_owner' : 'business_owner';
       const legacyRole = this.customRoles.get(roleKey);
       if (legacyRole) {
         roles.push(legacyRole);
@@ -328,7 +332,7 @@ class DynamicRBACService {
       });
 
       return imported;
-    } catch (error) {
+    } catch {
       throw new Error('Invalid roles JSON format');
     }
   }

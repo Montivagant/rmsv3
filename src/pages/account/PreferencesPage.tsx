@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { accountService } from '../../services/account';
 import { useFormGuard } from '../../hooks/useUnsavedGuard';
 import { useToast } from '../../hooks/useToast';
@@ -12,6 +12,7 @@ import Toggle from '../../settings/ui/Toggle';
 import FormActions from '../../components/ui/FormActions';
 import { Button } from '../../components/Button';
 import { useRepository } from '../../hooks/useRepository';
+import { listBranches } from '../../management/repository';
 
 export default function PreferencesPage() {
   const [preferences, setPreferences] = useState<Preferences | null>(null);
@@ -21,10 +22,10 @@ export default function PreferencesPage() {
   
   const { showToast } = useToast();
   const { showSuccess, showError } = useNotifications();
-  // Import from management repository
-  const { listBranches } = require('../../management/repository');
-  const { data: branchesData = [] } = useRepository(listBranches, []);
-  const branches = (branchesData as any[]).map((b: any) => ({ id: b.id, name: b.name }));
+  // Branch data from management repository
+  const { data: branchesData } = useRepository(listBranches, []);
+  const branchList = Array.isArray(branchesData) ? branchesData : [];
+  const branches = branchList.map((b: any) => ({ id: b.id, name: b.name }));
 
   // Check if form has unsaved changes
   const isDirty = preferences && formData && JSON.stringify(preferences) !== JSON.stringify(formData);
@@ -37,7 +38,7 @@ export default function PreferencesPage() {
     loadPreferences();
   }, []);
 
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await accountService.preferences.get();
@@ -50,7 +51,7 @@ export default function PreferencesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [showToast, showError]);
 
   const handleSave = async () => {
     if (!formData) return;
@@ -257,3 +258,4 @@ export default function PreferencesPage() {
     </>
   );
 }
+

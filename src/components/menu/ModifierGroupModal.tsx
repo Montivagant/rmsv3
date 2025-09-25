@@ -12,29 +12,17 @@ import { Button } from '../Button';
 import { Checkbox } from '../Checkbox';
 import { Badge } from '../Badge';
 import { useToast } from '../../hooks/useToast';
+import { useRepositoryMutation } from '../../hooks/useRepository';
+import { 
+  createModifierGroup, 
+  updateModifierGroup,
+  type CreateModifierGroupRequest,
+  type UpdateModifierGroupRequest,
+  type ModifierGroup as RepositoryModifierGroup 
+} from '../../menu/modifiers/repository';
 
-interface ModifierOption {
-  id: string;
-  name: string;
-  priceAdjustment: number;
-  isDefault?: boolean | undefined;
-  isActive: boolean;
-}
-
-interface ModifierGroup {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'single' | 'multiple';
-  isRequired: boolean;
-  minSelections: number;
-  maxSelections: number;
-  displayOrder: number;
-  isActive: boolean;
-  options: ModifierOption[];
-  createdAt: string;
-  updatedAt: string;
-}
+// Import types from repository
+import type { ModifierOption } from '../../menu/modifiers/repository';
 
 interface ModifierGroupFormData {
   name: string;
@@ -52,7 +40,7 @@ interface ModifierGroupModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  editingGroup?: ModifierGroup;
+  editingGroup?: RepositoryModifierGroup;
 }
 
 export default function ModifierGroupModal({
@@ -83,6 +71,13 @@ export default function ModifierGroupModal({
   const { showToast } = useToast();
   const isEditing = !!editingGroup;
 
+  // Repository mutations
+  const createGroupMutation = useRepositoryMutation(createModifierGroup);
+  const updateGroupMutation = useRepositoryMutation(
+    ({ id, data }: { id: string; data: UpdateModifierGroupRequest }) => 
+      updateModifierGroup(id, data)
+  );
+
   // Initialize form data when editing
   useEffect(() => {
     if (isOpen) {
@@ -99,7 +94,7 @@ export default function ModifierGroupModal({
           options: editingGroup.options.map(opt => ({
             name: opt.name,
             priceAdjustment: opt.priceAdjustment,
-            isDefault: opt.isDefault,
+            isDefault: opt.isDefault || false,
             isActive: opt.isActive
           }))
         });
@@ -199,7 +194,37 @@ export default function ModifierGroupModal({
     setIsSubmitting(true);
     
     try {
-      // For now, just show success - API implementation would go here
+      if (isEditing && editingGroup) {
+        // Update existing group
+        const updateData: UpdateModifierGroupRequest = {
+          name: formData.name.trim(),
+          ...(formData.description.trim() && { description: formData.description.trim() }),
+          type: formData.type,
+          isRequired: formData.isRequired,
+          minSelections: formData.minSelections,
+          maxSelections: formData.maxSelections,
+          displayOrder: formData.displayOrder,
+          isActive: formData.isActive,
+          options: formData.options
+        };
+        
+        await updateGroupMutation.mutate({ id: editingGroup.id, data: updateData });
+      } else {
+        // Create new group
+        const createData: CreateModifierGroupRequest = {
+          name: formData.name.trim(),
+          ...(formData.description.trim() && { description: formData.description.trim() }),
+          type: formData.type,
+          isRequired: formData.isRequired,
+          minSelections: formData.minSelections,
+          maxSelections: formData.maxSelections,
+          displayOrder: formData.displayOrder,
+          options: formData.options
+        };
+        
+        await createGroupMutation.mutate(createData);
+      }
+      
       showToast({
         title: 'Success',
         description: `Modifier group ${isEditing ? 'updated' : 'created'} successfully`,

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useOrders } from '../hooks/useOrders';
 import { useMenuItems } from '../hooks/useMenuItems';
 import { ordersApi } from '../orders/api';
-import { useEventStore } from '../events/context';
+import { useEventStore } from '../events/hooks';
 import { getDeviceId } from '../lib/device';
 import { getCurrentBranchId } from '../lib/branch';
 import { getRole, Role, getCurrentUser } from '../rbac/roles';
@@ -39,8 +39,13 @@ function KDS() {
   const deviceId = getDeviceId();
   const kdsSettings = getKdsSettings();
   const branchId = getCurrentBranchId();
-  const { orders: orderState, loading, error, refetch } = useOrders({ branchId });
-  const { items: menuCatalog } = useMenuItems({ branchId, includeInactive: true });
+  
+  // Memoize query objects to prevent infinite re-renders
+  const ordersQuery = useMemo(() => ({ branchId }), [branchId]);
+  const menuQuery = useMemo(() => ({ branchId, includeInactive: true }), [branchId]);
+  
+  const { orders: orderState, loading, error, refetch } = useOrders(ordersQuery);
+  const { items: menuCatalog } = useMenuItems(menuQuery);
   const orders = orderState.map(order => ({
     id: order.id,
     orderNumber: order.ticketId,
@@ -72,7 +77,7 @@ function KDS() {
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [clock, setClock] = useState(0);
+  const [, setClock] = useState(0);
   const [localMeta, setLocalMeta] = useState<Map<string, { preparingAt?: number; readyAt?: number; servedAt?: number; preparedBy?: string }>>(new Map());
 
   // Persist preferences
@@ -182,7 +187,10 @@ function KDS() {
         // Optional: lightweight UI feedback
         // Note: Avoid noisy toasts in KDS; uncomment if desired
         // showSuccess(`KDS: ${newStatus.toUpperCase()}`, `Order ${orderId} marked ${newStatus}`);
-      } catch {}
+      } catch (error) {
+        // Ignore event store errors to prevent KDS disruption
+        console.warn('KDS event store error (ignored):', error);
+      }
       await refetch();
     } catch (error) {
       console.error('Failed to update order status:', error);
@@ -216,7 +224,7 @@ function KDS() {
       meta.set(orderId, { ...base, ...entry });
     }
     return meta;
-  }, [orders, store, clock, localMeta]);
+  }, [store, localMeta]);
 
   // Seed missing anchors for orders without events (first render)
   useEffect(() => {

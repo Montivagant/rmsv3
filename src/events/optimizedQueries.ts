@@ -6,16 +6,10 @@
  */
 
 import type { OptimizedEventStore } from './optimizedStore';
-import type { LoyaltyAccruedEvent, LoyaltyRedeemedEvent, PaymentSucceededEvent, SaleRecordedEvent } from './types';
-import { isSaleRecorded, isPaymentSucceeded, isLoyaltyAccrued, isLoyaltyRedeemed } from './guards';
+import type { PaymentSucceededEvent, SaleRecordedEvent } from './types';
+import { isSaleRecorded, isPaymentSucceeded } from './guards';
 
-export interface LoyaltyBalance {
-  customerId: string;
-  balance: number;
-  totalAccrued: number;
-  totalRedeemed: number;
-  lastUpdate: number;
-}
+// Loyalty removed
 
 export interface PaymentSummary {
   total: number;
@@ -40,98 +34,7 @@ export interface ReportingData {
 /**
  * Optimized Loyalty Queries
  */
-export class LoyaltyQueries {
-  private store: OptimizedEventStore;
-  
-  constructor(store: OptimizedEventStore) {
-    this.store = store;
-  }
-
-  /**
-   * Get loyalty balance for customer (cached)
-   */
-  getBalance(customerId: string): LoyaltyBalance {
-    const events = this.store.getEventsForAggregate(customerId);
-    
-    let totalAccrued = 0;
-    let totalRedeemed = 0;
-    let lastUpdate = 0;
-
-    for (const event of events) {
-      if (isLoyaltyAccrued(event)) {
-        totalAccrued += event.payload.points;
-        lastUpdate = Math.max(lastUpdate, event.at);
-      } else if (isLoyaltyRedeemed(event)) {
-        totalRedeemed += event.payload.points;
-        lastUpdate = Math.max(lastUpdate, event.at);
-      }
-    }
-
-    return {
-      customerId,
-      balance: Math.max(0, totalAccrued - totalRedeemed),
-      totalAccrued,
-      totalRedeemed,
-      lastUpdate
-    };
-  }
-
-  /**
-   * Get loyalty transactions for customer
-   */
-  getTransactions(customerId: string): (LoyaltyAccruedEvent | LoyaltyRedeemedEvent)[] {
-    const events = this.store.getEventsForAggregate(customerId);
-    return events.filter(event => 
-      isLoyaltyAccrued(event) || isLoyaltyRedeemed(event)
-    ) as (LoyaltyAccruedEvent | LoyaltyRedeemedEvent)[];
-  }
-
-  /**
-   * Get top customers by loyalty points
-   */
-  getTopCustomers(limit: number = 10): LoyaltyBalance[] {
-    const accruedEvents = this.store.getEventsByType('loyalty.accrued') as LoyaltyAccruedEvent[];
-    const redeemedEvents = this.store.getEventsByType('loyalty.redeemed') as LoyaltyRedeemedEvent[];
-
-    const customerMap = new Map<string, LoyaltyBalance>();
-
-    // Process accrued events
-    for (const event of accruedEvents) {
-      const customerId = event.payload.customerId;
-      const existing = customerMap.get(customerId) || {
-        customerId,
-        balance: 0,
-        totalAccrued: 0,
-        totalRedeemed: 0,
-        lastUpdate: 0
-      };
-
-      existing.totalAccrued += event.payload.points;
-      existing.lastUpdate = Math.max(existing.lastUpdate, event.at);
-      customerMap.set(customerId, existing);
-    }
-
-    // Process redeemed events
-    for (const event of redeemedEvents) {
-      const customerId = event.payload.customerId;
-      const existing = customerMap.get(customerId);
-      if (existing) {
-        existing.totalRedeemed += event.payload.points;
-        existing.lastUpdate = Math.max(existing.lastUpdate, event.at);
-      }
-    }
-
-    // Calculate final balances and sort
-    const customers = Array.from(customerMap.values());
-    customers.forEach(customer => {
-      customer.balance = Math.max(0, customer.totalAccrued - customer.totalRedeemed);
-    });
-
-    return customers
-      .sort((a, b) => b.balance - a.balance)
-      .slice(0, limit);
-  }
-}
+// Loyalty queries removed
 
 /**
  * Optimized Payment Queries
@@ -302,7 +205,6 @@ export class SalesQueries {
  * Optimized Reporting Queries
  */
 export class ReportingQueries {
-  private loyaltyQueries: LoyaltyQueries;
   private paymentQueries: PaymentQueries;
   private salesQueries: SalesQueries;
 
@@ -310,7 +212,6 @@ export class ReportingQueries {
   
   constructor(store: OptimizedEventStore) {
     this.store = store;
-    this.loyaltyQueries = new LoyaltyQueries(store);
     this.paymentQueries = new PaymentQueries(store);
     this.salesQueries = new SalesQueries(store);
   }
@@ -338,7 +239,7 @@ export class ReportingQueries {
   }
 
   // Expose individual query engines
-  get loyalty() { return this.loyaltyQueries; }
+  // loyalty removed
   get payments() { return this.paymentQueries; }
   get sales() { return this.salesQueries; }
 }

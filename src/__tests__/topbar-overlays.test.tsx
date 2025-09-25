@@ -3,11 +3,20 @@ import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { EventStoreContext } from '../events/context';
+import { InMemoryEventStore } from '../events/store';
 import { TopBar } from '../components/navigation/TopBar';
 
-// Helper to render within Router
-function renderWithRouter(ui: React.ReactElement) {
-  return render(<BrowserRouter>{ui}</BrowserRouter>);
+// Helper to render within Router and providers
+function renderWithProviders(ui: React.ReactElement) {
+  const store = new InMemoryEventStore();
+  return render(
+    <BrowserRouter>
+      <EventStoreContext.Provider value={{ store, isReady: true }}>
+        {ui}
+      </EventStoreContext.Provider>
+    </BrowserRouter>
+  );
 }
 
 describe('TopBar overlays - Notifications, Profile, and Search', () => {
@@ -19,7 +28,7 @@ describe('TopBar overlays - Notifications, Profile, and Search', () => {
   });
 
   it('opens Notifications, dismisses via Escape, outside click, and route change', async () => {
-    renderWithRouter(
+    renderWithProviders(
       <TopBar
         userName="Tester"
         userRole="Admin"
@@ -59,7 +68,7 @@ describe('TopBar overlays - Notifications, Profile, and Search', () => {
   });
 
   it('opens Profile menu and dismisses with Escape', async () => {
-    renderWithRouter(
+    renderWithProviders(
       <TopBar
         userName="Tester"
         userRole="Admin"
@@ -84,7 +93,7 @@ describe('TopBar overlays - Notifications, Profile, and Search', () => {
   });
 
   it('one overlay at a time: opening Notifications closes Search, and vice versa', async () => {
-    renderWithRouter(
+    renderWithProviders(
       <TopBar
         userName="Tester"
         userRole="Admin"
@@ -118,7 +127,7 @@ describe('TopBar overlays - Notifications, Profile, and Search', () => {
   });
 
   it('search overlay supports Escape and clears query on dismiss', async () => {
-    renderWithRouter(
+    renderWithProviders(
       <TopBar
         userName="Tester"
         userRole="Admin"

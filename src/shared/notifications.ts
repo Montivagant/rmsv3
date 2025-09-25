@@ -2,7 +2,7 @@
  * Notification system that generates notifications from business events
  */
 
-import { useEventStore } from '../events/context';
+import { useEventStore } from '../events/hooks';
 import { useState, useEffect, useCallback } from 'react';
 
 export interface Notification {
@@ -16,8 +16,27 @@ export interface Notification {
   actionUrl?: string; // URL to navigate when clicked
 }
 
+// Event structure interface for notifications
+interface NotificationEvent {
+  id: string;
+  type: string;
+  at: number;
+  payload?: {
+    alert?: { itemName?: string };
+    daysUntilExpiration?: number;
+    orderId?: string;
+    fromLocation?: string;
+    toLocation?: string;
+    total?: number;
+    level?: string;
+    message?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 // Create notifications from events
-function createNotificationFromEvent(event: any): Notification | null {
+function createNotificationFromEvent(event: NotificationEvent): Notification | null {
   const now = Date.now();
   const timeAgo = formatTimeAgo(now - event.at);
 
@@ -71,7 +90,7 @@ function createNotificationFromEvent(event: any): Notification | null {
       };
 
     case 'sale.recorded':
-      if (event.payload?.total > 100) {
+      if (event.payload?.total && event.payload.total > 100) {
         return {
           id: `order-${event.id}`,
           type: 'order',
@@ -118,7 +137,7 @@ function formatTimeAgo(ms: number): string {
 }
 
 // Custom hook for notifications
-export function useNotifications() {
+export function useNotificationFeed() {
   const eventStore = useEventStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -131,7 +150,7 @@ export function useNotifications() {
         .filter(event => event.at >= oneDayAgo)
         .slice(0, 50);
       const notifs = events
-        .map(createNotificationFromEvent)
+        .map((event: any) => createNotificationFromEvent(event))
         .filter((n): n is Notification => !!n)
         .sort((a: Notification, b: Notification) => b.timestamp - a.timestamp)
         .slice(0, 20);

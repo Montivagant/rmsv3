@@ -6,14 +6,13 @@
 import { http, HttpResponse } from 'msw';
 import type {
   Transfer,
-  TransferLine,
   TransfersResponse,
   CreateTransferRequest,
   CompleteTransferRequest,
   CancelTransferRequest,
   Location
 } from './types';
-import { TransferUtils, TRANSFER_CONFIG } from './types';
+import { TRANSFER_CONFIG } from './types';
 
 // Mock data stores
 const mockTransfers = new Map<string, Transfer>();
@@ -185,133 +184,82 @@ export const inventoryTransferApiHandlers = [
     const destinationLocationId = url.searchParams.get('destinationLocationId') || undefined;
     const search = url.searchParams.get('search') || undefined;
 
-    // Filter transfers
-    let filteredTransfers = Array.from(mockTransfers.values());
+    try {
+      // Use real repository function instead of mock data
+      const { listTransfers } = await import('./repository');
+      const transfersResponse = await listTransfers({
+        page,
+        pageSize,
+        ...(status && { status }),
+        ...(sourceLocationId && { sourceLocationId }),
+        ...(destinationLocationId && { destinationLocationId }),
+        ...(search && { search })
+      });
 
-    if (status) {
-      filteredTransfers = filteredTransfers.filter(t => t.status === status);
+      const response: TransfersResponse = {
+        data: transfersResponse.data,
+        total: transfersResponse.total,
+        page: transfersResponse.page,
+        pageSize: transfersResponse.pageSize,
+        totalPages: Math.ceil(transfersResponse.total / transfersResponse.pageSize)
+      };
+
+      console.log(`📋 MSW: Returning ${transfersResponse.data.length} real transfers from repository`);
+      return HttpResponse.json(response);
+    } catch (error) {
+      console.error('Error listing transfers:', error);
+      return HttpResponse.json({
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0
+      });
     }
-
-    if (sourceLocationId) {
-      filteredTransfers = filteredTransfers.filter(t => t.sourceLocationId === sourceLocationId);
-    }
-
-    if (destinationLocationId) {
-      filteredTransfers = filteredTransfers.filter(t => t.destinationLocationId === destinationLocationId);
-    }
-
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredTransfers = filteredTransfers.filter(t => 
-        t.code.toLowerCase().includes(searchLower) ||
-        t.notes?.toLowerCase().includes(searchLower) ||
-        t.lines.some(l => 
-          l.name.toLowerCase().includes(searchLower) ||
-          l.sku.toLowerCase().includes(searchLower)
-        )
-      );
-    }
-
-    // Sort by code descending (newest first)
-    filteredTransfers.sort((a, b) => b.code.localeCompare(a.code));
-
-    // Paginate
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedTransfers = filteredTransfers.slice(startIndex, endIndex);
-
-    const response: TransfersResponse = {
-      data: paginatedTransfers,
-      total: filteredTransfers.length,
-      page,
-      pageSize,
-      totalPages: Math.ceil(filteredTransfers.length / pageSize)
-    };
-
-    console.log(`📋 MSW: Returning ${paginatedTransfers.length} transfers (page ${page})`);
-    return HttpResponse.json(response);
   }),
 
   // GET /api/inventory/transfers/:id - Get single transfer
   http.get('/api/inventory/transfers/:id', async ({ params }) => {
     const transferId = params.id as string;
-    const transfer = mockTransfers.get(transferId);
+    
+    try {
+      // Use real repository function instead of mock data
+      const { getTransferById } = await import('./repository');
+      const transfer = await getTransferById(transferId);
 
-    if (!transfer) {
-      return HttpResponse.json({ error: 'Transfer not found' }, { status: 404 });
+      if (!transfer) {
+        return HttpResponse.json({ error: 'Transfer not found' }, { status: 404 });
+      }
+
+      console.log(`📄 MSW: Returning real transfer ${transfer.code} from repository`);
+      return HttpResponse.json(transfer);
+    } catch (error) {
+      console.error('Error getting transfer:', error);
+      return HttpResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-
-    console.log(`📄 MSW: Returning transfer ${transfer.code}`);
-    return HttpResponse.json(transfer);
   }),
 
   // POST /api/inventory/transfers - Create new transfer
   http.post('/api/inventory/transfers', async ({ request }) => {
     const createRequest = await request.json() as CreateTransferRequest;
     
-    // Validate locations
-    if (!mockLocations.has(createRequest.sourceLocationId)) {
-      return HttpResponse.json({ error: 'Invalid source location' }, { status: 400 });
-    }
-    if (!mockLocations.has(createRequest.destinationLocationId)) {
-      return HttpResponse.json({ error: 'Invalid destination location' }, { status: 400 });
-    }
-    if (createRequest.sourceLocationId === createRequest.destinationLocationId) {
-      return HttpResponse.json({ error: 'Source and destination must be different' }, { status: 400 });
-    }
-
-    // Create transfer
-    const transferId = TransferUtils.generateTransferId();
-    const transferCode = TransferUtils.generateTransferCode();
-    
-    // Build lines with item details
-    const lines: TransferLine[] = createRequest.lines.map(line => {
-      // In real implementation, would fetch from item service
-      const mockItems: Record<string, { sku: string; name: string; unit: string }> = {
-        'item-tomatoes': { sku: 'VEG-TOMATO-001', name: 'Fresh Tomatoes', unit: 'kg' },
-        'item-lettuce': { sku: 'VEG-LETTUCE-001', name: 'Iceberg Lettuce', unit: 'each' },
-        'item-chicken': { sku: 'MEAT-CHICKEN-001', name: 'Chicken Breast', unit: 'kg' },
-        'item-beef': { sku: 'MEAT-BEEF-001', name: 'Ground Beef', unit: 'kg' },
-        'item-rice': { sku: 'DRY-RICE-001', name: 'Basmati Rice', unit: 'kg' },
-        'item-pasta': { sku: 'DRY-PASTA-001', name: 'Penne Pasta', unit: 'kg' },
-        'item-olive-oil': { sku: 'OIL-OLIVE-001', name: 'Extra Virgin Olive Oil', unit: 'L' },
-        'item-milk': { sku: 'DAIRY-MILK-001', name: 'Whole Milk', unit: 'L' }
-      };
+    try {
+      // Use real repository function instead of mock data
+      const { createTransfer } = await import('./repository');
+      const transfer = await createTransfer(createRequest);
       
-      const item = mockItems[line.itemId] || {
-        sku: `SKU-${line.itemId.slice(-6).toUpperCase()}`,
-        name: `Item ${line.itemId.slice(-4)}`,
-        unit: 'each'
-      };
-
-      return {
-        itemId: line.itemId,
-        sku: item.sku,
-        name: item.name,
-        unit: item.unit,
-        qtyPlanned: line.qtyPlanned || 0
-      };
-    });
-
-    const newTransfer: Transfer = {
-      id: transferId,
-      code: transferCode,
-      sourceLocationId: createRequest.sourceLocationId,
-      destinationLocationId: createRequest.destinationLocationId,
-      status: 'DRAFT',
-      lines,
-      ...(createRequest.notes && { notes: createRequest.notes }),
-      createdBy: 'current-user'
-    };
-
-    mockTransfers.set(transferId, newTransfer);
-    
-    console.log('✅ MSW: Created new transfer:', transferCode);
-    return HttpResponse.json({
-      transferId,
-      code: transferCode,
-      message: 'Transfer created successfully'
-    });
+      console.log('✅ MSW: Created real transfer:', transfer.code);
+      return HttpResponse.json({
+        transferId: transfer.id,
+        code: transfer.code,
+        message: 'Transfer created successfully'
+      });
+    } catch (error) {
+      console.error('Error creating transfer:', error);
+      return HttpResponse.json({ 
+        error: error instanceof Error ? error.message : 'Failed to create transfer' 
+      }, { status: 400 });
+    }
   }),
 
   // PUT /api/inventory/transfers/:id - Update draft transfer
@@ -483,9 +431,16 @@ export const inventoryTransferApiHandlers = [
 
   // GET /api/inventory/locations - Get branch locations
   http.get('/api/inventory/locations', async () => {
-    const locations = Array.from(mockLocations.values()).filter(loc => loc.isActive);
-    console.log(`📍 MSW: Returning ${locations.length} active locations`);
-    return HttpResponse.json(locations);
+    try {
+      // Use real repository function instead of mock data
+      const { listLocations } = await import('./repository');
+      const locations = await listLocations();
+      console.log(`📍 MSW: Returning ${locations.length} real locations from repository`);
+      return HttpResponse.json(locations);
+    } catch (error) {
+      console.error('Error listing locations:', error);
+      return HttpResponse.json([]);
+    }
   }),
 
   // GET /api/inventory/items/search - Search items with stock levels
@@ -494,34 +449,40 @@ export const inventoryTransferApiHandlers = [
     const query = url.searchParams.get('q') || '';
     const locationId = url.searchParams.get('locationId');
 
-    // Mock items with stock levels
-    const allItems = [
-      { id: 'item-tomatoes', sku: 'VEG-TOMATO-001', name: 'Fresh Tomatoes', unit: 'kg' },
-      { id: 'item-lettuce', sku: 'VEG-LETTUCE-001', name: 'Iceberg Lettuce', unit: 'each' },
-      { id: 'item-chicken', sku: 'MEAT-CHICKEN-001', name: 'Chicken Breast', unit: 'kg' },
-      { id: 'item-beef', sku: 'MEAT-BEEF-001', name: 'Ground Beef', unit: 'kg' },
-      { id: 'item-rice', sku: 'DRY-RICE-001', name: 'Basmati Rice', unit: 'kg' },
-      { id: 'item-pasta', sku: 'DRY-PASTA-001', name: 'Penne Pasta', unit: 'kg' },
-      { id: 'item-olive-oil', sku: 'OIL-OLIVE-001', name: 'Extra Virgin Olive Oil', unit: 'L' },
-      { id: 'item-milk', sku: 'DAIRY-MILK-001', name: 'Whole Milk', unit: 'L' }
-    ];
+    // Import real inventory data
+    const { listInventoryItems } = await import('../repository');
+    
+    try {
+      // Get real inventory items from the repository
+      const allItems = await listInventoryItems();
 
-    // Filter by search query
-    const queryLower = query.toLowerCase();
-    const filteredItems = allItems.filter(item =>
-      item.name.toLowerCase().includes(queryLower) ||
-      item.sku.toLowerCase().includes(queryLower)
-    );
+      // Filter by search query
+      const queryLower = query.toLowerCase();
+      const filteredItems = allItems.filter(item =>
+        item.name.toLowerCase().includes(queryLower) ||
+        item.sku.toLowerCase().includes(queryLower) ||
+        item.description?.toLowerCase().includes(queryLower)
+      );
 
-    // Add stock levels if location specified
-    const itemsWithStock = filteredItems.map(item => ({
-      ...item,
-      availableQty: locationId ? getStock(item.id, locationId) : undefined,
-      isFractional: ['kg', 'L'].includes(item.unit)
-    }));
+      // Transform to expected transfer search format with real data
+      const itemsWithStock = filteredItems.map(item => ({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        unit: item.unit || 'each',
+        availableQty: locationId ? item.quantity || 0 : undefined,
+        isFractional: ['kg', 'L', 'lb', 'g', 'ml', 'oz'].includes(item.unit || ''),
+        category: item.categoryId,
+        description: item.description,
+        status: item.status
+      }));
 
-    console.log(`🔍 MSW: Found ${itemsWithStock.length} items for query "${query}"`);
-    return HttpResponse.json(itemsWithStock.slice(0, 20)); // Limit results
+      console.log(`🔍 MSW: Found ${itemsWithStock.length} real inventory items for query "${query}"`);
+      return HttpResponse.json(itemsWithStock.slice(0, 20)); // Limit results
+    } catch (error) {
+      console.error('Error fetching inventory items:', error);
+      return HttpResponse.json([], { status: 500 });
+    }
   })
 ];
 

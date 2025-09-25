@@ -16,9 +16,7 @@ export type KnownEvent =
   | InventoryAdjustedEvent
   | InventorySnapshotEvent
   | CustomerProfileUpsertedEvent
-  | CustomerLoyaltyAdjustedEvent
-  | LoyaltyAccruedEvent
-  | LoyaltyRedeemedEvent
+  // Loyalty events removed
   | PaymentInitiatedEvent
   | PaymentSucceededEvent
   | PaymentFailedEvent
@@ -109,7 +107,7 @@ export interface CustomerProfileUpsertedEvent extends Event {
     name: string
     email?: string
     phone?: string
-    loyaltyPoints: number
+    // loyalty removed
     visits: number
     totalSpent: number
     lastVisit?: number
@@ -120,41 +118,7 @@ export interface CustomerProfileUpsertedEvent extends Event {
   }
 }
 
-export interface CustomerLoyaltyAdjustedEvent extends Event {
-  type: 'customer.loyalty.adjusted'
-  payload: {
-    customerId: string
-    delta: number
-    reason: string
-    balance: number
-    adjustedAt: number
-    adjustedBy?: string
-  }
-}
-
-export interface LoyaltyAccruedEvent extends Event {
-  type: 'loyalty.accrued'
-  payload: LoyaltyAccruedPayload
-}
-
-export interface LoyaltyAccruedPayload {
-  customerId: string
-  points: number
-  ticketId: string
-  amount: number
-}
-
-export interface LoyaltyRedeemedEvent extends Event {
-  type: 'loyalty.redeemed'
-  payload: LoyaltyRedeemedPayload
-}
-
-export interface LoyaltyRedeemedPayload {
-  customerId: string
-  points: number
-  value: number
-  ticketId: string
-}
+// Loyalty types removed
 
 export interface PaymentInitiatedEvent extends Event {
   type: 'payment.initiated'
@@ -257,7 +221,6 @@ export interface ZReportFinalizedPayload {
   discountSummary: {
     totalDiscounts: number
     discountCount: number
-    loyaltyDiscounts: number
     manualDiscounts: number
   }
   finalizedAt: string

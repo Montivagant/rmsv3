@@ -1,21 +1,13 @@
 import Tabs from '../components/Tabs'
-import AdminConsole from '../settings/AdminConsole'
-import TechnicalConsole from '../settings/TechnicalConsole'
 import { RBACAdminPanel } from '../components'
-import { getRole, RANK } from '../rbac/roles'
 import { usePermissions } from '../rbac/dynamicGuard'
 
 export default function Settings() {
-  const role = getRole()
   const { hasPermission } = usePermissions()
-  const isAdmin = RANK[role] >= RANK.BUSINESS_OWNER
-  const isTech = RANK[role] >= RANK.BUSINESS_OWNER
   const canManageRoles = hasPermission('settings.role_management')
 
   const tabs = [
-    { id: 'admin', label: 'Admin Console', content: isAdmin ? <AdminConsole /> : <Blocked label="Admin" /> },
     { id: 'rbac', label: 'Roles & Permissions', content: canManageRoles ? <RBACAdminPanel /> : <Blocked label="Role Management" /> },
-    { id: 'tech', label: 'Technical Console', content: isTech ? <TechnicalConsole /> : <Blocked label="Technical Admin" /> },
   ]
 
   return (

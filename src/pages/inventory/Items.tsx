@@ -6,15 +6,16 @@ import { DataTable } from '../../components/inventory/DataTable';
 import { DataToolbar } from '../../components/inventory/DataToolbar';
 import { StatusPill } from '../../components/inventory/StatusPill';
 import InventoryItemCreateModal from '../../components/inventory/InventoryItemCreateModal';
+import InventoryItemEditModal from '../../components/inventory/InventoryItemEditModal';
 import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
 import { useToast } from '../../hooks/useToast';
+import { logger } from '../../shared/logger';
 import {
   listInventoryItems,
   listInventoryCategories,
   listInventoryUnits,
   deleteInventoryItem,
 } from '../../inventory/repository';
-import { logger } from '../../shared/logger';
 
 // Types
 interface InventoryItem {
@@ -87,8 +88,8 @@ export default function Items() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [_isEditDrawerOpen, _setIsEditDrawerOpen] = useState(false);
-  const [_selectedItem, _setSelectedItem] = useState<InventoryItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<InventoryItem | null>(null);
   // Pagination state
@@ -181,10 +182,22 @@ export default function Items() {
     });
   };
 
+  // Handle successful item update
+  const handleItemUpdated = (_itemId: string) => {
+    refetch(); // Refresh the item list
+    setIsEditModalOpen(false);
+    setSelectedItem(null);
+    showToast({
+      title: 'Item Updated',
+      description: 'The inventory item has been updated successfully.',
+      variant: 'success'
+    });
+  };
+
   // Handle edit item
   const handleEditItem = (item: InventoryItem) => {
-    _setSelectedItem(item);
-    _setIsEditDrawerOpen(true);
+    setSelectedItem(item);
+    setIsEditModalOpen(true);
   };
 
   // Handle delete item
@@ -433,6 +446,17 @@ export default function Items() {
         units={units}
         existingSKUs={existingSKUs}
         isLoading={loading}
+      />
+
+      {/* Inventory Item Edit Modal */}
+      <InventoryItemEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedItem(null);
+        }}
+        onSuccess={handleItemUpdated}
+        item={selectedItem}
       />
 
       {/* Delete Confirmation Modal */}

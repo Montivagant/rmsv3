@@ -104,9 +104,7 @@ export function CartPanel({
                   <div className="flex items-center justify-between">
                     <div className="text-sm">
                       <p className="font-medium">{selectedCustomer.firstName} {selectedCustomer.lastName}</p>
-                      {selectedCustomer.loyaltyPoints && selectedCustomer.loyaltyPoints > 0 && (
-                        <p className="text-muted-foreground">Points: {selectedCustomer.loyaltyPoints}</p>
-                      )}
+                      {/* Loyalty removed */}
                     </div>
                     <button
                       onClick={() => onCustomerChange(null)}

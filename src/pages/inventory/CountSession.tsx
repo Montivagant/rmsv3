@@ -44,7 +44,7 @@ export default function CountSession() {
   );
 
   const count = countData?.count;
-  const items = countData?.items || [];
+  const items = useMemo(() => countData?.items || [], [countData?.items]);
 
   // Auto-save pending changes every 30 seconds
   useEffect(() => {

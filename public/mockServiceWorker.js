@@ -21,6 +21,11 @@ addEventListener('activate', function (event) {
 })
 
 addEventListener('message', async function (event) {
+  const allowedOrigin = self.location && self.location.origin
+  if (event.origin && allowedOrigin && event.origin !== allowedOrigin) {
+    return
+  }
+
   const clientId = Reflect.get(event.source || {}, 'id')
 
   if (!clientId || !self.clients) {

@@ -1,4 +1,4 @@
-import type { Event as AppEvent, SaleRecordedEvent, InventoryAdjustedEvent, LoyaltyAccruedEvent, LoyaltyRedeemedEvent, PaymentInitiatedEvent, PaymentSucceededEvent, PaymentFailedEvent } from '../events/types';
+import type { Event as AppEvent, SaleRecordedEvent, InventoryAdjustedEvent, PaymentInitiatedEvent, PaymentSucceededEvent, PaymentFailedEvent } from '../events/types';
 
 /**
  * Test event factories for creating consistent test data
@@ -52,45 +52,7 @@ export function createInventoryAdjustedEvent(overrides: Partial<AppEvent> = {}):
   return { ...baseEvent, ...overrides } as InventoryAdjustedEvent;
 }
 
-export function createLoyaltyAccruedEvent(overrides: Partial<AppEvent> = {}): LoyaltyAccruedEvent {
-  const baseEvent: LoyaltyAccruedEvent = {
-    id: `loyalty-accrued-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    seq: 1,
-    type: 'loyalty.accrued',
-    at: Date.now(),
-    payload: {
-      customerId: 'customer-456',
-      ticketId: 'ticket-123',
-      points: 100,
-      amount: 24.18
-    },
-    aggregate: {
-      id: 'loyalty-123',
-      type: 'loyalty'
-    }
-  };
-  return { ...baseEvent, ...overrides } as LoyaltyAccruedEvent;
-}
-
-export function createLoyaltyRedeemedEvent(overrides: Partial<AppEvent> = {}): LoyaltyRedeemedEvent {
-  const baseEvent: LoyaltyRedeemedEvent = {
-    id: `loyalty-redeemed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    seq: 2,
-    type: 'loyalty.redeemed',
-    at: Date.now(),
-    payload: {
-      customerId: 'customer-456',
-      ticketId: 'ticket-123',
-      points: 50,
-      value: 5.00
-    },
-    aggregate: {
-      id: 'loyalty-123',
-      type: 'loyalty'
-    }
-  };
-  return { ...baseEvent, ...overrides } as LoyaltyRedeemedEvent;
-}
+// Loyalty factories removed
 
 export function createPaymentInitiatedEvent(overrides: Partial<AppEvent> = {}): PaymentInitiatedEvent {
   const baseEvent: PaymentInitiatedEvent = {
@@ -172,7 +134,7 @@ export function createTestEventBatch(count: number = 5): AppEvent[] {
         events.push(createInventoryAdjustedEvent({ seq: i + 1 }));
         break;
       case 2:
-        events.push(createLoyaltyAccruedEvent({ seq: i + 1 }));
+        events.push(createPaymentSucceededEvent({ seq: i + 1 }));
         break;
       case 3:
         events.push(createPaymentSucceededEvent({ seq: i + 1 }));

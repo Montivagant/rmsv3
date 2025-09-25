@@ -2,7 +2,7 @@
  * Dashboard analytics service that generates real metrics from event store
  */
 
-import { useEventStore } from '../events/context';
+import { useEventStore } from '../events/hooks';
 import type { KnownEvent } from '../events/types';
 import { useState, useEffect } from 'react';
 

@@ -60,7 +60,7 @@ export default function Transfers() {
       cancelTransfer(id, request)
   );
 
-  const transfers = transfersResponse?.data || [];
+  const transfers = useMemo(() => transfersResponse?.data || [], [transfersResponse?.data]);
   const total = transfersResponse?.total || 0;
 
   // Filter transfers by active tab
@@ -180,7 +180,7 @@ export default function Transfers() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedTransfer, refetch, showToast]);
+  }, [selectedTransfer, completeTransferMutation, refetch, showToast]);
 
   const handleCancelTransfer = useCallback((transfer: Transfer) => {
     if (!TransferUtils.canCancel(transfer)) {
@@ -211,7 +211,7 @@ export default function Transfers() {
       setShowCancelConfirm(false);
       setSelectedTransfer(null);
       refetch();
-    } catch (error) {
+    } catch {
       showToast({
         title: 'Error',
         description: 'Failed to cancel transfer',
@@ -220,7 +220,7 @@ export default function Transfers() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedTransfer, refetch, showToast]);
+  }, [selectedTransfer, cancelTransferMutation, refetch, showToast]);
 
   const handleDeleteTransfer = useCallback(async (transfer: Transfer) => {
     if (!TransferUtils.canDelete(transfer)) {
@@ -476,7 +476,7 @@ export default function Transfers() {
                   setShowDeleteConfirm(false);
                   setPendingDelete(null);
                   refetch();
-                } catch (error) {
+                } catch {
                   showToast({
                     title: 'Error',
                     description: 'Failed to delete transfer',

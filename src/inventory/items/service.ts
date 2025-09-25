@@ -306,7 +306,7 @@ export class InventoryItemService {
 
     // Build items from events
     const items: InventoryItem[] = [];
-    for (const [_itemId, events] of itemEvents) {
+    for (const [, events] of itemEvents) {
       const item = this.buildItemFromEvents(events);
       if (item) {
         items.push(item);

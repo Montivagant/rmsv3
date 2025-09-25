@@ -2,6 +2,28 @@ const { app, BrowserWindow, Menu, dialog } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 
+const DEV_SERVER_URL = process.env.ELECTRON_DEV_SERVER_URL;
+
+function getDevServerUrl() {
+  if (!DEV_SERVER_URL) {
+    return null;
+  }
+
+  try {
+    const url = new URL(DEV_SERVER_URL);
+
+    if (url.protocol !== 'https:') {
+      console.warn('Refusing to load insecure dev server URL:', url.toString());
+      return null;
+    }
+
+    return url.toString();
+  } catch (error) {
+    console.warn('Invalid ELECTRON_DEV_SERVER_URL provided:', error);
+    return null;
+  }
+}
+
 // Suppress Electron security warnings in development
 if (isDev) {
   process.env['ELECTRON_DISABLE_SECURITY_WARNINGS'] = 'true';
@@ -37,9 +59,15 @@ function createWindow() {
 
   // Load the app
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    // Open DevTools in development
-    mainWindow.webContents.openDevTools();
+    const secureDevServerUrl = getDevServerUrl();
+
+    if (secureDevServerUrl) {
+      mainWindow.loadURL(secureDevServerUrl);
+      mainWindow.webContents.openDevTools();
+    } else {
+      console.warn('Falling back to local build because no secure dev server URL is available.');
+      mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -62,12 +90,12 @@ function createWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http://localhost:* ws://localhost:*; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; " +
-          "style-src 'self' 'unsafe-inline' http://localhost:*; " +
-          "img-src 'self' data: blob: http://localhost:*; " +
-          "connect-src 'self' http://localhost:* ws://localhost:*; " +
-          "frame-src 'self' http://localhost:*;"
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://localhost:* wss://localhost:*; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://localhost:*; " +
+          "style-src 'self' 'unsafe-inline' https://localhost:*; " +
+          "img-src 'self' data: blob: https://localhost:*; " +
+          "connect-src 'self' https://localhost:* wss://localhost:*; " +
+          "frame-src 'self' https://localhost:*;"
         ]
       }
     });

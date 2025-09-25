@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useEventStore } from '../../events/context';
+import { useEventStore } from '../../events/hooks';
 import type { Event } from '../../events/types';
 
 export default function ShiftsReport() {

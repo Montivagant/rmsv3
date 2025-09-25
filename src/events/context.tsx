@@ -1,15 +1,12 @@
 /* @refresh reset */
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import { eventStore as defaultEventStore } from './store';
 import type { EventStore } from './store';
 import { bootstrapEventStore } from '../bootstrap/persist';
 
-interface EventStoreContextValue {
-  store: EventStore;
-  isReady: boolean;
-}
+import type { EventStoreContextValue } from './hooks';
 
-const EventStoreContext = createContext<EventStoreContextValue | null>(null);
+export const EventStoreContext = createContext<EventStoreContextValue | null>(null);
 
 export interface EventStoreProviderProps {
   children: React.ReactNode;
@@ -32,8 +29,8 @@ export function EventStoreProvider({ children, store }: EventStoreProviderProps)
           setEventStore(store);
           setIsReady(true);
           // Best-effort background hydrate
-          if ('hydrate' in store && typeof (store as any).hydrate === 'function') {
-            (store as any).hydrate().catch((e: any) =>
+          if ('hydrate' in store && typeof store.hydrate === 'function') {
+            store.hydrate().catch((e: unknown) =>
               console.error('Background hydrate failed:', e)
             );
           }
@@ -73,20 +70,3 @@ export function EventStoreProvider({ children, store }: EventStoreProviderProps)
   );
 }
 
-export function useEventStore(): EventStore {
-  const context = useContext(EventStoreContext);
-  
-  if (!context) {
-    throw new Error('useEventStore must be used within an EventStoreProvider');
-  }
-  
-  if (!context.isReady) {
-    throw new Error('Event store not ready yet');
-  }
-  
-  return context.store;
-}
-
-export function useEventStoreContext(): EventStoreContextValue | null {
-  return useContext(EventStoreContext);
-}

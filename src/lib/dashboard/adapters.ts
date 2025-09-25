@@ -135,18 +135,18 @@ export const salesAdapter: DashboardAdapter<MockSalesData, DashboardKPI[]> = {
  */
 export const branchHealthAdapter: DashboardAdapter<any[], BranchHealthData[]> = {
   transform(branchData): BranchHealthData[] {
-    // TODO: Replace with actual API response transformation
+    // Transform without introducing any mock/random data. Preserve zeros.
     return branchData.map((branch, index) => ({
-      id: branch.id || `branch-${index}`,
-      name: branch.name || `Branch ${index + 1}`,
-      activeOrders: branch.activeOrders || Math.floor(Math.random() * 20),
-      activeOrdersAmount: branch.activeOrdersAmount || Math.floor(Math.random() * 5000),
-      occupiedTables: branch.occupiedTables || Math.floor(Math.random() * 15),
-      offlineCashiers: branch.offlineCashiers || Math.floor(Math.random() * 3),
-      openTills: branch.openTills || Math.floor(Math.random() * 5) + 1,
-      lastSync: branch.lastSync || new Date(Date.now() - Math.random() * 3600000).toISOString(),
-      lastOrder: branch.lastOrder || new Date(Date.now() - Math.random() * 1800000).toISOString(),
-      status: branch.status || (['online', 'offline', 'warning'][Math.floor(Math.random() * 3)] as 'online' | 'offline' | 'warning')
+      id: branch.id ?? `branch-${index}`,
+      name: branch.name ?? `Branch ${index + 1}`,
+      activeOrders: branch.activeOrders ?? 0,
+      activeOrdersAmount: branch.activeOrdersAmount ?? 0,
+      occupiedTables: branch.occupiedTables ?? 0,
+      offlineCashiers: branch.offlineCashiers ?? 0,
+      openTills: branch.openTills ?? 0,
+      lastSync: branch.lastSync ?? new Date().toISOString(),
+      lastOrder: branch.lastOrder ?? '',
+      status: (branch.status as 'online' | 'offline' | 'warning') ?? 'online'
     }));
   },
   

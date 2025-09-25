@@ -507,46 +507,75 @@ export async function updateTransfer(id: string, changes: { lines?: TransferLine
   return returnTransfer;
 }
 
-// Locations for transfers - in real system these would come from branch/location management
+// Locations for transfers - get real branch data from management system
 export async function listLocations(): Promise<Location[]> {
-  // Default locations for development
-  const locations: Location[] = [
-    {
-      id: 'main-restaurant',
-      name: 'Main Restaurant',
-      type: 'restaurant',
-      address: '123 Main St, Downtown',
-      isActive: true
-    },
-    {
-      id: 'downtown-location', 
-      name: 'Downtown Location',
-      type: 'restaurant',
-      address: '456 Downtown Ave',
-      isActive: true
-    },
-    {
-      id: 'central-warehouse',
-      name: 'Central Warehouse',
-      type: 'warehouse',
-      address: '789 Storage Blvd',
-      isActive: true
-    },
-    {
-      id: 'prep-kitchen',
-      name: 'Central Prep Kitchen', 
-      type: 'prep',
-      address: '321 Kitchen St',
-      isActive: true
-    }
-  ];
+  try {
+    // Import real branch data from management repository
+    const { listBranches } = await import('../../management/repository');
+    const branches = await listBranches();
+    
+    // Convert Branch objects to Location objects for transfers
+    const locations: Location[] = branches
+      .filter((branch: any) => branch.isActive) // Only active branches
+      .map((branch: any) => ({
+        id: branch.id,
+        name: branch.name,
+        type: mapBranchTypeToLocationType(branch.type),
+        address: formatBranchAddress(branch.address),
+        isActive: branch.isActive
+      }));
 
-  return locations;
+    console.log(`📍 Retrieved ${locations.length} real branches for transfers`);
+    return locations;
+  } catch (error) {
+    console.error('Error fetching real branch data for transfers:', error);
+    // Fallback to empty array rather than fake data
+    return [];
+  }
+}
+
+// Helper function to map branch types to location types
+function mapBranchTypeToLocationType(branchType: 'restaurant' | 'warehouse' | 'commissary' | 'other'): Location['type'] {
+  switch (branchType) {
+    case 'restaurant': return 'restaurant';
+    case 'warehouse': return 'warehouse';
+    case 'commissary': return 'commissary';
+    case 'other': return 'restaurant'; // Default fallback
+    default: return 'restaurant';
+  }
+}
+
+// Helper function to format branch address for transfers
+function formatBranchAddress(address: any): string {
+  if (!address) return '';
+  const parts = [address.street, address.city];
+  if (address.state) parts.push(address.state);
+  if (address.postalCode) parts.push(address.postalCode);
+  return parts.filter(part => part).join(', ');
 }
 
 export async function getLocationById(id: string): Promise<Location | null> {
-  const locations = await listLocations();
-  return locations.find(loc => loc.id === id) || null;
+  try {
+    // Import real branch data from management repository
+    const { getBranchById } = await import('../../management/repository');
+    const branch = await getBranchById(id);
+    
+    if (!branch || !branch.isActive) {
+      return null;
+    }
+
+    // Convert Branch to Location
+    return {
+      id: branch.id,
+      name: branch.name,
+      type: mapBranchTypeToLocationType(branch.type),
+      address: formatBranchAddress(branch.address),
+      isActive: branch.isActive
+    };
+  } catch (error) {
+    console.error('Error fetching branch by ID for transfers:', error);
+    return null;
+  }
 }
 
 // Inventory movements/history (placeholder for now)

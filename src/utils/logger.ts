@@ -5,7 +5,7 @@
 
 // Safe object logging that won't crash React DevTools
 export const logger = {
-  info: (message: string, data?: any) => {
+  info: (message: string, data?: unknown) => {
     if (import.meta.env.DEV) {
       if (data && typeof data === 'object') {
         try {
@@ -26,7 +26,7 @@ export const logger = {
     }
   },
 
-  warn: (message: string, data?: any) => {
+  warn: (message: string, data?: unknown) => {
     if (import.meta.env.DEV) {
       if (data && typeof data === 'object') {
         try {
@@ -40,7 +40,7 @@ export const logger = {
     }
   },
 
-  debug: (message: string, data?: any) => {
+  debug: (message: string, data?: unknown) => {
     // Only log debug in development and when explicitly enabled
     if (import.meta.env.DEV && localStorage.getItem('rms_debug_logging') === 'true') {
       if (data && typeof data === 'object') {

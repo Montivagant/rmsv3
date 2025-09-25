@@ -3,7 +3,7 @@ import { toHaveNoViolations } from 'jest-axe'
 // import { server } from './src/mocks/node' // Disabled due to msw/node resolution issues in Vitest
 
 // Extend expect with jest-axe matchers (cast for Vitest types)
-expect.extend(toHaveNoViolations as any)
+expect.extend(toHaveNoViolations as typeof expect.extend)
 
 // Mock localStorage for test environment
 class LocalStorageMock {
@@ -104,7 +104,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
-    } catch (e) {
+    } catch {
       return new Response(JSON.stringify({ error: 'Invalid request' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -121,7 +121,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
       return originalFetch(input.toString(), init);
     }
     return originalFetch(input as any, init);
-  } catch (_e) {
+  } catch {
     const resolved = typeof input === 'string' ? new URL(input, base).toString() : input;
     return originalFetch(resolved as any, init);
   }

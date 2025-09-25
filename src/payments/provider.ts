@@ -8,7 +8,7 @@ export interface CheckoutParams {
   ticketId: string;
   amount: number;
   currency?: string;
-  paymentMethod?: 'card' | 'cash' | 'loyalty';
+  paymentMethod?: 'card' | 'cash';
   metadata?: Record<string, any>;
 }
 
@@ -22,7 +22,7 @@ export interface DirectPaymentParams {
   ticketId: string;
   amount: number;
   currency?: string;
-  paymentMethod: 'cash' | 'loyalty';
+  paymentMethod: 'cash';
   metadata?: Record<string, any>;
 }
 
@@ -36,7 +36,7 @@ export interface DirectPaymentResult {
 export interface PaymentConfig {
   mode: 'placeholder' | 'stripe' | 'square' | 'paypal';
   enableCash: boolean;
-  enableLoyalty: boolean;
+  // enableLoyalty removed
   autoSuccessRate: number; // 0-1, for placeholder mode
   simulateLatency: boolean;
   minLatency: number; // ms
@@ -53,7 +53,7 @@ export class PlaceholderPaymentProvider implements PaymentProvider {
     this.config = {
       mode: 'placeholder',
       enableCash: true,
-      enableLoyalty: true,
+      // enableLoyalty removed
       autoSuccessRate: 0.85, // 85% success rate for realism
       simulateLatency: true,
       minLatency: 500,
@@ -115,20 +115,13 @@ export class PlaceholderPaymentProvider implements PaymentProvider {
       };
     }
 
-    if (!shouldSucceed && params.paymentMethod === 'loyalty') {
-      return {
-        success: false,
-        sessionId,
-        transactionId,
-        message: 'Insufficient loyalty points'
-      };
-    }
+    // loyalty branch removed
 
     return {
       success: true,
       sessionId,
       transactionId,
-      message: `${params.paymentMethod === 'cash' ? 'Cash' : 'Loyalty points'} payment processed successfully`
+      message: 'Cash payment processed successfully'
     };
   }
 
@@ -182,7 +175,7 @@ export function createPaymentProvider(config?: Partial<PaymentConfig>): PaymentP
   const finalConfig = {
     mode: 'placeholder' as const,
     enableCash: true,
-    enableLoyalty: true,
+    // enableLoyalty removed
     autoSuccessRate: 0.85,
     simulateLatency: true,
     minLatency: 500,

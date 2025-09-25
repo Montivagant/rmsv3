@@ -43,6 +43,7 @@ export function TestEventStoreProvider({ children, store }: TestEventStoreProvid
 /**
  * Create a test event store with immediate readiness
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function createTestEventStore(): InMemoryEventStore {
   const store = new InMemoryEventStore();
   // Ensure hydrate resolves immediately

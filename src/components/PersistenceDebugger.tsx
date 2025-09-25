@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { useEventStore } from '../events/context';
+import { useEventStore } from '../events/hooks';
 import { formatDateTime, formatCurrency } from '../lib/format';
 import { isSaleRecorded } from '../events/guards';
 import { environment } from '../lib/environment';
@@ -13,12 +13,11 @@ import { Card, CardHeader, CardTitle, CardContent, Button } from './index';
 export function PersistenceDebugger() {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Safely try to get the store - return null if not ready
-  let store = null;
-  try {
-    store = useEventStore();
-  } catch (error) {
-    // Store not ready yet, show nothing
+  // Always call the hook unconditionally - required by rules of hooks
+  const store = useEventStore();
+  
+  // If store isn't available, render nothing
+  if (!store) {
     return null;
   }
 

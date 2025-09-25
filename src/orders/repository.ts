@@ -231,6 +231,11 @@ export async function listOrders(filters: OrderQuery = {}): Promise<OrderState[]
     filtered = filtered.filter(order => order.branchId === filters.branchId);
   }
   
+  // Filter by customer
+  if ((filters as any).customerId) {
+    filtered = filtered.filter(order => order.customerId === (filters as any).customerId);
+  }
+  
   // Filter by date range
   if (filters.from) {
     filtered = filtered.filter(order => order.createdAt >= filters.from!);
@@ -271,7 +276,7 @@ export async function getOrderById(orderId: string): Promise<OrderState | null> 
   if (!order || order.deleted) return null;
   
   // Convert InternalOrderState to OrderState by omitting internal properties
-  const { orderType, deleted, paymentMethod, paymentStatus, totalAmount, ...orderState } = order;
+  const { orderType: _orderType, deleted: _deleted, paymentMethod: _paymentMethod, paymentStatus: _paymentStatus, totalAmount: _totalAmount, ...orderState } = order;
   return orderState;
 }
 

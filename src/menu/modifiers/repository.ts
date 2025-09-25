@@ -168,10 +168,7 @@ export async function listModifierGroups(): Promise<ModifierGroup[]> {
     .filter(group => !group.deleted)
     .sort((a, b) => a.displayOrder - b.displayOrder);
 
-  // If no groups exist, return default groups for development
-  if (groups.length === 0) {
-    return getDefaultModifierGroups();
-  }
+  // Return empty array if no groups exist (data should be seeded via script)
 
   return groups.map(group => ({
     id: group.id,
@@ -304,76 +301,3 @@ export async function deleteModifierGroup(id: string, reason?: string): Promise<
   return true;
 }
 
-function getDefaultModifierGroups(): ModifierGroup[] {
-  const now = new Date().toISOString();
-  
-  return [
-    {
-      id: 'mod_grp_size',
-      name: 'Size',
-      description: 'Choose your portion size',
-      type: 'single' as const,
-      isRequired: true,
-      minSelections: 1,
-      maxSelections: 1,
-      displayOrder: 1,
-      isActive: true,
-      options: [
-        {
-          id: 'opt_size_small',
-          name: 'Small',
-          priceAdjustment: 0,
-          isDefault: true,
-          isActive: true,
-        },
-        {
-          id: 'opt_size_medium',
-          name: 'Medium',
-          priceAdjustment: 2.50,
-          isActive: true,
-        },
-        {
-          id: 'opt_size_large',
-          name: 'Large',
-          priceAdjustment: 4.50,
-          isActive: true,
-        },
-      ],
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: 'mod_grp_toppings',
-      name: 'Extra Toppings',
-      description: 'Add extra toppings to your order',
-      type: 'multiple' as const,
-      isRequired: false,
-      minSelections: 0,
-      maxSelections: 5,
-      displayOrder: 2,
-      isActive: true,
-      options: [
-        {
-          id: 'opt_cheese',
-          name: 'Extra Cheese',
-          priceAdjustment: 1.50,
-          isActive: true,
-        },
-        {
-          id: 'opt_bacon',
-          name: 'Bacon',
-          priceAdjustment: 2.00,
-          isActive: true,
-        },
-        {
-          id: 'opt_mushrooms',
-          name: 'Mushrooms',
-          priceAdjustment: 1.00,
-          isActive: true,
-        },
-      ],
-      createdAt: now,
-      updatedAt: now,
-    },
-  ];
-}

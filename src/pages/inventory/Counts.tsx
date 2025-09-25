@@ -54,8 +54,8 @@ export default function Counts({ newCount = false }: CountsProps) {
   const { data: itemTypes = [] } = useRepository(listInventoryItemTypes, []);
   const { data: storageAreas = [] } = useRepository(listStorageAreas, []);
 
-  // Ensure counts is always an array
-  const counts = countsResponse?.data || [];
+  // Ensure counts is always an array - wrapped in useMemo to prevent re-renders
+  const counts = useMemo(() => countsResponse?.data || [], [countsResponse?.data]);
   const total = countsResponse?.total || 0;
 
   // Filter counts by active tab
@@ -83,12 +83,24 @@ export default function Counts({ newCount = false }: CountsProps) {
     };
   }, [counts]);
 
-  // Mock statistics
-  const stats = {
-    activeCount: counts.filter(c => ['draft', 'open'].includes(c.status)).length,
-    completedThisMonth: counts.filter(c => c.status === 'closed').length,
-    totalVariance: 3745.29
-  };
+  // Calculate real statistics from count data
+  const stats = useMemo(() => {
+    const activeCount = counts.filter(c => ['draft', 'open'].includes(c.status)).length;
+    const completedThisMonth = counts.filter(c => c.status === 'closed').length;
+    
+    // Calculate total variance from all closed counts
+    const totalVariance = counts
+      .filter(c => c.status === 'closed')
+      .reduce((sum, count) => {
+        return sum + (count.totals?.varianceValue || 0);
+      }, 0);
+    
+    return {
+      activeCount,
+      completedThisMonth,
+      totalVariance
+    };
+  }, [counts]);
 
   // Event handlers
   const handleTabChange = useCallback((tab: 'all' | CountStatus) => {

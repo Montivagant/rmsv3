@@ -25,10 +25,22 @@ export function useOrders(query: OrderQuery = {}): UseOrdersState & { refetch: (
       setOrders([]);
       setError(err instanceof Error ? err.message : 'Failed to load orders');
     } finally {
-      if (signal?.cancelled) return;
-      setLoading(false);
+      if (!signal?.cancelled) {
+        setLoading(false);
+      }
     }
-  }, [query]);
+  }, [
+    query.status,
+    query.branchId,
+    query.includeCompleted,
+    query.includeCancelled,
+    query.from,
+    query.to,
+    query.dateFrom,
+    query.dateTo,
+    query.search,
+    query.limit
+  ]);
 
   useEffect(() => {
     const token = { cancelled: false };

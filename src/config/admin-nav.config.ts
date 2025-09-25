@@ -1,19 +1,19 @@
-// Admin Navigation Configuration - Comprehensive IA
-// This replaces the basic navigation with a full admin-focused structure
+// Unified Navigation Configuration - Comprehensive IA
+// Single navigation system with dynamic role-based access
 
-export interface AdminNavItem {
+export interface NavItem {
   id: string;
   label: string;
   icon?: string; // SVG path string
   path?: string;
-  roles: Array<'business_owner' | 'staff' | 'owner' | 'tech_admin'>; // Support all roles
-  children?: AdminNavItem[] | undefined;
+  roles: Array<'business_owner' | 'staff' | 'owner' | 'tech_admin'>; // Support all roles for future expansion
+  children?: NavItem[] | undefined;
   order?: number;
   persistKey?: string; // Key for localStorage persistence of expanded state
 }
 
-// Icon paths for the admin navigation
-export const ADMIN_ICONS = {
+// Icon paths for the navigation
+export const NAV_ICONS = {
   dashboard: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
   orders: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
   customers: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
@@ -29,7 +29,6 @@ export const ADMIN_ICONS = {
   users: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
   roles: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
   branches: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
-  loyalty: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',
   items: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
   products: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
   // suppliers removed
@@ -44,13 +43,13 @@ export const ADMIN_ICONS = {
   more: 'M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z',
 };
 
-// Complete admin navigation configuration
-export const adminNavConfig: AdminNavItem[] = [
+// Complete navigation configuration
+export const navigationConfig: NavItem[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
     path: '/dashboard',
-    icon: ADMIN_ICONS.dashboard,
+    icon: NAV_ICONS.dashboard,
     roles: ['business_owner'],
     order: 1,
   },
@@ -58,7 +57,7 @@ export const adminNavConfig: AdminNavItem[] = [
     id: 'orders',
     label: 'Orders',
     path: '/orders',
-    icon: ADMIN_ICONS.orders,
+    icon: NAV_ICONS.orders,
     roles: ['business_owner'],
     order: 2,
   },
@@ -66,7 +65,7 @@ export const adminNavConfig: AdminNavItem[] = [
     id: 'pos',
     label: 'POS',
     path: '/pos',
-    icon: ADMIN_ICONS.orders,
+    icon: NAV_ICONS.orders,
     roles: ['business_owner'],
     order: 2.5,
   },
@@ -74,7 +73,7 @@ export const adminNavConfig: AdminNavItem[] = [
     id: 'kds',
     label: 'KDS',
     path: '/kds',
-    icon: ADMIN_ICONS.orders,
+    icon: NAV_ICONS.orders,
     roles: ['business_owner'],
     order: 2.6,
   },
@@ -82,7 +81,7 @@ export const adminNavConfig: AdminNavItem[] = [
     id: 'clockin',
     label: 'Clock In/Out',
     path: '/clockin',
-    icon: ADMIN_ICONS.clockin,
+    icon: NAV_ICONS.clockin,
     roles: ['business_owner', 'staff', 'owner', 'tech_admin'],
     order: 2.7,
   },
@@ -90,14 +89,14 @@ export const adminNavConfig: AdminNavItem[] = [
     id: 'customers',
     label: 'Customers',
     path: '/customers',
-    icon: ADMIN_ICONS.customers,
+    icon: NAV_ICONS.customers,
     roles: ['business_owner'],
     order: 3,
   },
   {
     id: 'reports',
     label: 'Reports',
-    icon: ADMIN_ICONS.reports,
+    icon: NAV_ICONS.reports,
     roles: ['business_owner'],
     order: 4,
     persistKey: 'reports',
@@ -163,7 +162,7 @@ export const adminNavConfig: AdminNavItem[] = [
   {
     id: 'inventory',
     label: 'Inventory',
-    icon: ADMIN_ICONS.inventory,
+    icon: NAV_ICONS.inventory,
     roles: ['business_owner'],
     order: 5,
     persistKey: 'inventory',
@@ -172,7 +171,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'inventory-items',
         label: 'Items',
         path: '/inventory/items',
-        icon: ADMIN_ICONS.items,
+        icon: NAV_ICONS.items,
         roles: ['business_owner'],
         order: 1,
       },
@@ -180,7 +179,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'inventory-categories',
         label: 'Categories',
         path: '/inventory/categories',
-        icon: ADMIN_ICONS.category,
+        icon: NAV_ICONS.category,
         roles: ['business_owner'],
         order: 2,
       },
@@ -188,7 +187,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'inventory-item-types',
         label: 'Item Types',
         path: '/inventory/item-types',
-        icon: ADMIN_ICONS.category,
+        icon: NAV_ICONS.category,
         roles: ['business_owner'],
         order: 3,
       },
@@ -196,7 +195,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'inventory-audit',
         label: 'Inventory Audit',
         path: '/inventory/audit',
-        icon: ADMIN_ICONS.audit,
+        icon: NAV_ICONS.audit,
         roles: ['business_owner'],
         order: 4,
       },
@@ -204,7 +203,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'inventory-transfers',
         label: 'Transfers',
         path: '/inventory/transfers',
-        icon: ADMIN_ICONS.transfers,
+        icon: NAV_ICONS.transfers,
         roles: ['business_owner'],
         order: 5,
       },
@@ -212,7 +211,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'inventory-history',
         label: 'History',
         path: '/inventory/history',
-        icon: ADMIN_ICONS.history,
+        icon: NAV_ICONS.history,
         roles: ['business_owner'],
         order: 6,
       },
@@ -221,7 +220,7 @@ export const adminNavConfig: AdminNavItem[] = [
   {
     id: 'menu',
     label: 'Menu',
-    icon: ADMIN_ICONS.menu,
+    icon: NAV_ICONS.menu,
     roles: ['business_owner'],
     order: 6,
     persistKey: 'menu',
@@ -230,7 +229,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'menu-categories',
         label: 'Categories',
         path: '/menu/categories',
-        icon: ADMIN_ICONS.category,
+        icon: NAV_ICONS.category,
         roles: ['business_owner'],
         order: 1,
       },
@@ -238,7 +237,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'menu-items',
         label: 'Menu Items',
         path: '/menu/items',
-        icon: ADMIN_ICONS.products,
+        icon: NAV_ICONS.products,
         roles: ['business_owner'],
         order: 2,
       },
@@ -246,7 +245,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'menu-modifiers',
         label: 'Modifiers',
         path: '/menu/modifiers',
-        icon: ADMIN_ICONS.modifiers,
+        icon: NAV_ICONS.modifiers,
         roles: ['business_owner'],
         order: 3,
       },
@@ -256,7 +255,7 @@ export const adminNavConfig: AdminNavItem[] = [
   {
     id: 'manage',
     label: 'Manage',
-    icon: ADMIN_ICONS.manage,
+    icon: NAV_ICONS.manage,
     roles: ['business_owner'],
     order: 7,
     persistKey: 'manage',
@@ -265,7 +264,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'manage-account',
         label: 'Account',
         path: '/account/profile',
-        icon: ADMIN_ICONS.users,
+        icon: NAV_ICONS.users,
         roles: ['business_owner'],
         order: 1,
       },
@@ -273,7 +272,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'manage-users',
         label: 'Users',
         path: '/manage/users',
-        icon: ADMIN_ICONS.users,
+        icon: NAV_ICONS.users,
         roles: ['business_owner'],
         order: 2,
       },
@@ -281,7 +280,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'manage-roles',
         label: 'Roles',
         path: '/manage/roles',
-        icon: ADMIN_ICONS.roles,
+        icon: NAV_ICONS.roles,
         roles: ['business_owner'],
         order: 3,
       },
@@ -289,7 +288,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'manage-branches',
         label: 'Branches',
         path: '/manage/branches',
-        icon: ADMIN_ICONS.branches,
+        icon: NAV_ICONS.branches,
         roles: ['business_owner'],
         order: 4,
       },
@@ -297,7 +296,7 @@ export const adminNavConfig: AdminNavItem[] = [
         id: 'manage-shifts',
         label: 'Shifts',
         path: '/manage/shifts',
-        icon: ADMIN_ICONS.clockin,
+        icon: NAV_ICONS.clockin,
         roles: ['business_owner'],
         order: 5,
       },
@@ -307,16 +306,16 @@ export const adminNavConfig: AdminNavItem[] = [
   // Marketing module removed - not essential for core restaurant operations
 ];
 
-// Utility functions for admin navigation
-export const filterAdminNavByRole = (
-  items: AdminNavItem[],
+// Utility functions for navigation
+export const filterNavItemsByRole = (
+  items: NavItem[],
   userRole: string
-): AdminNavItem[] => {
+): NavItem[] => {
   return items
     .filter(item => item.roles.includes(userRole as any))
     .map(item => ({
       ...item,
-      children: item.children ? filterAdminNavByRole(item.children, userRole) : undefined,
+      children: item.children ? filterNavItemsByRole(item.children, userRole) : undefined,
     }))
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 };
@@ -340,7 +339,69 @@ export const saveExpandedSections = (expandedSections: Set<string>): void => {
   }
 };
 
-export default adminNavConfig;
+// Generate breadcrumbs from navigation config
+export const generateBreadcrumbs = (
+  pathname: string,
+  navItems: NavItem[]
+): Array<{ label: string; path?: string | undefined }> => {
+  const breadcrumbs: Array<{ label: string; path?: string | undefined }> = [];
+
+  const findNavItem = (items: NavItem[]): NavItem | null => {
+    for (const item of items) {
+      if (item.path === pathname) {
+        return item;
+      }
+      if (item.children) {
+        const childMatch = findNavItem(item.children);
+        if (childMatch) {
+          // Add parent to breadcrumbs if it has a path
+          if (item.path) {
+            breadcrumbs.push({ label: item.label, path: item.path });
+          }
+          return childMatch;
+        }
+      }
+    }
+    return null;
+  };
+
+  const matchedItem = findNavItem(navItems);
+  if (matchedItem) {
+    breadcrumbs.push({ label: matchedItem.label, path: matchedItem.path });
+  }
+
+  return breadcrumbs;
+};
+
+// Get page title from navigation config
+export const getPageTitle = (
+  pathname: string,
+  navItems: NavItem[]
+): string => {
+  if (pathname === '/' || pathname === '/dashboard') {
+    return 'Dashboard';
+  }
+
+  const findNavItem = (items: NavItem[]): NavItem | null => {
+    for (const item of items) {
+      if (item.path === pathname) {
+        return item;
+      }
+      if (item.children) {
+        const childMatch = findNavItem(item.children);
+        if (childMatch) {
+          return childMatch;
+        }
+      }
+    }
+    return null;
+  };
+
+  const matchedItem = findNavItem(navItems);
+  return matchedItem?.label || 'Page';
+};
+
+export default navigationConfig;
 
 
 

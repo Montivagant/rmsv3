@@ -190,7 +190,7 @@ export function processCashPaymentWithDrawer(
   if (paymentResult.change.isPositive()) {
     try {
       newDrawerState = removeCashFromDrawer(newDrawerState, paymentResult.change);
-    } catch (error) {
+    } catch {
       // If insufficient change in drawer, fail the payment
       return {
         paymentResult: {

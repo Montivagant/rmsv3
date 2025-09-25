@@ -57,6 +57,29 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
     action: 'view'
   },
   
+  // Clock-in/Time tracking permissions
+  {
+    id: 'shifts.clockin',
+    name: 'Clock In/Out',
+    description: 'Clock in and out of shifts',
+    module: 'shifts',
+    action: 'clockin'
+  },
+  {
+    id: 'shifts.view',
+    name: 'View Shifts',
+    description: 'View shift schedules and time tracking',
+    module: 'shifts',
+    action: 'view'
+  },
+  {
+    id: 'shifts.manage',
+    name: 'Manage Shifts',
+    description: 'Create and manage shift schedules',
+    module: 'shifts',
+    action: 'manage'
+  },
+  
   // POS permissions
   {
     id: 'pos.access',
@@ -123,6 +146,27 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
     module: 'inventory',
     action: 'count'
   },
+  {
+    id: 'inventory.transfer',
+    name: 'Manage Transfers',
+    description: 'Create and manage inventory transfers between locations',
+    module: 'inventory',
+    action: 'transfer'
+  },
+  {
+    id: 'inventory.categories',
+    name: 'Manage Categories',
+    description: 'Create and manage inventory categories',
+    module: 'inventory',
+    action: 'categories'
+  },
+  {
+    id: 'inventory.item_types',
+    name: 'Manage Item Types',
+    description: 'Create and manage inventory item types',
+    module: 'inventory',
+    action: 'item_types'
+  },
   
   // Customer permissions
   {
@@ -139,13 +183,6 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
     module: 'customers',
     action: 'edit'
   },
-  {
-    id: 'customers.loyalty_adjust',
-    name: 'Adjust Loyalty Points',
-    description: 'Manually adjust customer loyalty points',
-    module: 'customers',
-    action: 'loyalty_adjust'
-  },
   
   // Recipe permissions
   {
@@ -158,9 +195,32 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
   {
     id: 'recipes.edit',
     name: 'Edit Recipes',
-    description: 'Create and modify recipes',
+    description: 'Create and modify recipes and bill of materials',
     module: 'recipes',
     action: 'edit'
+  },
+  
+  // KDS (Kitchen Display System) permissions
+  {
+    id: 'kds.view',
+    name: 'View KDS',
+    description: 'View kitchen display system',
+    module: 'kds',
+    action: 'view'
+  },
+  {
+    id: 'kds.manage',
+    name: 'Manage KDS',
+    description: 'Manage kitchen display system settings',
+    module: 'kds',
+    action: 'manage'
+  },
+  {
+    id: 'kds.operate',
+    name: 'Operate KDS',
+    description: 'Use KDS system for order management',
+    module: 'kds',
+    action: 'operate'
   },
   {
     id: 'recipes.cost_analysis',
@@ -251,6 +311,64 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
     description: 'Access to technical system configuration',
     module: 'settings',
     action: 'system_config'
+  },
+  {
+    id: 'settings.feature_management',
+    name: 'Feature Management',
+    description: 'Enable/disable modules and features',
+    module: 'settings',
+    action: 'feature_management'
+  },
+  {
+    id: 'settings.tax_management',
+    name: 'Tax Management',
+    description: 'Configure tax rates and exemptions',
+    module: 'settings',
+    action: 'tax_management'
+  },
+  {
+    id: 'settings.menu_management',
+    name: 'Menu Management',
+    description: 'Configure menu settings and options',
+    module: 'settings',
+    action: 'menu_management'
+  },
+  
+  // Account/Profile permissions
+  {
+    id: 'account.profile',
+    name: 'Manage Profile',
+    description: 'View and edit personal profile information',
+    module: 'account',
+    action: 'profile'
+  },
+  {
+    id: 'account.business',
+    name: 'Business Settings',
+    description: 'View and edit business information',
+    module: 'account',
+    action: 'business'
+  },
+  {
+    id: 'account.preferences',
+    name: 'User Preferences',
+    description: 'Manage personal preferences and settings',
+    module: 'account',
+    action: 'preferences'
+  },
+  {
+    id: 'account.security',
+    name: 'Security Settings',
+    description: 'Manage security settings and passwords',
+    module: 'account',
+    action: 'security'
+  },
+  {
+    id: 'account.notifications',
+    name: 'Notification Settings',
+    description: 'Manage notification preferences',
+    module: 'account',
+    action: 'notifications'
   }
 ];
 

@@ -10,7 +10,7 @@ export type SyncConfig = {
   branchId: string;
 };
 
-type SyncSubscriber = (state: SyncState, info?: any) => void;
+type SyncSubscriber = (state: SyncState, info?: unknown) => void;
 type NetworkStatusListener = (online: boolean) => void;
 
 class SyncManager {
@@ -89,7 +89,7 @@ class SyncManager {
     });
   }
 
-  private emit(state: SyncState, info?: any) {
+  private emit(state: SyncState, info?: unknown) {
     this.currentState = state;
     console.log(`🔄 Sync state: ${state}`, info);
     this.subscribers.forEach(subscriber => {
@@ -211,7 +211,7 @@ class SyncManager {
       const localDb = await openLocalDB({ name: 'rmsv3_events' });
 
       // Start replication
-      const unsubscribe = syncModule.subscribe((state: SyncState, info?: any) => {
+      const unsubscribe = syncModule.subscribe((state: SyncState, info?: unknown) => {
         this.emit(state, info);
       });
 

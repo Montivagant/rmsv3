@@ -577,8 +577,8 @@ export async function getDashboardAnalytics(period: 'today' | 'yesterday' | 'wee
       orderTypes,
       hourlySales,
       activeOrders,
-      occupiedTables: Math.floor(Math.random() * 15) + 5, // TODO: Calculate from table events
-      offlineCashiers: Math.floor(Math.random() * 3) // TODO: Calculate from user session events
+      occupiedTables: 0,
+      offlineCashiers: 0
     };
     
   } catch (error) {

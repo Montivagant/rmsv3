@@ -1,5 +1,5 @@
 import { getCurrentUser } from '../rbac/roles';
-import { useEventStore } from '../events/context';
+import { useEventStore } from '../events/hooks';
 import { getCurrentBranchId } from '../lib/branch';
 import { getDeviceId } from '../lib/device';
 import { createTimeEntry, updateTimeEntry, getCurrentShiftForUser } from './repository';
@@ -51,7 +51,10 @@ export function setActiveShift(shift: ShiftSession | null) {
   try {
     if (shift) localStorage.setItem(ACTIVE_KEY, JSON.stringify(shift));
     else localStorage.removeItem(ACTIVE_KEY);
-  } catch {}
+  } catch (error) {
+    // Ignore localStorage errors - shift state will use defaults
+    console.warn('Failed to save shift state:', error);
+  }
 }
 
 export function useShiftService() {

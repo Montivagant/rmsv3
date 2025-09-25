@@ -220,7 +220,7 @@ describe('Core System Tests', () => {
       ];
 
       validPhones.forEach(phone => {
-        const normalized = phone.replace(/[\s\-\(\)]/g, '');
+        const normalized = phone.replace(/[\s\-()]/g, '');
         expect(normalized).toMatch(/^\+?\d{10,}$/);
       });
     });

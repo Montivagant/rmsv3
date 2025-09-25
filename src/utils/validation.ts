@@ -247,7 +247,7 @@ export const businessRules = {
   // Check if customer is eligible for discount
   isEligibleForDiscount: (customer: { visits: number; totalSpent: number }): ValidationResult => {
     if (customer.visits >= 10 || customer.totalSpent >= 500) {
-      return { isValid: true, message: 'Customer eligible for loyalty discount' };
+      return { isValid: true };
     }
     return { isValid: false, message: 'Customer not yet eligible for discounts' };
   },

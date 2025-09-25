@@ -364,26 +364,7 @@ export const restaurantCrossFieldRules = {
     dependencies: ['category'],
   }),
 
-  // Customer form: ensure loyalty points are reasonable for spending
-  loyaltyPointsRatio: (): ValidationRule<number> => ({
-    id: 'loyaltyPointsRatio',
-    message: 'Loyalty points seem high for customer spending level',
-    severity: 'info',
-    validate: (value, formData) => {
-      const loyaltyPoints = Number(value) || 0
-      const totalSpent = Number(formData?.totalSpent) || 0
-      
-      if (totalSpent === 0) return { isValid: true } // New customer
-      
-      // Typical ratio: 1 point per dollar spent
-      const expectedPoints = totalSpent
-      const variance = Math.abs(loyaltyPoints - expectedPoints) / expectedPoints
-      
-      const isValid = variance <= 0.5 // Allow 50% variance
-      return isValid ? { isValid: true } : { isValid: false, message: 'Loyalty points seem high for customer spending level' }
-    },
-    dependencies: ['totalSpent'],
-  }),
+  // Loyalty validation removed
 
   // Inventory form: validate reorder point vs max stock
   reorderLogic: (): ValidationRule<number> => ({

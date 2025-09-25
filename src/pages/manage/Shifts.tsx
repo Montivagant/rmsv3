@@ -202,7 +202,7 @@ export default function Shifts() {
         variant: 'success',
       });
       refetchShifts();
-    } catch (error) {
+    } catch {
       showToast({ title: 'Error', description: 'Failed to delete shift', variant: 'error' });
     } finally {
       setIsSubmitting(false);

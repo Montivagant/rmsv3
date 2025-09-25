@@ -22,7 +22,7 @@ import { formatDate } from '../../lib/format';
 export default function Categories() {
   const { showToast } = useToast();
   const { data: categoriesData, loading, refetch } = useRepository<MenuCategory[]>(listCategories, []);
-  const categories = categoriesData ?? [];
+  const categories = useMemo(() => categoriesData ?? [], [categoriesData]);
   const deleteCategoryMutation = useRepositoryMutation((id: string) => deleteCategory(id));
 
   const [searchTerm, setSearchTerm] = useState('');

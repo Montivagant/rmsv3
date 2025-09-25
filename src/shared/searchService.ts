@@ -12,7 +12,11 @@ export interface SearchResult {
   description?: string;
   url: string;
   icon: string;
-  metadata?: Record<string, any>;
+  metadata?: {
+    isLowStock?: boolean;
+    status?: string;
+    [key: string]: unknown;
+  };
 }
 
 export interface SearchResults {

@@ -15,18 +15,43 @@ export default defineConfig({
         plugins: []
       }
     }),
-    VitePWA({
+    // Only enable VitePWA in production to prevent dev conflicts
+    process.env.NODE_ENV === 'production' && VitePWA({
       registerType: 'autoUpdate',
       workbox: {
         navigateFallback: '/',
         // Prevent SW from hijacking /api/* (which caused HTML to be returned)
-        navigateFallbackDenylist: [/^\/api\//]
+        navigateFallbackDenylist: [/^\/api\//],
+        // Add proper message handling to prevent port closure errors
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        // Reduce message port issues by controlling communication
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/api\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 // 24 hours
+              },
+              networkTimeoutSeconds: 10
+            }
+          }
+        ]
       },
       includeAssets: ['/icons/icon-192.png', '/icons/icon-512.png'],
       manifest: false, // because we provide public/manifest.webmanifest
-      injectRegister: 'auto'
+      // Use manual registration with inline script to prevent message port issues
+      injectRegister: 'inline',
+      devOptions: {
+        enabled: false, // Always disabled in development
+        type: 'module'
+      }
     })
-  ],
+  ].filter(Boolean),
   optimizeDeps: {
         include: [
           'react', 

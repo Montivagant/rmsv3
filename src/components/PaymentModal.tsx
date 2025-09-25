@@ -140,14 +140,7 @@ export function PaymentModal({
           </div>
         )}
 
-        {/* Loyalty Payment Info */}
-        {selectedMethod === 'loyalty' && (
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-            <p className="text-primary text-sm">
-              This payment will be processed using loyalty points.
-            </p>
-          </div>
-        )}
+        {/* Loyalty removed */}
 
         {/* Card Payment Info */}
         {selectedMethod === 'card' && (

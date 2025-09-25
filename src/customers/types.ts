@@ -19,7 +19,8 @@ export interface CustomersResponse {
 }
 
 export interface CustomerFilters {
-  // simplified: no status/tags/recency
+  // simplified: no status/tags/recency filters implemented yet
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 }
 
 export interface QueryState {

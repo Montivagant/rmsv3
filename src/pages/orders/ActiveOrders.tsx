@@ -67,14 +67,16 @@ export default function OrderManagement() {
       switch (dateRange) {
         case 'today':
           return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        case 'week':
+        case 'week': {
           const weekAgo = new Date(now);
           weekAgo.setDate(now.getDate() - 7);
           return weekAgo.getTime();
-        case 'month':
+        }
+        case 'month': {
           const monthAgo = new Date(now);
           monthAgo.setMonth(now.getMonth() - 1);
           return monthAgo.getTime();
+        }
         default:
           return 0;
       }
@@ -118,7 +120,7 @@ export default function OrderManagement() {
     
     // Sort by creation date (newest first)
     return filtered.sort((a, b) => b.createdAt - a.createdAt);
-  }, [allOrders, statusFilter, orderTypeFilter, paymentFilter, searchTerm, dateRange]);
+  }, [allOrders, statusFilter, searchTerm, dateRange]);
   
   // Calculate analytics
   const analytics = useMemo(() => {

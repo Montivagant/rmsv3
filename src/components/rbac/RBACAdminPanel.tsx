@@ -1,26 +1,63 @@
-﻿import { useState, useEffect, useMemo } from 'react';
-import { 
-  Button, 
-  Input, 
-  Select, 
-  Modal, 
-  SmartForm, 
-  useNotifications 
+﻿import { useState, useMemo } from 'react';
+import {
+  Button,
+  Input,
+  Select,
+  Modal,
+  SmartForm,
+  useNotifications,
+  DataTable
 } from '../index';
 import type { FormField } from '../forms/SmartForm';
-import { dynamicRBACService } from '../../rbac/dynamicRBACService';
-import { 
-  SYSTEM_PERMISSIONS 
+import {
+  SYSTEM_PERMISSIONS
 } from '../../rbac/permissions';
-import type { 
-  DynamicRole, 
-  Permission, 
+import type {
+  DynamicRole,
+  Permission,
 } from '../../rbac/permissions';
 import { usePermissions } from '../../rbac/dynamicGuard';
 import { cn } from '../../lib/utils';
-import { UserAssignmentTab } from './UserAssignmentTab';
 import { FORM_LABELS } from '../../constants/ui-text';
 
+import { useRepository, useRepositoryMutation } from '../../hooks/useRepository';
+import {
+  listRoles,
+  createRole,
+  updateRole,
+  deleteRole,
+} from '../../management/repository';
+
+const formatModuleLabel = (module: string): string => {
+  return module
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
+const PERMISSION_OPTION_GROUPS = Object.entries(
+  SYSTEM_PERMISSIONS.reduce<Record<string, { label: string; options: { value: string; label: string; description?: string }[] }>>((groups, permission) => {
+    const key = permission.module;
+    if (!groups[key]) {
+      groups[key] = {
+        label: formatModuleLabel(key),
+        options: []
+      };
+    }
+    groups[key].options.push({
+      value: permission.id,
+      label: permission.name,
+      description: permission.description
+    });
+    return groups;
+  }, {})
+)
+  .sort((a, b) => a[0].localeCompare(b[0]))
+  .map(([_, group]) => ({
+    label: group.label,
+    options: group.options.sort((a, b) => a.label.localeCompare(b.label))
+  }));
 interface RBACAdminPanelProps {
   className?: string;
 }
@@ -29,80 +66,100 @@ interface RoleFormData {
   name: string;
   description: string;
   permissionIds: string[];
-  inheritsFrom?: string[];
 }
 
 export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
   const { showSuccess, showError } = useNotifications();
-  
-  // State management
-  const [roles, setRoles] = useState<DynamicRole[]>([]);
+
+  // Use real repository functions instead of in-memory service
+  const {
+    data: rolesData,
+    loading,
+    error,
+    refetch,
+  } = useRepository<DynamicRole[]>(listRoles, []);
+
+  const roles = rolesData ?? [];
   const [selectedRole, setSelectedRole] = useState<DynamicRole | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'system' | 'custom'>('all');
-  const [loading, setLoading] = useState(true);
-  const [selectedTab, setSelectedTab] = useState<'roles' | 'permissions' | 'assignments'>('roles');
 
-  const rbacService = dynamicRBACService;
+  // Repository mutations with real backend integration
+  const createRoleMutation = useRepositoryMutation(({
+    name,
+    description,
+    permissions,
+    createdBy,
+  }: {
+    name: string;
+    description?: string;
+    permissions: Permission[];
+    createdBy: string;
+  }) => createRole(name, description ?? '', permissions, createdBy, false));
+
+  const updateRoleMutation = useRepositoryMutation(({
+    id,
+    name,
+    description,
+    permissions,
+  }: {
+    id: string;
+    name?: string;
+    description?: string;
+    permissions?: Permission[];
+  }) => updateRole(id, {
+    ...(name ? { name } : {}),
+    ...(description ? { description } : {}),
+    ...(permissions ? { permissions } : {}),
+  }));
+
+  const deleteRoleMutation = useRepositoryMutation((id: string) => deleteRole(id));
 
   // Check if user has permission to manage RBAC
   const { hasPermission: canManageRoles } = usePermissions();
-  const { hasPermission: canManageUsers } = usePermissions();
-
-  // Load roles on component mount
-  useEffect(() => {
-    loadRoles();
-  }, []);
-
-  const loadRoles = async () => {
-    try {
-      setLoading(true);
-      const allRoles = await rbacService.getAllRoles();
-      setRoles(allRoles);
-    } catch (error) {
-      showError('Failed to Load Roles', 'Could not retrieve role information');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Filter roles based on search and type
   const filteredRoles = useMemo(() => {
     return roles.filter(role => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         role.description.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesFilter = filterType === 'all' || 
+
+      const matchesFilter = filterType === 'all' ||
         (filterType === 'system' && role.isSystem) ||
         (filterType === 'custom' && !role.isSystem);
-      
+
       return matchesSearch && matchesFilter;
     });
   }, [roles, searchTerm, filterType]);
 
-  // Group permissions by module for better organization
-  const permissionsByModule = useMemo(() => {
-    const grouped = SYSTEM_PERMISSIONS.reduce((acc, permission) => {
-      if (!acc[permission.module]) {
-        acc[permission.module] = [];
-      }
-      acc[permission.module].push(permission);
-      return acc;
-    }, {} as Record<string, Permission[]>);
-    
-    return grouped;
-  }, []);
 
-  // Handle role creation
+  // Handle role creation with real backend integration
   const handleCreateRole = async (data: RoleFormData) => {
+    const permissionIds = Array.isArray(data.permissionIds)
+      ? data.permissionIds
+      : data.permissionIds
+        ? [data.permissionIds]
+        : [];
+    const uniquePermissionIds = Array.from(new Set(permissionIds)).filter(Boolean);
+
+    if (uniquePermissionIds.length === 0) {
+      showError('Permissions Required', 'Select at least one permission for the role');
+      return;
+    }
+
     try {
-      const permissions = SYSTEM_PERMISSIONS.filter(p => data.permissionIds.includes(p.id));
-      await rbacService.createRole(data.name, data.description, permissions);
-      await loadRoles();
+      const permissions = SYSTEM_PERMISSIONS.filter(p => uniquePermissionIds.includes(p.id));
+      await createRoleMutation.mutate({
+        name: data.name,
+        description: data.description,
+        permissions,
+        createdBy: 'current-user'
+      });
+      await refetch();
       setIsCreateModalOpen(false);
       showSuccess('Role Created', `${data.name} has been created successfully`);
     } catch (error: any) {
@@ -111,18 +168,31 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
     }
   };
 
-  // Handle role update
+  // Handle role update with real backend integration
   const handleUpdateRole = async (data: RoleFormData) => {
     if (!selectedRole) return;
-    
+
+    const permissionIds = Array.isArray(data.permissionIds)
+      ? data.permissionIds
+      : data.permissionIds
+        ? [data.permissionIds]
+        : [];
+    const uniquePermissionIds = Array.from(new Set(permissionIds)).filter(Boolean);
+
+    if (uniquePermissionIds.length === 0) {
+      showError('Permissions Required', 'Select at least one permission for the role');
+      return;
+    }
+
     try {
-      const permissions = SYSTEM_PERMISSIONS.filter(p => data.permissionIds.includes(p.id));
-      await rbacService.updateRole(selectedRole.id, {
+      const permissions = SYSTEM_PERMISSIONS.filter(p => uniquePermissionIds.includes(p.id));
+      await updateRoleMutation.mutate({
+        id: selectedRole.id,
         name: data.name,
         description: data.description,
-        permissions: permissions
+        permissions
       });
-      await loadRoles();
+      await refetch();
       setIsEditModalOpen(false);
       setSelectedRole(null);
       showSuccess('Role Updated', `${data.name} has been updated successfully`);
@@ -132,16 +202,18 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
     }
   };
 
-  // Handle role deletion
+  // Handle role deletion with real backend integration
   const handleDeleteRole = async () => {
     if (!selectedRole || selectedRole.isSystem) return;
-    
+
+    const roleName = selectedRole.name;
+
     try {
-      await rbacService.deleteRole(selectedRole.id);
-      await loadRoles();
+      await deleteRoleMutation.mutate(selectedRole.id);
+      await refetch();
       setIsDeleteModalOpen(false);
       setSelectedRole(null);
-      showSuccess('Role Deleted', `${selectedRole.name} has been deleted`);
+      showSuccess('Role Deleted', `${roleName} has been deleted`);
     } catch (error: any) {
       showError('Failed to Delete Role', error.message || 'Could not delete role');
     }
@@ -168,10 +240,10 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
     {
       name: 'permissionIds',
       label: 'Permissions',
-      type: 'textarea',
+      type: 'checkbox-group',
       required: true,
-      placeholder: 'Select permissions for this role...',
-      helpText: 'Use the multi-select interface below to assign permissions to this role'
+      helpText: 'Select the permissions that should be granted to this role',
+      optionGroups: PERMISSION_OPTION_GROUPS
     }
   ];
 
@@ -181,7 +253,7 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
         <div className="text-center">
           <div className="text-muted-foreground mb-2">
             <svg className="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
@@ -204,7 +276,7 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
             Manage user roles and permissions for the restaurant management system
           </p>
         </div>
-        <Button 
+        <Button
           onClick={() => setIsCreateModalOpen(true)}
           disabled={!canManageRoles}
         >
@@ -215,122 +287,68 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
         </Button>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-border">
-        <nav className="flex space-x-8">
-          {[
-            { id: 'roles', label: 'Roles', icon: 'ðŸ‘¥' },
-            { id: 'permissions', label: 'Permissions', icon: 'ðŸ”' },
-            { id: 'assignments', label: 'User Assignments', icon: 'ðŸ“‹' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedTab(tab.id as any)}
-              className={cn(
-                'flex items-center gap-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors',
-                selectedTab === tab.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground'
-              )}
-            >
-              <span>{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
-        </nav>
+      {/* Filters */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1 max-w-md">
+          <Input
+            placeholder="Search roles..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full"
+          />
+        </div>
+        <Select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value as any)}
+          options={[
+            { value: 'all', label: 'All Roles' },
+            { value: 'system', label: 'System Roles' },
+            { value: 'custom', label: 'Custom Roles' }
+          ]}
+        />
       </div>
 
-      {/* Roles Tab */}
-      {selectedTab === 'roles' && (
-        <>
-          {/* Filters */}
-          <div className="flex items-center gap-4">
-            <div className="flex-1 max-w-md">
-              <Input
-                placeholder="Search roles..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
-            </div>
-            <Select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value as any)}
-              options={[
-                { value: 'all', label: 'All Roles' },
-                { value: 'system', label: 'System Roles' },
-                { value: 'custom', label: 'Custom Roles' }
-              ]}
-            />
-          </div>
-
-          {/* Roles Grid */}
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="bg-card border border-border rounded-lg p-6 animate-pulse">
-                  <div className="h-4 bg-muted rounded mb-2" />
-                  <div className="h-3 bg-muted rounded mb-4" />
-                  <div className="h-8 bg-muted rounded" />
-                </div>
-              ))}
-            </div>
-          ) : filteredRoles.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-muted-foreground mb-2">
-                <svg className="w-8 h-8 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold mb-1">No roles found</h3>
-              <p className="text-muted-foreground">
-                {searchTerm ? 'Try adjusting your search criteria' : 'No roles have been created yet'}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredRoles.map(role => (
-                <div key={role.id} className="bg-card border border-border rounded-lg p-6 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="font-semibold">{role.name}</h3>
-                      <p className="text-sm text-muted-foreground">{role.description}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className={cn(
-                        'px-2 py-1 rounded-full text-xs font-medium',
-                        role.isSystem 
-                          ? 'bg-surface-secondary text-brand' 
-                          : 'bg-success text-success'
-                      )}>
-                        {role.isSystem ? 'System' : 'Custom'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Permissions:</span>
-                      <span className="font-medium">{role.permissions.length}</span>
-                    </div>
-                    {role.inheritsFrom && role.inheritsFrom.length > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Inherits from:</span>
-                        <span className="font-medium">{role.inheritsFrom.length} role(s)</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Created:</span>
-                      <span className="font-medium">
-                        {new Date(role.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="outline" 
+      {/* Roles DataTable */}
+      {error ? (
+        <div className="text-center p-6">
+          <p className="text-error-600 mb-4">Failed to load roles: {error}</p>
+          <Button onClick={refetch}>Retry</Button>
+        </div>
+      ) : (
+        <DataTable<DynamicRole>
+          data={filteredRoles}
+          columns={[
+            {
+              id: 'name',
+              header: 'Role Name',
+              accessorKey: 'name',
+              enableSorting: true,
+            },
+            {
+              id: 'description',
+              header: 'Description',
+              accessorFn: (row: DynamicRole) => row.description || '-',
+            },
+            {
+              id: 'permissions',
+              header: 'Permissions',
+              accessorFn: (row: DynamicRole) => `${row.permissions?.length || 0} enabled`,
+            },
+            {
+              id: 'type',
+              header: 'Type',
+              accessorFn: (row: DynamicRole) => (row.isSystem ? 'System' : 'Custom'),
+            },
+            {
+              id: 'actions',
+              header: 'Actions',
+              enableSorting: false,
+              cell: ({ row }) => {
+                const role = row.original;
+                return (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setSelectedRole(role);
@@ -340,8 +358,8 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
                     >
                       Edit
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         setSelectedRole(role);
@@ -353,54 +371,15 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
                       Delete
                     </Button>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Permissions Tab */}
-      {selectedTab === 'permissions' && (
-        <div className="space-y-6">
-          <h3 className="text-lg font-semibold">Available Permissions</h3>
-          <div className="space-y-6">
-            {Object.entries(permissionsByModule).map(([module, permissions]) => (
-              <div key={module} className="bg-card border border-border rounded-lg p-6">
-                <h4 className="font-semibold mb-4 text-primary capitalize">{module} Module</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {permissions.map(permission => (
-                    <div key={permission.id} className="border border-border rounded-lg p-4">
-                      <h5 className="font-medium">{permission.name}</h5>
-                      <p className="text-sm text-muted-foreground mb-2">{permission.description}</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-2 py-1 bg-muted rounded">
-                          {permission.action}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          ID: {permission.id}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* User Assignments Tab */}
-      {selectedTab === 'assignments' && (
-        <UserAssignmentTab 
-          canManageUsers={canManageUsers('org.users.roles')}
-          rbacService={rbacService}
-          onUserRoleChange={() => {
-            loadRoles();
-            showSuccess('User role updated', 'Role assignment has been updated successfully');
-          }}
+                );
+              },
+            },
+          ]}
+          loading={loading}
+          rowKey={(row: DynamicRole) => row.id}
         />
       )}
+
 
       {/* Create Role Modal */}
       <Modal
@@ -411,9 +390,12 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
       >
         <SmartForm
           fields={getRoleFormFields()}
+          initialValues={{ name: '', description: '', permissionIds: [] }}
           onSubmit={(data) => handleCreateRole(data as unknown as RoleFormData)}
           submitLabel={FORM_LABELS.CREATE_ROLE}
           onCancel={() => setIsCreateModalOpen(false)}
+          title="New Role"
+          description="Create a custom role by assigning the permissions it should have."
         />
       </Modal>
 
@@ -441,6 +423,8 @@ export function RBACAdminPanel({ className }: RBACAdminPanelProps) {
               description: selectedRole.description,
               permissionIds: selectedRole.permissions.map(p => p.id)
             }}
+            title="Edit Role"
+            description="Update the role details and adjust the permissions it should include."
           />
         )}
       </Modal>

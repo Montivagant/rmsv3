@@ -89,7 +89,9 @@ export function AuthProvider({ children, mockUser }: AuthProviderProps) {
         try {
           const sessionData = { user: devUser, timestamp: new Date().toISOString() };
           localStorage.setItem('rms_auth_session', JSON.stringify(sessionData));
-        } catch {}
+        } catch {
+          logger.warn('Failed to save development session to localStorage');
+        }
         logger.info('Development user authenticated', { userId: devUser.id, email: devUser.email });
         return;
       }

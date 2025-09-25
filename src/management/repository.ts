@@ -409,41 +409,10 @@ async function loadRolesMap(): Promise<Map<string, RoleState>> {
         { id: 'all', name: 'All Permissions', description: 'Full system access', module: '*', action: '*' }
       ],
       isSystem: true,
-    createdBy: 'system',
-    createdAt: Date.now(),
-    modifiedBy: 'system',
-    modifiedAt: Date.now(),
-      deleted: false
-    },
-    {
-      id: 'manager',
-      name: 'Manager',
-      description: 'Management access with reporting capabilities',
-      permissions: [
-        { id: 'pos-manage', name: 'POS Management', description: 'Manage POS operations', module: 'pos', action: 'manage' },
-        { id: 'inventory-manage', name: 'Inventory Management', description: 'Manage inventory', module: 'inventory', action: 'manage' },
-        { id: 'reports-view', name: 'View Reports', description: 'View all reports', module: 'reports', action: 'view' }
-      ],
-      isSystem: true,
-    createdBy: 'system',
-    createdAt: Date.now(),
-    modifiedBy: 'system',
-    modifiedAt: Date.now(),
-      deleted: false
-    },
-    {
-      id: 'staff',
-      name: 'Staff',
-      description: 'Basic staff access for daily operations',
-      permissions: [
-        { id: 'pos-operate', name: 'Operate POS', description: 'Use POS system', module: 'pos', action: 'operate' },
-        { id: 'inventory-view', name: 'View Inventory', description: 'View inventory levels', module: 'inventory', action: 'view' }
-      ],
-      isSystem: true,
-    createdBy: 'system',
-    createdAt: Date.now(),
-    modifiedBy: 'system',
-    modifiedAt: Date.now(),
+      createdBy: 'system',
+      createdAt: Date.now(),
+      modifiedBy: 'system',
+      modifiedAt: Date.now(),
       deleted: false
     }
   ];

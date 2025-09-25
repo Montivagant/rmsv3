@@ -17,6 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = 3001;
 
 // Middleware
@@ -32,9 +33,113 @@ app.use(express.json({ limit: '10mb' }));
 // In-memory storage (for testing only)
 const events = [];
 const customers = [];
+if (customers.length === 0) {
+  customers.push(
+    {
+      id: 'cust-1001',
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      phone: '+1-555-0101',
+      orders: 12,
+      totalSpent: 874.25,
+      branchIds: ['main'],
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'cust-1002',
+      name: 'Jane Smith',
+      email: 'jane.smith@example.com',
+      phone: '+1-555-0202',
+      orders: 8,
+      totalSpent: 512.60,
+      branchIds: ['main', 'branch-2'],
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  );
+}
+
 const menuItems = [];
 const categories = [];
 const inventoryItems = [];
+if (inventoryItems.length === 0) {
+  inventoryItems.push(
+    {
+      id: 'inv-1001',
+      sku: 'BURGER-PATTY',
+      name: 'Burger Patty 6oz',
+      status: 'in-stock',
+      category: 'Protein',
+      branchId: 'main',
+      costing: { averageCost: 1.25, lastCost: 1.35 },
+      pricing: { price: 3.95, margin: 0.45 },
+      levels: { current: 120, reorderPoint: 40, par: 180 },
+      uom: { inventory: 'case', recipe: 'each' },
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: 'inv-1002',
+      sku: 'FRENCH-FRY',
+      name: 'French Fries 5lb Bag',
+      status: 'in-stock',
+      category: 'Produce',
+      branchId: 'main',
+      costing: { averageCost: 2.1, lastCost: 2.0 },
+      pricing: { price: 4.5, margin: 0.4 },
+      levels: { current: 85, reorderPoint: 25, par: 120 },
+      uom: { inventory: 'bag', recipe: 'ounce' },
+      updatedAt: new Date().toISOString()
+    }
+  );
+}
+
+const inventoryLocations = [];
+if (inventoryLocations.length === 0) {
+  inventoryLocations.push(
+    { id: 'main', name: 'Main Restaurant', type: 'restaurant', address: '123 Main St', isActive: true },
+    { id: 'branch-2', name: 'Downtown Branch', type: 'restaurant', address: '456 Downtown Ave', isActive: true },
+    { id: 'branch-3', name: 'Westside Branch', type: 'restaurant', address: '789 West Blvd', isActive: true },
+    { id: 'warehouse', name: 'Central Warehouse', type: 'warehouse', address: '12 Logistics Park', isActive: true }
+  );
+}
+
+const inventoryTransfers = [];
+if (inventoryTransfers.length === 0) {
+  inventoryTransfers.push(
+    {
+      id: 'trf-1001',
+      code: 'TRF-1001',
+      status: 'COMPLETED',
+      sourceLocationId: 'warehouse',
+      destinationLocationId: 'main',
+      notes: 'Weekly replenishment',
+      createdAt: new Date().toISOString(),
+      createdBy: 'system',
+      lines: [
+        { itemId: 'inv-1001', sku: 'BURGER-PATTY', name: 'Burger Patty 6oz', unit: 'each', qtyPlanned: 120, qtyFinal: 118 },
+        { itemId: 'inv-1002', sku: 'FRENCH-FRY', name: 'French Fries 5lb Bag', unit: 'bag', qtyPlanned: 60, qtyFinal: 60 }
+      ]
+    },
+    {
+      id: 'trf-1002',
+      code: 'TRF-1002',
+      status: 'DRAFT',
+      sourceLocationId: 'main',
+      destinationLocationId: 'branch-2',
+      notes: 'Prep for catering order',
+      createdAt: new Date().toISOString(),
+      createdBy: 'system',
+      lines: [
+        { itemId: 'inv-1001', sku: 'BURGER-PATTY', name: 'Burger Patty 6oz', unit: 'each', qtyPlanned: 40 },
+        { itemId: 'inv-1002', sku: 'FRENCH-FRY', name: 'French Fries 5lb Bag', unit: 'bag', qtyPlanned: 20 }
+      ]
+    }
+  );
+}
+
 const branches = [];
 const users = [];
 const roles = [
@@ -86,7 +191,14 @@ branches.push({
 // Utility functions
 const logRequest = (req, res, next) => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${req.method} ${req.path}`, req.body ? JSON.stringify(req.body).slice(0, 200) + '...' : '');
+  const bodyPreview = req.body && typeof req.body === 'object' ? JSON.stringify(req.body).slice(0, 200) : undefined;
+  const safeLogEntry = JSON.stringify({
+    timestamp,
+    method: req.method,
+    path: req.originalUrl || req.url,
+    bodyPreview,
+  });
+  console.log(safeLogEntry);
   next();
 };
 
@@ -173,8 +285,44 @@ app.get('/manage/branches', (req, res) => {
   res.json(branches);
 });
 
-app.get('/customers', (req, res) => {
-  res.json({ data: customers, total: customers.length });
+app.get(['/customers', '/api/customers'], (req, res) => {
+  const { page, pageSize, limit, offset, search, branchId } = req.query || {};
+  let data = [...customers];
+
+  if (branchId) {
+    data = data.filter((customer) => {
+      const branches = customer.branchIds || customer.branches || [];
+      return Array.isArray(branches) ? branches.includes(branchId) : false;
+    });
+  }
+
+  if (search) {
+    const term = search.toLowerCase();
+    data = data.filter((customer) => {
+      return [customer.name, customer.email, customer.phone]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }
+
+  const hasQueryParams = Object.keys(req.query).length > 0;
+
+  if (!hasQueryParams) {
+    return res.json(data);
+  }
+
+  const effectivePageSize = pageSize ? Math.max(1, Math.min(200, parseInt(pageSize, 10) || 25)) : (limit ? Math.max(1, parseInt(limit, 10) || 25) : 25);
+  const effectivePage = page ? Math.max(1, parseInt(page, 10) || 1) : (offset ? Math.floor((parseInt(offset, 10) || 0) / effectivePageSize) + 1 : 1);
+  const startIndex = (effectivePage - 1) * effectivePageSize;
+  const paginated = data.slice(startIndex, startIndex + effectivePageSize);
+
+  res.json({
+    data: paginated,
+    total: data.length,
+    page: effectivePage,
+    pageSize: effectivePageSize,
+    hasMore: startIndex + effectivePageSize < data.length
+  });
 });
 
 app.get('/menu/categories', (req, res) => {
@@ -185,8 +333,99 @@ app.get('/menu/items', (req, res) => {
   res.json({ items: menuItems, total: menuItems.length });
 });
 
-app.get('/inventory/items', (req, res) => {
-  res.json({ items: inventoryItems, total: inventoryItems.length });
+app.get(['/inventory/items', '/api/inventory/items'], (req, res) => {
+  const { limit, offset, page, pageSize, search, status } = req.query || {};
+  let items = [...inventoryItems];
+
+  if (status) {
+    items = items.filter((item) => String(item.status).toLowerCase() === status.toLowerCase());
+  }
+
+  if (search) {
+    const term = search.toLowerCase();
+    items = items.filter((item) => {
+      return [item.name, item.sku, item.category]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }
+
+  const hasQueryParams = Object.keys(req.query).length > 0;
+  if (!hasQueryParams) {
+    return res.json(items);
+  }
+
+  const effectiveLimit = limit ? Math.max(1, Math.min(500, parseInt(limit, 10) || 100)) : (pageSize ? Math.max(1, Math.min(500, parseInt(pageSize, 10) || 100)) : 100);
+  const effectiveOffset = offset ? Math.max(0, parseInt(offset, 10) || 0) : (page ? Math.max(0, (Math.max(1, parseInt(page, 10) || 1) - 1) * effectiveLimit) : 0);
+  const sliced = items.slice(effectiveOffset, effectiveOffset + effectiveLimit);
+
+  res.json({
+    items: sliced,
+    total: items.length,
+    limit: effectiveLimit,
+    offset: effectiveOffset,
+    hasMore: effectiveOffset + effectiveLimit < items.length
+  });
+});
+
+app.get(['/inventory/locations', '/api/inventory/locations'], (req, res) => {
+  res.json(inventoryLocations);
+});
+
+app.get(['/inventory/transfers', '/api/inventory/transfers'], (req, res) => {
+  const { page, pageSize, status, sourceLocationId, destinationLocationId, search } = req.query || {};
+  let transfers = [...inventoryTransfers];
+
+  if (status) {
+    transfers = transfers.filter(transfer => String(transfer.status).toLowerCase() === String(status).toLowerCase());
+  }
+
+  if (sourceLocationId) {
+    transfers = transfers.filter(transfer => transfer.sourceLocationId === sourceLocationId);
+  }
+
+  if (destinationLocationId) {
+    transfers = transfers.filter(transfer => transfer.destinationLocationId === destinationLocationId);
+  }
+
+  if (search) {
+    const term = String(search).toLowerCase();
+    transfers = transfers.filter(transfer => {
+      const matchCode = transfer.code && transfer.code.toLowerCase().includes(term);
+      const matchNotes = transfer.notes && transfer.notes.toLowerCase().includes(term);
+      const matchLine = (transfer.lines || []).some(line => {
+        return [line.name, line.sku]
+          .filter(Boolean)
+          .some(value => String(value).toLowerCase().includes(term));
+      });
+      return matchCode || matchNotes || matchLine;
+    });
+  }
+
+  const total = transfers.length;
+  const size = pageSize ? Math.max(1, Math.min(200, parseInt(pageSize, 10) || 25)) : 25;
+  const currentPage = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
+  const start = (currentPage - 1) * size;
+  const paginated = transfers.slice(start, start + size);
+
+  res.json({
+    data: paginated,
+    total,
+    page: currentPage,
+    pageSize: size,
+    hasMore: start + size < total
+  });
+});
+
+app.get(['/inventory/transfers/:id', '/api/inventory/transfers/:id'], (req, res) => {
+  const { id } = req.params;
+  const transfer = inventoryTransfers.find(entry => entry.id === id || entry.code === id);
+
+  if (!transfer) {
+    return res.status(404).json({ error: 'Transfer not found' });
+  }
+
+  res.json(transfer);
 });
 
 // Event processing logic (simulate real backend processing)
@@ -336,6 +575,22 @@ function processEvent(event) {
           }
         });
       }
+      break;
+      
+    case 'modifier-group.created.v1':
+    case 'modifier-group.created':
+      // Modifier groups are handled by the repository, just log
+      console.log(`  📝 Modifier group created: ${event.payload.name}`);
+      break;
+      
+    case 'modifier-group.updated.v1':
+    case 'modifier-group.updated':
+      console.log(`  📝 Modifier group updated: ${event.payload.id}`);
+      break;
+      
+    case 'modifier-group.deleted.v1':
+    case 'modifier-group.deleted':
+      console.log(`  📝 Modifier group deleted: ${event.payload.id}`);
       break;
       
     case 'role.created.v1':

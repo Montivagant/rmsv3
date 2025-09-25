@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useEventStore } from '../../events/context';
+import { useEventStore } from '../../events/hooks';
 
 type Row = {
   type: 'void' | 'return';

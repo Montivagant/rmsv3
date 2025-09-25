@@ -307,7 +307,9 @@ export function CustomerTable({
       try {
         const count = table.getSelectedRowModel().flatRows.length;
         onSelectionCountChange(count);
-      } catch {}
+      } catch {
+        // Ignore errors in unsupported environments
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowSelection]);
@@ -318,11 +320,15 @@ export function CustomerTable({
       setRowSelection({});
       try {
         table.toggleAllRowsSelected(false);
-      } catch {}
+      } catch {
+        // Ignore errors in unsupported environments
+      }
       try {
         onSelectionChange?.([]);
         onSelectionCountChange?.(0);
-      } catch {}
+      } catch {
+        // Ignore errors in unsupported environments
+      }
     }
   }, [clearSelectionSignal]);
 

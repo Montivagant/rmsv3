@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CustomerRecord } from '../customers/repository';
-import { adjustCustomerPoints, listCustomers, searchCustomers as repositorySearch } from '../customers/repository';
+import { listCustomers, searchCustomers as repositorySearch } from '../customers/repository';
 
 interface UseCustomersState {
   customers: CustomerRecord[];
@@ -11,7 +11,6 @@ interface UseCustomersState {
 export function useCustomers(): UseCustomersState & {
   refetch: () => Promise<void>;
   searchCustomers: (query: string) => Promise<CustomerRecord[]>;
-  adjustPoints: (customerId: string, delta: number, reason: string, adjustedBy?: string) => Promise<CustomerRecord>;
 } {
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,8 +28,9 @@ export function useCustomers(): UseCustomersState & {
       setCustomers([]);
       setError(err instanceof Error ? err.message : 'Failed to load customers');
     } finally {
-      if (signal?.cancelled) return;
-      setLoading(false);
+      if (!signal?.cancelled) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -51,26 +51,11 @@ export function useCustomers(): UseCustomersState & {
     return repositorySearch(query);
   }, [customers]);
 
-  const adjustPointsMutate = useCallback(async (customerId: string, delta: number, reason: string, adjustedBy?: string) => {
-    const updated = await adjustCustomerPoints(customerId, delta, reason, adjustedBy);
-    setCustomers(prev => {
-      const existing = prev.find(customer => customer.id === updated.id);
-      if (!existing) {
-        return [...prev, updated].sort((a, b) => a.name.localeCompare(b.name));
-      }
-      return prev
-        .map(customer => (customer.id === updated.id ? updated : customer))
-        .sort((a, b) => a.name.localeCompare(b.name));
-    });
-    return updated;
-  }, []);
-
   return {
     customers,
     loading,
     error,
     refetch,
     searchCustomers: search,
-    adjustPoints: adjustPointsMutate,
   };
 }

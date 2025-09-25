@@ -20,7 +20,9 @@ export function getCurrentBranchId(): string {
       const prefs = JSON.parse(userPrefs) as { defaultBranch?: string };
       if (prefs.defaultBranch) return prefs.defaultBranch;
     }
-  } catch {}
+  } catch {
+    // Ignore errors from localStorage access or JSON parsing
+  }
   return DEFAULT_BRANCH_FALLBACK;
 }
 

@@ -205,7 +205,7 @@ export const inventoryCountApiHandlers = [
           } as any);
         }
       }
-    } catch (e) {
+    } catch {
       // ignore event ingestion errors in mock API
     }
     let filteredCounts = Array.from(mockCounts.values());
@@ -335,7 +335,7 @@ export const inventoryCountApiHandlers = [
         itemCount: estimatedItemCount,
         createdBy: 'current-user'
       }, { aggregate: { id: countId, type: 'inventory.audit' }, key: `audit.created:${countId}` });
-    } catch (e) {
+    } catch {
       // non-fatal: event store append failed in mock
     }
 
@@ -458,7 +458,7 @@ export const inventoryCountApiHandlers = [
         itemsUpdated: updates.map(u => ({ itemId: u.itemId, auditedQty: (u as any).countedQty ?? 0, previousAuditedQty: null })),
         updatedBy: 'current-user'
       }, { aggregate: { id: id as string, type: 'inventory.audit' }, key: `audit.updated:${id}:${Date.now()}` });
-    } catch (e) {
+    } catch {
       // non-fatal: event store append failed in mock
     }
 
@@ -648,7 +648,7 @@ export const inventoryCountApiHandlers = [
           default:
             break;
         }
-      } catch (e) {
+      } catch {
         // ignore movement event parse errors
       }
     }
@@ -687,7 +687,7 @@ export const inventoryCountApiHandlers = [
         adjustmentCount: adjustments.length,
         submittedBy: 'current-user'
       }, { aggregate: { id: id as string, type: 'inventory.audit' }, key: `audit.submitted:${id}` });
-    } catch (e) {
+    } catch {
       // non-fatal: event store append failed in mock
     }
 
